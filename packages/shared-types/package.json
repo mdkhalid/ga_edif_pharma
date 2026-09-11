@@ -1,0 +1,21 @@
+{
+  "name": "@medichain/shared-types",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DTOs, enums and domain types shared across all MediChain applications",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
+  },
+  "devDependencies": {
+    "@medichain/config": "*",
+    "typescript": "5.7.2"
+  }
+}

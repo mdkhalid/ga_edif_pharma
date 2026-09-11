@@ -1,0 +1,8 @@
+{
+  "extends": "@medichain/config/tsconfig/nestjs.json",
+  "compilerOptions": {
+    "baseUrl": "."
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts", "prisma/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

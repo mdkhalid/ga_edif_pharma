@@ -1,0 +1,33 @@
+{
+  "name": "medichain",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MediChain — pharma distribution and ordering platform",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "backend",
+    "website",
+    "admin-portal",
+    "mobile",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "clean": "turbo run clean",
+    "build:shared": "npm run build --workspace=@medichain/shared-types --workspace=@medichain/shared-utils",
+    "db:migrate": "npm run db:migrate --workspace=@medichain/backend",
+    "db:seed": "npm run db:seed --workspace=@medichain/backend",
+    "db:reset": "npm run db:reset --workspace=@medichain/backend",
+    "openapi:generate": "npm run openapi:generate --workspace=@medichain/backend"
+  },
+  "devDependencies": {
+    "turbo": "2.3.3",
+    "typescript": "5.7.2"
+  }
+}

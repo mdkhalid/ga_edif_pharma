@@ -64,12 +64,24 @@ Nothing here is throwaway.
 ### Exit criteria
 
 - [ ] `pnpm dev` brings up backend + website + admin locally with one command.
+      *Backend only — the website and admin apps are still folder skeletons.*
 - [ ] A user can register, verify, log in, refresh, and log out from all three clients.
-- [ ] `/health/ready` returns **503** when Postgres is stopped.
-- [ ] A mutation writes an audit row with an actor and a correlation id.
+      *Verified against the API directly (register, login, refresh rotation, reuse
+      detection, logout). The three clients do not exist yet.*
+- [x] `/health/ready` returns **503** when Postgres is stopped.
+      *Verified: 200 → stop Postgres → 503 → restart Postgres → 200, with the API
+      process never restarting (`uptimeSeconds` confirms it). `/health/live` stayed
+      200 throughout, so a database outage does not crash-loop the fleet.*
+- [x] A mutation writes an audit row with an actor and a correlation id.
+      *Verified: `auth.login.succeeded` and `auth.refresh.reuse_detected` both
+      carry `actor_id`, `tenant_id`, `correlation_id` and `request_id`. The table
+      is append-only via triggers — `UPDATE`, `DELETE` and `TRUNCATE` all raise.*
 - [ ] CI is green on `main` and deploys to `dev` automatically.
+      *Workflow exists; no remote run has been observed yet.*
 - [ ] A load test sustains 100 RPS on a login + profile read with p95 < 200 ms.
 - [ ] **No secret is committed.** A secret-scanning step runs in CI.
+      *`.env` is gitignored and no generated secret appears in any tracked file.
+      The CI scanning step still needs to be wired up.*
 
 ### Risks
 
@@ -77,6 +89,34 @@ Nothing here is throwaway.
 |---|---|
 | Over-engineering the foundation | Timebox. Ship the minimum that is production-shaped. |
 | Premature abstraction | Only abstract what has two real implementations today. |
+
+### Build status
+
+Built and verified (backend). Everything below typechecks (`tsc --noEmit`), builds
+(`nest build`), and was exercised against a live PostgreSQL 17 instance.
+
+| Area | State |
+|---|---|
+| Monorepo, shared presets | Done (`packages/config`, `turbo.json`, npm workspaces) |
+| Backend skeleton, Zod env validation | Done — fails at boot with an actionable message |
+| Postgres + Prisma, migration, seed | Done — migration applies cleanly; seed is idempotent |
+| IAM core | Done — register, login, refresh rotation with reuse detection, logout, sessions |
+| Tenancy | Done — guard layer + Prisma extension; unclassified models throw |
+| Platform config | Done — `platform_setting`, AES-256-GCM, AAD-bound |
+| Feature flags | Done — DB-backed, seeded |
+| Audit | Done — append-only enforced by triggers |
+| Error handling | Done — RFC 9457, correlation ids |
+| Rate limiting | Done — Redis sliding window, fails open |
+| Health | Done — liveness vs readiness, 503 on required-dependency failure |
+| Observability | Structured logs only; OpenTelemetry, Prometheus and Sentry not wired |
+| Infra | `docker-compose` and Dockerfiles written; Terraform and k8s are placeholders |
+| CI/CD | Workflow written; not yet run against a remote |
+| Idempotency middleware | Decorator and storage port exist; not yet wired into a route |
+| Website / admin / mobile | Folder skeletons only — no application code |
+
+Not yet started: the website, admin and mobile applications; load testing; and the
+`test-isolation` / `test-concurrency` suites (their Jest configs exist, the tests
+that assert the tenant extension applies inside a transaction do not).
 
 ---
 
