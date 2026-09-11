@@ -1,0 +1,6 @@
+packages:
+  - "backend"
+  - "website"
+  - "admin-portal"
+  - "mobile"
+  - "packages/*"

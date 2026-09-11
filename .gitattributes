@@ -1,0 +1,44 @@
+# Normalise line endings so a Windows/Mac/Linux mixed team does not get
+# spurious diffs on every file. Text is stored as LF in the repository;
+# working-tree line endings are left alone.
+* text=auto eol=lf
+
+# Explicit text types
+*.ts    text eol=lf
+*.tsx   text eol=lf
+*.js    text eol=lf
+*.jsx   text eol=lf
+*.json  text eol=lf
+*.md    text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.sql   text eol=lf
+*.css   text eol=lf
+*.html  text eol=lf
+*.prisma text eol=lf
+
+# Windows-only scripts need CRLF
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+
+# Binary — never touch
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.webp  binary
+*.woff  binary
+*.woff2  binary
+*.ttf   binary
+*.otf   binary
+*.pdf   binary
+*.zip   binary
+*.gz    binary
+*.keystore  binary
+*.jks   binary
+*.p12   binary
+
+# Keep generated files out of the language stats on GitHub
+packages/api-client/src/generated/**  linguist-generated=true
+pnpm-lock.yaml                        linguist-generated=true

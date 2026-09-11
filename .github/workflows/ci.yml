@@ -1,0 +1,302 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "22"
+  PNPM_VERSION: "9"
+
+jobs:
+  # ─────────────────────────────────────────────────────────────
+  # Stage 1 — static analysis. Fastest feedback, fails earliest.
+  # ─────────────────────────────────────────────────────────────
+  static:
+    name: Lint · Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: "${{ env.PNPM_VERSION }}" }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Lint
+        run: pnpm lint
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Ban `any` in application code
+        run: pnpm check:no-any
+      - name: Enforce module boundaries
+        run: pnpm check:module-boundaries
+
+  # ─────────────────────────────────────────────────────────────
+  # Stage 2 — security. Runs in parallel with tests.
+  # ─────────────────────────────────────────────────────────────
+  security:
+    name: Security scans
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v4
+        with: { version: "${{ env.PNPM_VERSION }}" }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Secret scan (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Dependency audit
+        run: pnpm audit --audit-level=high
+
+      - name: SAST (Semgrep)
+        uses: semgrep/semgrep-action@v1
+        with:
+          config: >-
+            p/security-audit
+            p/typescript
+            p/owasp-top-ten
+
+  # ─────────────────────────────────────────────────────────────
+  # Stage 3 — tests. Unit and integration run in parallel.
+  # ─────────────────────────────────────────────────────────────
+  test-unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: "${{ env.PNPM_VERSION }}" }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:unit -- --coverage
+      - name: Enforce coverage floors
+        run: pnpm check:coverage
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage
+          path: coverage/
+
+  test-integration:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: "${{ env.PNPM_VERSION }}" }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install Postgres extensions
+        run: |
+          PGPASSWORD=test psql -h localhost -U test -d test -c \
+            "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";
+             CREATE EXTENSION IF NOT EXISTS pgcrypto;
+             CREATE EXTENSION IF NOT EXISTS pg_trgm;
+             CREATE EXTENSION IF NOT EXISTS unaccent;
+             CREATE EXTENSION IF NOT EXISTS btree_gin;
+             CREATE EXTENSION IF NOT EXISTS citext;"
+      - run: pnpm db:migrate
+      - run: pnpm test:integration
+
+  # ─────────────────────────────────────────────────────────────
+  # Stage 4 — THE BLOCKING CORRECTNESS GATES.
+  #
+  # These two suites catch the bug classes that code review reliably
+  # misses. They are NOT optional and NOT allowed to be skipped.
+  # ─────────────────────────────────────────────────────────────
+  test-concurrency:
+    name: Money-path concurrency (BLOCKING)
+    runs-on: ubuntu-latest
+    needs: [test-integration]
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: "${{ env.PNPM_VERSION }}" }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:migrate
+      - name: No overselling under concurrency
+        run: pnpm test:concurrency -- --grep "oversell"
+      - name: No credit-limit breach under concurrency
+        run: pnpm test:concurrency -- --grep "credit limit"
+      - name: No double-credit on webhook redelivery
+        run: pnpm test:concurrency -- --grep "webhook"
+      - name: Ledger balance equals ledger sum
+        run: pnpm test:concurrency -- --grep "ledger"
+      - name: Stock ledger invariant holds
+        run: pnpm test:concurrency -- --grep "stock ledger"
+      - name: Advisory-locked cron runs exactly once
+        run: pnpm test:concurrency -- --grep "advisory"
+
+  test-isolation:
+    name: Tenant isolation (BLOCKING)
+    runs-on: ubuntu-latest
+    needs: [test-integration]
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: "${{ env.PNPM_VERSION }}" }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:migrate
+      - name: Cross-tenant access must fail
+        run: pnpm test:isolation
+
+  # ─────────────────────────────────────────────────────────────
+  # Stage 5 — contract. Catches breaking API changes.
+  # ─────────────────────────────────────────────────────────────
+  contract:
+    name: API contract
+    runs-on: ubuntu-latest
+    needs: [test-integration]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: "${{ env.PNPM_VERSION }}" }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm openapi:generate
+      - name: Detect breaking changes
+        run: pnpm openapi:diff
+      - name: Regenerate API client
+        run: pnpm --filter @medichain/api-client generate
+      - name: Fail if the generated client is out of date
+        run: |
+          if ! git diff --quiet packages/api-client/src/generated; then
+            echo "::error::Generated API client is stale. Run 'pnpm api-client:generate' and commit."
+            exit 1
+          fi
+
+  # ─────────────────────────────────────────────────────────────
+  # Stage 6 — build. Only after every gate passes.
+  # ─────────────────────────────────────────────────────────────
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [static, test-unit, test-integration, test-concurrency, test-isolation, contract]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: "${{ env.PNPM_VERSION }}" }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Build backend image
+        run: docker build -f infra/docker/backend.Dockerfile -t medichain-backend:${{ github.sha }} .
+      - name: Container scan (Trivy)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: medichain-backend:${{ github.sha }}
+          format: sarif
+          exit-code: "1"
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+
+  # ─────────────────────────────────────────────────────────────
+  # Gate — a single required status check for branch protection.
+  # ─────────────────────────────────────────────────────────────
+  ci-complete:
+    name: CI complete
+    runs-on: ubuntu-latest
+    if: always()
+    needs:
+      - static
+      - security
+      - test-unit
+      - test-integration
+      - test-concurrency
+      - test-isolation
+      - contract
+      - build
+    steps:
+      - name: Verify all jobs succeeded
+        run: |
+          if [ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" = "true" ]; then
+            echo "::error::One or more CI jobs failed."
+            exit 1
+          fi
+          echo "All CI gates passed."
