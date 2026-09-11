@@ -1,0 +1,57 @@
+# Keep the build context small and the layer cache honest.
+#
+# `node_modules` is the important one: without it, the ~500 MB host tree is
+# streamed to the daemon on every build and then shadowed by the stage's own
+# `npm ci` anyway.
+
+**/node_modules
+**/dist
+**/build
+**/.next
+**/out
+**/.turbo
+**/coverage
+**/*.tsbuildinfo
+
+# Git and editor state
+.git
+.gitignore
+.github
+.vscode
+.idea
+
+# Secrets — never bake these into a layer
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+
+# Local infra and docs are not part of the image
+infra/terraform
+infra/k8s
+infra/nginx
+docs
+.workbuddy-ai
+**/*.md
+
+# Test material
+**/test
+**/__tests__
+**/*.spec.ts
+**/*.e2e-spec.ts
+jest*.config.js
+
+# Local data and logs
+logs
+*.log
+tmp
+temp
+uploads
+*.sqlite
+*.sqlite3
+*.db
+*.dump
