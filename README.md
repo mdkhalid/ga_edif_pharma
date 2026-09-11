@@ -32,6 +32,7 @@ over the backend HTTP/event API:
 
 | # | Document | What it answers |
 |---|---|---|
+| **00** | **[Project Status](docs/00-project-status.md)** | **What is actually built right now, verified — start here** |
 | 01 | [High-Level Design](docs/01-high-level-design.md) | System shape, contexts, request flow, consistency model |
 | 02 | [Tech Stack](docs/02-tech-stack.md) | Every technology choice with justification |
 | 03 | [Architecture Decisions](docs/03-architecture-decisions.md) | Monolith vs microservices, DB choices, ADR log |
