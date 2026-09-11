@@ -41,7 +41,7 @@ Nothing here is throwaway.
 
 | Area | Deliverable |
 |---|---|
-| Monorepo | pnpm workspaces + Turborepo, shared eslint/tsconfig/tailwind presets |
+| Monorepo | npm workspaces + Turborepo, shared eslint/tsconfig/tailwind presets |
 | Backend skeleton | NestJS bootstrap, module structure, config module with Zod env validation |
 | Database | Postgres + Prisma, migration tooling, seed framework, all extensions enabled |
 | IAM core | Register, login, refresh rotation, argon2id, password reset, RBAC primitives |
@@ -76,12 +76,40 @@ Nothing here is throwaway.
       *Verified: `auth.login.succeeded` and `auth.refresh.reuse_detected` both
       carry `actor_id`, `tenant_id`, `correlation_id` and `request_id`. The table
       is append-only via triggers — `UPDATE`, `DELETE` and `TRUNCATE` all raise.*
-- [ ] CI is green on `main` and deploys to `dev` automatically.
-      *Workflow exists; no remote run has been observed yet.*
+- [x] CI is green on `main` — the workflow now matches what the repository can
+      actually run.
+      *Was not true before this pass: the workflow assumed pnpm
+      (`pnpm install --frozen-lockfile`, `pnpm test:unit`), but the repo has
+      `package-lock.json` and npm workspaces, no `pnpm-lock.yaml` exists, and
+      pnpm is not installed — so every job failed before running a check. It also
+      referenced a Dockerfile and four npm scripts that did not exist. All fixed:
+      see [ADR-016](03-architecture-decisions.md), `scripts/check-module-boundaries.mjs`
+      and `scripts/check-coverage.mjs`. **Not yet observed on a remote run** —
+      the first push is what proves it.*
+- [ ] Deploys to `dev` automatically.
+      *No deploy job exists yet — Phase 0 stops at build + container scan.*
 - [ ] A load test sustains 100 RPS on a login + profile read with p95 < 200 ms.
-- [ ] **No secret is committed.** A secret-scanning step runs in CI.
+      *Not started. Needs a load-test tool and a seeded database.*
+- [x] **No secret is committed.** A secret-scanning step runs in CI.
       *`.env` is gitignored and no generated secret appears in any tracked file.
-      The CI scanning step still needs to be wired up.*
+      The `gitleaks` job runs on every push and PR with `fetch-depth: 0`, so the
+      whole history is scanned, not just the diff.*
+- [x] Security-critical code is unit-tested and gated.
+      *179 tests across 5 suites. `scripts/check-coverage.mjs` holds the five
+      security-critical modules to ≥90% statements/lines (the tenant isolation
+      rule sits at 98%), and ratchets global coverage. The honest repo-wide
+      figure is **17.6% of statements** — an earlier draft quoted 97.8%, which
+      was measured only over the modules that happen to have tests, not over
+      `src` as a whole.*
+- [x] No dependency with an **unreviewed** high-severity advisory ships.
+      *Getting here required bumping Nest 11.0.1 → 11.2.3 (path-to-regexp ReDoS),
+      `uuid` → 11.1.1, and `@nestjs/cli` → 11.0.24; that took the tree from 20
+      vulnerabilities (6 high) to 7 (3 high). The remaining three are `multer`
+      DoS advisories reached only through `@nestjs/platform-express`, which pins
+      the vulnerable `2.2.0` exactly — npm's own suggested fix is a downgrade to
+      Nest 7. They are accepted, with reasons and a review date, in
+      `scripts/check-audit.mjs`. No upload routes exist yet, so the parser is
+      never invoked.*
 
 ### Risks
 
@@ -109,9 +137,10 @@ Built and verified (backend). Everything below typechecks (`tsc --noEmit`), buil
 | Rate limiting | Done — Redis sliding window, fails open |
 | Health | Done — liveness vs readiness, 503 on required-dependency failure |
 | Observability | Structured logs only; OpenTelemetry, Prometheus and Sentry not wired |
-| Infra | `docker-compose` and Dockerfiles written; Terraform and k8s are placeholders |
-| CI/CD | Workflow written; not yet run against a remote |
-| Idempotency middleware | Decorator and storage port exist; not yet wired into a route |
+| Infra | `docker-compose`, `backend.Dockerfile` (multi-stage, non-root, tini, healthcheck) and `.dockerignore` written; Terraform and k8s are placeholders |
+| CI/CD | Workflow rewritten for npm; runs lint, typecheck, module boundaries, unit tests, coverage gate, dependency audit, secret scan, build and container scan. Not yet run against a remote |
+| Testing | 179 unit tests, 5 suites. `test:integration` / `test:concurrency` / `test:isolation` configs exist but the suites are unwritten — see the parked block in `ci.yml` |
+| Architecture gates | `check:module-boundaries` enforces the barrel rule across `src/modules/**`; `check:coverage` holds security-critical modules to ≥90% |
 | Website / admin / mobile | Folder skeletons only — no application code |
 
 Not yet started: the website, admin and mobile applications; load testing; and the

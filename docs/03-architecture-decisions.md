@@ -515,9 +515,19 @@ enforcing a coarse per-IP limit, so we are not unprotected.
 Every state-changing command writes an `audit_log` row: actor, action, entity type,
 entity id, before/after diff (JSONB), IP, user agent, correlation id, timestamp.
 
-**Append-only:** no `UPDATE`, no `DELETE` — enforced by revoking those grants from
-the application role. Monthly partitions via `pg_partman`; retention 7 years for
+**Append-only:** no `UPDATE`, no `DELETE` — enforced by `BEFORE UPDATE OR DELETE`
+and `BEFORE TRUNCATE` triggers that raise, plus a `REVOKE ... FROM PUBLIC` as
+defence in depth. Monthly partitions via `pg_partman`; retention 7 years for
 financial records, aligned with statutory requirements.
+
+> **Corrected during Phase 0.** The original wording said append-only was enforced
+> by revoking `UPDATE`/`DELETE` from the application role. That does not work: in
+> PostgreSQL the table *owner* holds an implicit, non-revocable grant, and
+> `REVOKE ... FROM current_user` is a silent no-op. Verified empirically — the
+> application role could still `DELETE` from `audit_log`. Triggers are the
+> enforcement mechanism; the `REVOKE` only constrains other roles. An escape
+> hatch exists for migrations and retention jobs:
+> `SET LOCAL medichain.allow_audit_mutation = 'on'`.
 
 **Why a table and not just log files:** auditors need to query it ("who changed this
 price on this date"), and it must be transactionally consistent with the change it
@@ -525,6 +535,62 @@ describes.
 
 **Revisit when:** volume demands shipping to a columnar store for analysis. The
 Postgres table remains the authoritative record.
+
+---
+
+## ADR-016 — npm workspaces instead of pnpm
+
+### Context
+
+Every design document in this repository specifies **pnpm workspaces +
+Turborepo** ([02-tech-stack.md](02-tech-stack.md), [12-folder-structures.md](12-folder-structures.md),
+[14-deployment-devops-observability.md](14-deployment-devops-observability.md)).
+The Phase 0 implementation was built and verified with **npm workspaces**, and
+`package-lock.json` — not `pnpm-lock.yaml` — is the committed lockfile. The CI
+workflow was originally written against pnpm and therefore failed before running
+a single check.
+
+### Decision
+
+Use **npm workspaces + Turborepo**. `pnpm-workspace.yaml` is retained so the
+workspace glob is discoverable by pnpm-based tooling, but npm is the source of
+truth. All commands in the README use `npm`.
+
+### Why
+
+- **pnpm is genuinely better for monorepos** — stricter dependency isolation and
+  disk efficiency. That is not in dispute, and this ADR does not claim otherwise.
+- The decision is about **cost of change at this moment**, not merit. Switching
+  now means installing pnpm, deleting `package-lock.json`, regenerating a
+  lockfile, re-installing the full tree, and re-verifying build, tests and the
+  Docker image — for zero functional gain in Phase 0, on a foundation whose whole
+  purpose is to be boring and verified.
+- npm workspaces + Turborepo covers every requirement Phase 0 has: shared
+  packages, task orchestration, a committed lockfile, and reproducible CI.
+- Turborepo is package-manager agnostic, so the task graph survives the switch.
+
+### Consequences
+
+- `npm ci` is the CI install step. It requires `package-lock.json` to be in sync
+  with every workspace `package.json`.
+- The design documents still say `pnpm`. They are design intent, not runbooks;
+  this ADR is the reconciliation. New documentation must use `npm`.
+- Dependency advisories are gated by `scripts/check-audit.mjs`, not by a bare
+  `npm audit --audit-level=high`. **Do not reach for `overrides` to fix a
+  transitive advisory without verifying it actually took effect.** An attempt to
+  force `multer` to `^2.3.0` via npm `overrides` was made and abandoned: npm
+  10.9.7 parsed the field but silently ignored it for this exact-pinned
+  transitive dependency, through both the flat and the path-specific form, and
+  across a registry-only re-resolve with the lockfile deleted. A non-functional
+  override is worse than none, because it reads as a fix. Exceptions live in the
+  allow-list instead, each with a reason and a `reviewBy` date.
+
+### Revisit when
+
+The monorepo grows enough that install time or phantom-dependency bugs become a
+real cost, or a contributor workflow requires pnpm. The migration is mechanical:
+generate `pnpm-lock.yaml`, switch the CI install step and the Dockerfile in one
+commit, and verify `pnpm install --frozen-lockfile` locally first.
 
 ---
 
@@ -548,3 +614,4 @@ Postgres table remains the authoritative record.
 | 013 | L7 LB, no sticky sessions, strict readiness | Multi-region |
 | 014 | Layered rate limiting, fail-open | Per-tenant quotas |
 | 015 | Append-only partitioned audit log | Columnar analysis |
+| 016 | npm workspaces, not pnpm | Install cost or phantom deps bite |

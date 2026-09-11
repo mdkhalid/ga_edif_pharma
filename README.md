@@ -68,14 +68,18 @@ distributed-transaction tax before you have the traffic that justifies it.
 
 ---
 
-## 4. Local development (target state)
+## 4. Local development
+
+> **Package manager: npm workspaces.** The design documents were written
+> assuming pnpm; the implementation uses npm workspaces + Turborepo. See
+> [ADR-016](docs/03-architecture-decisions.md#adr-016--npm-workspaces-instead-of-pnpm)
+> for why, and use `npm` everywhere a doc says `pnpm`.
 
 ```bash
-# 1. Prerequisites: Node 22+, pnpm 9+, Docker Desktop
-corepack enable && corepack prepare pnpm@9 --activate
+# 1. Prerequisites: Node 22+, Docker Desktop
 
 # 2. Install all workspace dependencies
-pnpm install
+npm install
 
 # 3. Bring up Postgres, Redis, OpenSearch, MinIO, MailHog
 docker compose -f infra/docker/docker-compose.yml up -d
@@ -83,13 +87,19 @@ docker compose -f infra/docker/docker-compose.yml up -d
 # 4. Configure the backend
 cp backend/.env.example backend/.env
 
-# 5. Migrate + seed the database
-pnpm --filter @medichain/backend db:migrate
-pnpm --filter @medichain/backend db:seed
+# 5. Build the shared packages, then migrate + seed
+npm run build:shared
+npm run db:migrate
+npm run db:seed
 
-# 6. Run everything
-pnpm dev            # turbo runs backend + website + admin concurrently
+# 6. Run the backend (website and admin do not exist yet — see the roadmap)
+npm run dev --workspace=@medichain/backend
 ```
+
+**What runs today:** the backend API only. The website, admin portal and mobile
+apps are folder skeletons; Phase 0 delivered the backend foundation. Run
+`npm run build:shared` before any backend command that typechecks or tests, since
+the backend consumes the shared packages' built output.
 
 | Service | URL |
 |---|---|
