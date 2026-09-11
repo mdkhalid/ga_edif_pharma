@@ -13,7 +13,13 @@ module.exports = {
   testEnvironment: 'node',
   testRegex: '\\.spec\\.ts$',
   transform: {
-    '^.+\\.ts$': ['ts-jest', { tsconfig: '<rootDir>/tsconfig.json', isolatedModules: true }],
+    '^.+\\.ts$': [
+      'ts-jest',
+      // The test config, not the build config: it adds the Jest globals to
+      // `types`, which the build config deliberately omits so production code
+      // cannot reference `describe` or `expect`.
+      { tsconfig: '<rootDir>/tsconfig.test.json', isolatedModules: true },
+    ],
   },
   roots: ['<rootDir>/src', '<rootDir>/test/unit'],
   collectCoverageFrom: [

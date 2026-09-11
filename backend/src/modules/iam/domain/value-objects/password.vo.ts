@@ -73,6 +73,32 @@ const BLOCKED_PASSWORDS = new Set([
 ]);
 
 /**
+ * Expands one context value into the tokens worth testing against.
+ *
+ * A caller naturally passes the identifiers it holds — the whole email address,
+ * the whole phone number, the name parts. Testing only the whole value is close
+ * to useless for an email: nobody's password contains `admin@sunrisepharma.local`,
+ * but plenty contain `admin`. The local part is exactly what a targeted attacker
+ * tries first, so it is checked as well.
+ *
+ * Doing this here rather than in each caller matters because the rule is an
+ * invariant of the policy: a future password-reset or admin-create path would
+ * otherwise have to remember to split the address, and silently under-enforce
+ * the policy if it did not.
+ */
+function identityTokens(value: string): string[] {
+  const normalised = value.trim().toLowerCase();
+  if (normalised === '') return [];
+
+  const at = normalised.indexOf('@');
+  // No local part to extract (a name, a phone number), or a leading '@' which
+  // would yield an empty token.
+  if (at <= 0) return [normalised];
+
+  return [normalised, normalised.slice(0, at)];
+}
+
+/**
  * A validated plaintext password.
  *
  * The value is held only long enough to be hashed. It is never logged, never
@@ -146,26 +172,27 @@ export class Password {
     }
 
     for (const value of context) {
-      const token = value.trim().toLowerCase();
-      // Four characters is the point below which a match is coincidence rather
-      // than a derivation. `admin@x.com` should block `admin12345`, but a user
-      // named "Lee" should not be blocked from any password containing "lee".
-      if (token.length < 4) continue;
+      for (const token of identityTokens(value)) {
+        // Four characters is the point below which a match is coincidence rather
+        // than a derivation. `admin@x.com` should block `admin12345`, but a user
+        // named "Lee" should not be blocked from any password containing "lee".
+        if (token.length < 4) continue;
 
-      if (candidate.toLowerCase().includes(token)) {
-        throw new ValidationFailedError(
-          'The password must not contain your name, email address or phone number.',
-          {
-            errors: [
-              {
-                field: 'password',
-                code: 'derivedFromIdentity',
-                message:
-                  'The password must not contain your name, email address or phone number — an attacker tries those first.',
-              },
-            ],
-          },
-        );
+        if (candidate.toLowerCase().includes(token)) {
+          throw new ValidationFailedError(
+            'The password must not contain your name, email address or phone number.',
+            {
+              errors: [
+                {
+                  field: 'password',
+                  code: 'derivedFromIdentity',
+                  message:
+                    'The password must not contain your name, email address or phone number — an attacker tries those first.',
+                },
+              ],
+            },
+          );
+        }
       }
     }
 
@@ -207,9 +234,10 @@ export class Password {
  * when an operator has to read one off a screen and type it elsewhere.
  */
 export function generateStrongPassword(): string {
-  // Ambiguous characters (0/O, 1/l/I) are excluded: these values get read aloud
-  // and retyped, and an unclear glyph turns into a support ticket.
-  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*';
+  // Visually ambiguous characters are excluded — `0`/`O`/`o` and `1`/`l`/`I`
+  // are indistinguishable in most UI fonts, and these values get read aloud and
+  // retyped, where an unclear glyph turns into a support ticket.
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%^&*';
   const bytes = new Uint8Array(24);
   // `crypto.getRandomValues` is available in Node 22 and in React Native, so
   // this helper stays usable on both sides of the wire.

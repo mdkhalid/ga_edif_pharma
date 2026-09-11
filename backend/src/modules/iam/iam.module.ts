@@ -3,7 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 
 import { AppConfigService } from '../../config/app-config.service';
 import { SESSION_AUTHORITY, TOKEN_VERIFIER } from '../../common/ports/auth.port';
-import { AuditModule } from '../audit/audit.module';
+import { AuditModule } from '../audit';
 import { AuthController } from './api/auth.controller';
 import { AuthService } from './application/services/auth.service';
 import { PasswordService } from './application/services/password.service';

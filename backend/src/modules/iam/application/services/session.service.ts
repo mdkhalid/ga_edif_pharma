@@ -26,7 +26,7 @@ import { CACHE_TTL, CacheNamespace, cacheKey } from '../../../../infra/cache/cac
 import { CacheService } from '../../../../infra/cache/cache.service';
 import { ExtendedPrismaClient, PRISMA_EXTENDED } from '../../../../database/prisma.service';
 import { UnitOfWork } from '../../../../database/unit-of-work';
-import { AuditService } from '../../../audit/application/audit.service';
+import { AuditService } from '../../../audit';
 import { RoleResolver } from './role-resolver.service';
 import { TokenService } from './token.service';
 

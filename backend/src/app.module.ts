@@ -17,9 +17,11 @@ import { TimeoutInterceptor } from './common/interceptors/timeout.interceptor';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { createValidationPipe } from './common/pipes/validation.pipe';
 
-import { AuditModule } from './modules/audit/audit.module';
-import { HealthModule } from './modules/health/health.module';
-import { IamModule } from './modules/iam/iam.module';
+// Feature modules are reached through their public barrels, never by deep
+// import — see `scripts/check-module-boundaries.mjs`.
+import { AuditModule } from './modules/audit';
+import { HealthModule } from './modules/health';
+import { IamModule } from './modules/iam';
 
 /**
  * Root module.

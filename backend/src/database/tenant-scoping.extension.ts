@@ -192,11 +192,114 @@ function resolveTenantScope(model: string): string | undefined {
  * JavaScript on a `Record<string, unknown>`, and the caller's real types are
  * unaffected because the extension is transparent at the call site.
  */
-interface AllOperationsArgs {
+export interface AllOperationsArgs {
   model: string | undefined;
   operation: string;
   args: Record<string, unknown>;
   query: (args: Record<string, unknown>) => Promise<unknown>;
+}
+
+/**
+ * The outcome of applying the scoping rule to one operation.
+ *
+ * `rewrite` carries the arguments to run instead of the caller's; `pass_through`
+ * means the caller's arguments are already correct. Returning a decision rather
+ * than mutating in place is what makes this testable without Prisma: the whole
+ * security rule is now a pure function of (model, operation, args, context).
+ */
+export type ScopeDecision =
+  | { readonly kind: 'pass_through' }
+  | { readonly kind: 'rewrite'; readonly args: Record<string, unknown> };
+
+/**
+ * Applies the tenant scoping rule to a single Prisma operation.
+ *
+ * Exported for testing, and deliberately free of Prisma types: the decision is
+ * the part worth asserting on, and it is the part that must not regress. The
+ * alternative — testing through a live Prisma client — would make the suite
+ * slower, require a database, and still not reach the error branches.
+ *
+ * Throws rather than returning a pass-through when the situation is ambiguous.
+ * Every `throw` below represents a case where silently continuing would query
+ * without a tenant filter.
+ */
+export function applyTenantScope(input: {
+  model: string | undefined;
+  operation: string;
+  args: Record<string, unknown>;
+}): ScopeDecision {
+  const { model, operation, args } = input;
+
+  if (model === undefined) {
+    // Raw queries (`$queryRaw`) bypass the extension entirely by design. They
+    // are used only in infrastructure code that scopes explicitly, and every
+    // one of them carries a comment saying so.
+    return { kind: 'pass_through' };
+  }
+
+  if (GLOBAL.has(model)) return { kind: 'pass_through' };
+
+  if (!SCOPED.has(model)) {
+    throw new Error(
+      `Model "${model}" is not classified for tenant scoping. Add it to ` +
+        'TENANT_SCOPED_MODELS or GLOBAL_MODELS in tenant-scoping.extension.ts. ' +
+        'An unclassified model would be queried without a tenant filter.',
+    );
+  }
+
+  const tenantId = resolveTenantScope(model);
+  if (tenantId === undefined) return { kind: 'pass_through' };
+
+  if (WHERE_OPERATIONS.has(operation)) {
+    return {
+      kind: 'rewrite',
+      args: { ...args, where: { ...(args['where'] as object | undefined), tenantId } },
+    };
+  }
+
+  if (CREATE_OPERATIONS.has(operation)) {
+    return {
+      kind: 'rewrite',
+      args: { ...args, data: injectTenantIntoData(args['data'], tenantId) },
+    };
+  }
+
+  if (operation === 'upsert') {
+    return {
+      kind: 'rewrite',
+      args: {
+        ...args,
+        where: { ...(args['where'] as object | undefined), tenantId },
+        create: injectTenantIntoData(args['create'], tenantId),
+      },
+    };
+  }
+
+  return { kind: 'pass_through' };
+}
+
+/**
+ * The `$allOperations` handler.
+ *
+ * Extracted from `tenantScopingExtension` so the wiring itself is testable.
+ * `Prisma.defineExtension` returns an opaque builder function — its `name` and
+ * `query` are captured in a closure and are not readable from the return value —
+ * so a test cannot reach the hook through the extension object. Keeping the
+ * handler as a named function means a test can drive exactly what Prisma drives,
+ * and the only thing left uncovered is the framework glue.
+ *
+ * That distinction matters here: a test suite that covers `applyTenantScope`
+ * thoroughly but never proves the hook calls it would stay green through a
+ * refactor that disconnected tenant scoping entirely.
+ */
+export async function applyTenantScopingToOperation(
+  params: AllOperationsArgs,
+): Promise<unknown> {
+  const { model, operation, args, query } = params;
+
+  const decision = applyTenantScope({ model, operation, args });
+
+  return query(decision.kind === 'rewrite' ? decision.args : args);
 }
 
 /**
@@ -213,48 +316,7 @@ export function tenantScopingExtension() {
     query: {
       $allModels: {
         async $allOperations(params: unknown) {
-          const { model, operation, args, query } = params as AllOperationsArgs;
-
-          if (model === undefined) {
-            // Raw queries (`$queryRaw`) bypass the extension entirely by design.
-            // They are used only in infrastructure code that scopes explicitly,
-            // and every one of them carries a comment saying so.
-            return query(args);
-          }
-
-          if (GLOBAL.has(model)) return query(args);
-
-          if (!SCOPED.has(model)) {
-            throw new Error(
-              `Model "${model}" is not classified for tenant scoping. Add it to ` +
-                'TENANT_SCOPED_MODELS or GLOBAL_MODELS in tenant-scoping.extension.ts. ' +
-                'An unclassified model would be queried without a tenant filter.',
-            );
-          }
-
-          const tenantId = resolveTenantScope(model);
-          if (tenantId === undefined) return query(args);
-
-          if (WHERE_OPERATIONS.has(operation)) {
-            return query({
-              ...args,
-              where: { ...(args['where'] as object | undefined), tenantId },
-            });
-          }
-
-          if (CREATE_OPERATIONS.has(operation)) {
-            return query({ ...args, data: injectTenantIntoData(args['data'], tenantId) });
-          }
-
-          if (operation === 'upsert') {
-            return query({
-              ...args,
-              where: { ...(args['where'] as object | undefined), tenantId },
-              create: injectTenantIntoData(args['create'], tenantId),
-            });
-          }
-
-          return query(args);
+          return applyTenantScopingToOperation(params as AllOperationsArgs);
         },
       },
     },

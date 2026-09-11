@@ -13,7 +13,12 @@ module.exports = {
   root: true,
   parser: '@typescript-eslint/parser',
   parserOptions: {
-    project: 'tsconfig.json',
+    // Both projects, deliberately. `tsconfig.json` is the production build
+    // config and excludes `test/**` so that production code cannot reference
+    // Jest globals. Lint still has to cover the tests, so they resolve against
+    // `tsconfig.test.json` instead. A single project here would either fail to
+    // parse the specs or re-expose the Jest globals to `src`.
+    project: ['./tsconfig.json', './tsconfig.test.json'],
     tsconfigRootDir: __dirname,
     sourceType: 'module',
   },

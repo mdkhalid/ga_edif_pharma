@@ -22,7 +22,7 @@ import {
 } from '../../../../common/exceptions/domain.exception';
 import { ExtendedPrismaClient, PRISMA_EXTENDED } from '../../../../database/prisma.service';
 import { UnitOfWork } from '../../../../database/unit-of-work';
-import { AuditService } from '../../../audit/application/audit.service';
+import { AuditService } from '../../../audit';
 import { Password } from '../../domain/value-objects/password.vo';
 import { PasswordService } from './password.service';
 import { RoleResolver } from './role-resolver.service';
