@@ -66,6 +66,13 @@ RUN apk add --no-cache tini \
  && addgroup -S -g 1001 medichain \
  && adduser -S -u 1001 -G medichain medichain
 
+# The runtime image never installs or runs packages, so the package manager is
+# removed. This also drops the transitive `tar` CVE (CVE-2026-59873) that ships
+# inside node:22-alpine's bundled npm and is unreachable from the running API.
+RUN rm -rf /usr/local/lib/node_modules/npm \
+    /usr/local/lib/node_modules/npx \
+    /usr/local/bin/npm /usr/local/bin/npx
+
 WORKDIR /repo
 ENV NODE_ENV=production
 
