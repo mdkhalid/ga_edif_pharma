@@ -154,6 +154,10 @@ jobs:
           # the built image (incl. OS packages) that npm audit cannot see.
           severity: CRITICAL
           ignore-unfixed: true
+          # Accepted-risk list mirrors .trivyignore: the only CRITICAL is a
+          # base-image npm-CLI `tar` DoS (CVE-2026-59873) that is unreachable
+          # from the runtime; the multer HIGHs are handled by the audit gate.
+          trivyignores: .trivyignore
 
   # ─────────────────────────────────────────────────────────────
   # PARKED — not yet implemented.

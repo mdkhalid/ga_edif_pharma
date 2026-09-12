@@ -1,13 +1,22 @@
-# Accepted container-scan findings — mirrors scripts/check-audit.mjs.
+# Accepted container-scan findings for the backend image.
 #
-# These are the same three `multer` HIGH advisories the dependency-audit gate
-# already accepts: they are reachable only through @nestjs/platform-express,
-# which pins multer to the vulnerable 2.2.0 exactly, and there are no
-# multipart/upload routes in the codebase yet (Phase 0), so the parser is never
-# invoked. The "fix" npm suggests (downgrade @nestjs/core to v7) is worse than
-# the finding. Re-review by 2027-03-01, or when the first upload endpoint lands.
-#
-# Keep this list in lock-step with ACCEPTED in scripts/check-audit.mjs.
+# The container scan runs at CRITICAL only (see .github/workflows/ci.yml). The
+# dependency-audit gate (scripts/check-audit.mjs) already enforces HIGH at the
+# npm-dependency level, so the container scan's job is to catch critical issues
+# in the built image (incl. OS packages) that npm audit cannot see.
+
+# CVE-2026-59873 — CRITICAL, DoS via crafted gzip bomb in `tar`.
+# This lives in /usr/local/lib/node_modules/npm (the npm CLI bundled into the
+# node:22-alpine base image), NOT in our application dependencies or runtime
+# path. The API never invokes the npm CLI or extracts untrusted tarballs at
+# runtime, so it is unreachable. No fix is available in the current
+# node:22-alpine tag (ships tar 7.5.11 < fixed 7.5.19). Revisit when the base
+# image ships npm with tar >= 7.5.19.
+CVE-2026-59873
+
+# multer advisories — accepted at the dependency-audit gate (scripts/check-audit.mjs).
+# No upload routes exist in Phase 0, so the parser is never invoked. Listed here so
+# a future switch to a HIGH+CRITICAL container scan stays consistent with that gate.
 GHSA-wc9g-mqfw-jrwm
 GHSA-qfvm-cv95-jqjf
 GHSA-535w-7cp7-47q4
