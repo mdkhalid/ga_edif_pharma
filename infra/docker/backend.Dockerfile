@@ -28,10 +28,15 @@ WORKDIR /repo
 
 COPY package.json package-lock.json ./
 COPY backend/package.json ./backend/
+COPY backend/prisma ./backend/prisma
 COPY packages/config/package.json ./packages/config/
 COPY packages/shared-types/package.json ./packages/shared-types/
 COPY packages/shared-utils/package.json ./packages/shared-utils/
 
+# `backend` carries a `postinstall` that runs `prisma generate`. npm runs a
+# workspace package's lifecycle scripts with that package as the working
+# directory, so `prisma generate` resolves `./prisma/schema.prisma` — which is
+# why the schema must be present here, not only in the build stage.
 RUN npm ci
 
 # ── Stage 2 — compile ───────────────────────────────────────────────────────
