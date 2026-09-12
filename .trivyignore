@@ -1,0 +1,13 @@
+# Accepted container-scan findings — mirrors scripts/check-audit.mjs.
+#
+# These are the same three `multer` HIGH advisories the dependency-audit gate
+# already accepts: they are reachable only through @nestjs/platform-express,
+# which pins multer to the vulnerable 2.2.0 exactly, and there are no
+# multipart/upload routes in the codebase yet (Phase 0), so the parser is never
+# invoked. The "fix" npm suggests (downgrade @nestjs/core to v7) is worse than
+# the finding. Re-review by 2027-03-01, or when the first upload endpoint lands.
+#
+# Keep this list in lock-step with ACCEPTED in scripts/check-audit.mjs.
+GHSA-wc9g-mqfw-jrwm
+GHSA-qfvm-cv95-jqjf
+GHSA-535w-7cp7-47q4
