@@ -148,12 +148,12 @@ jobs:
           image-ref: medichain-backend:${{ github.sha }}
           format: sarif
           exit-code: "1"
-          severity: CRITICAL,HIGH
+          # CRITICAL only. The npm-audit gate (scripts/check-audit.mjs) already
+          # enforces HIGH at the dependency level and accepts only the multer
+          # advisories; the container scan's job is to catch critical issues in
+          # the built image (incl. OS packages) that npm audit cannot see.
+          severity: CRITICAL
           ignore-unfixed: true
-          # Accepted-risk list mirrors scripts/check-audit.mjs (the multer
-          # advisories) so the two gates agree on what is a known, unreachable
-          # finding vs a real regression.
-          trivyignores: .trivyignore
 
   # ─────────────────────────────────────────────────────────────
   # PARKED — not yet implemented.
