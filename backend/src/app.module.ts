@@ -12,10 +12,12 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { TenantScopeGuard } from './common/guards/tenant-scope.guard';
 import { CapabilityGuard } from './common/guards/capability.guard';
 import { RateLimitGuard } from './common/guards/rate-limit.guard';
+import { IdempotencyInterceptor } from './common/interceptors/idempotency.interceptor';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { TimeoutInterceptor } from './common/interceptors/timeout.interceptor';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { createValidationPipe } from './common/pipes/validation.pipe';
+import { MetricsInterceptor, ObservabilityModule } from './infra/observability';
 
 // Feature modules are reached through their public barrels, never by deep
 // import — see `scripts/check-module-boundaries.mjs`.
@@ -61,8 +63,9 @@ import { IamModule } from './modules/iam';
  * ## Interceptor order
  *
  * The first registered is the outermost, so the chain below measures the full
- * request duration (logging), enforces a deadline (timeout), and only then lets
- * the handler's raw return value reach the shape guard (transform).
+ * request duration (logging), enforces a deadline (timeout), replays a repeated
+ * `@Idempotent()` request before it reaches the handler (idempotency), and only
+ * then lets the handler's raw return value reach the shape guard (transform).
  */
 @Module({
   imports: [
@@ -72,6 +75,7 @@ import { IamModule } from './modules/iam';
     LoggerModule,
     DatabaseModule,
     CacheModule,
+    ObservabilityModule,
     // Cross-cutting feature modules.
     AuditModule,
     // HTTP-facing modules.
@@ -95,12 +99,19 @@ import { IamModule } from './modules/iam';
 
     // --------------------------------------------------------- interceptors
     { provide: APP_INTERCEPTOR, useClass: LoggingInterceptor },
+    // Immediately inside logging, so the recorded duration covers the whole
+    // chain — including a timeout or an idempotency replay.
+    { provide: APP_INTERCEPTOR, useClass: MetricsInterceptor },
     {
       provide: APP_INTERCEPTOR,
       // Deliberately above the database's own `statement_timeout` so a slow
       // query surfaces with its own diagnostic rather than being cut off here.
       useFactory: () => new TimeoutInterceptor(30_000),
     },
+    // Outside TransformInterceptor, so the value it stores for replay is the
+    // final response shape the client actually received — a replay then returns
+    // byte-identical output rather than re-wrapping it.
+    { provide: APP_INTERCEPTOR, useClass: IdempotencyInterceptor },
     { provide: APP_INTERCEPTOR, useClass: TransformInterceptor },
 
     // --------------------------------------------------------------- filter

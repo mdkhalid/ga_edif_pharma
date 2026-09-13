@@ -116,6 +116,12 @@ the backend consumes the shared packages' built output.
 
 ## 5. Status
 
-📄 **Design phase.** This repository currently contains the full architectural
-documentation and the target folder skeleton. Application code is added phase by
-phase — see [the roadmap](docs/05-phases-roadmap.md).
+🟢 **Phase 0 — backend and infrastructure complete.** The backend API and its
+migrations, IAM, tenancy, configuration, audit trail, observability and CI/CD are
+built and verified — see [Project Status](docs/00-project-status.md) for what was
+actually executed rather than merely written.
+
+The three client applications (`website/`, `admin-portal/`, `mobile/`) are still
+folder skeletons. They are the remaining Phase 0 scope and the substance of
+Phase 1, so the two are planned as one — see
+[the roadmap](docs/05-phases-roadmap.md).

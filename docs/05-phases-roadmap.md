@@ -87,7 +87,10 @@ Nothing here is throwaway.
       and `scripts/check-coverage.mjs`. **Not yet observed on a remote run** —
       the first push is what proves it.*
 - [ ] Deploys to `dev` automatically.
-      *No deploy job exists yet — Phase 0 stops at build + container scan.*
+      *A deploy-to-`dev` job now exists and runs on push to `main` after every
+      other job passes. It is gated on `DEV_DATABASE_URL` / `KUBE_CONFIG`, which
+      are not provisioned yet, so today it reports that it is skipped rather than
+      failing. Not yet observed on a remote run.*
 - [ ] A load test sustains 100 RPS on a login + profile read with p95 < 200 ms.
       *Not started. Needs a load-test tool and a seeded database.*
 - [x] **No secret is committed.** A secret-scanning step runs in CI.
@@ -95,12 +98,13 @@ Nothing here is throwaway.
       The `gitleaks` job runs on every push and PR with `fetch-depth: 0`, so the
       whole history is scanned, not just the diff.*
 - [x] Security-critical code is unit-tested and gated.
-      *179 tests across 5 suites. `scripts/check-coverage.mjs` holds the five
+      *207 tests across 7 suites. `scripts/check-coverage.mjs` holds the five
       security-critical modules to ≥90% statements/lines (the tenant isolation
       rule sits at 98%), and ratchets global coverage. The honest repo-wide
-      figure is **17.6% of statements** — an earlier draft quoted 97.8%, which
+      figure is **28.3% of statements** — an earlier draft quoted 97.8%, which
       was measured only over the modules that happen to have tests, not over
-      `src` as a whole.*
+      `src` as a whole. The floors have deliberately not been raised to match
+      yet; that is a separate change.*
 - [x] No dependency with an **unreviewed** high-severity advisory ships.
       *Getting here required bumping Nest 11.0.1 → 11.2.3 (path-to-regexp ReDoS),
       `uuid` → 11.1.1, and `@nestjs/cli` → 11.0.24; that took the tree from 20
@@ -135,11 +139,13 @@ Built and verified (backend). Everything below typechecks (`tsc --noEmit`), buil
 | Audit | Done — append-only enforced by triggers |
 | Error handling | Done — RFC 9457, correlation ids |
 | Rate limiting | Done — Redis sliding window, fails open |
+| Idempotency | Done — `IdempotencyInterceptor` + Redis-backed store behind a port; `POST /auth/register` requires an `Idempotency-Key` and replays on retry |
 | Health | Done — liveness vs readiness, 503 on required-dependency failure |
-| Observability | Structured logs only; OpenTelemetry, Prometheus and Sentry not wired |
-| Infra | `docker-compose`, `backend.Dockerfile` (multi-stage, non-root, tini, healthcheck) and `.dockerignore` written; Terraform and k8s are placeholders |
-| CI/CD | Workflow rewritten for npm; runs lint, typecheck, module boundaries, unit tests, coverage gate, dependency audit, secret scan, build and container scan. Not yet run against a remote |
-| Testing | 179 unit tests, 5 suites. `test:integration` / `test:concurrency` / `test:isolation` configs exist but the suites are unwritten — see the parked block in `ci.yml` |
+| Observability | Done — structured Pino logs; Prometheus `/metrics`; OpenTelemetry traces started from a preload; Sentry error reporting wired through the exception filter via an `ErrorReporter` port |
+| Infra | `docker-compose`, `backend.Dockerfile` (multi-stage, non-root, tini, healthcheck) and `.dockerignore` written; CI builds and scans the image. Terraform and k8s are placeholders |
+| CI/CD | Workflow rewritten for npm; runs lint, typecheck, module boundaries, unit tests, coverage gate, dependency audit, secret scan, build, container scan and OpenAPI generation, and has a deploy-to-`dev` job gated on `DEV_DATABASE_URL` / `KUBE_CONFIG`. Not yet run against a remote |
+| Docs / OpenAPI | Done — `src/scripts/generate-openapi.ts` writes `backend/openapi.json` from the same document definition the server serves; CI generates and uploads it |
+| Testing | 207 unit tests, 7 suites. `test:integration` / `test:concurrency` / `test:isolation` configs exist but the suites are unwritten — see the parked block in `ci.yml` |
 | Architecture gates | `check:module-boundaries` enforces the barrel rule across `src/modules/**`; `check:coverage` holds security-critical modules to ≥90% |
 | Website / admin / mobile | Folder skeletons only — no application code |
 

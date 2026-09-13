@@ -1,9 +1,15 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiHeader, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 import { SessionRevokedReason } from '@medichain/shared-types';
 
-import { CurrentUser, Public, RateLimit, SkipTenantScope } from '../../../common/decorators';
+import {
+  CurrentUser,
+  Idempotent,
+  Public,
+  RateLimit,
+  SkipTenantScope,
+} from '../../../common/decorators';
 import { HEADERS, RATE_LIMIT_BUCKET } from '../../../common/constants/metadata';
 import { uuidParam } from '../../../common/pipes/parse-uuid.pipe';
 import { AuthService } from '../application/services/auth.service';
@@ -43,8 +49,17 @@ export class AuthController {
   @Post('register')
   @Public()
   @SkipTenantScope()
+  @Idempotent()
   @HttpCode(HttpStatus.CREATED)
   @RateLimit({ bucket: RATE_LIMIT_BUCKET.AUTH, keyBy: 'ip', max: 5, windowSeconds: 300 })
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: true,
+    description:
+      'Client-generated unique key (a UUID). A retry with the same key and body replays the ' +
+      'original response instead of creating a second attempt; reusing a key with a different ' +
+      'body is rejected with 409 IDEMPOTENCY_KEY_REUSED.',
+  })
   @ApiOperation({
     summary: 'Register a new account',
     description:

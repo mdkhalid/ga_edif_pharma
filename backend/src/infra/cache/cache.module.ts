@@ -1,7 +1,9 @@
 import { Global, Module } from '@nestjs/common';
 
+import { IDEMPOTENCY_STORE } from '../../common/ports/idempotency.port';
 import { RATE_LIMITER } from '../../common/ports/rate-limiter.port';
 import { CacheService } from './cache.service';
+import { RedisIdempotencyStore } from './redis-idempotency.store';
 import { RedisRateLimiter } from './redis-rate-limiter.service';
 import { RedisService } from './redis.service';
 
@@ -25,8 +27,10 @@ import { RedisService } from './redis.service';
     RedisService,
     CacheService,
     RedisRateLimiter,
+    RedisIdempotencyStore,
     { provide: RATE_LIMITER, useExisting: RedisRateLimiter },
+    { provide: IDEMPOTENCY_STORE, useExisting: RedisIdempotencyStore },
   ],
-  exports: [RedisService, CacheService, RATE_LIMITER],
+  exports: [RedisService, CacheService, RATE_LIMITER, IDEMPOTENCY_STORE],
 })
 export class CacheModule {}

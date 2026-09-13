@@ -2,6 +2,7 @@ import {
   Catch,
   HttpException,
   HttpStatus,
+  Inject,
   type ArgumentsHost,
   type ExceptionFilter,
 } from '@nestjs/common';
@@ -16,6 +17,7 @@ import { AppConfigService } from '../../config/app-config.service';
 import { requestContext } from '../context/request-context';
 import { DomainException } from '../exceptions/domain.exception';
 import { AppLogger } from '../logger/app-logger.service';
+import { ERROR_REPORTER, type ErrorReporter } from '../ports/error-reporter.port';
 
 /** Maps a bare HTTP status to our stable error code vocabulary. */
 const STATUS_TO_CODE: Readonly<Record<number, ErrorCode>> = {
@@ -48,6 +50,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
   constructor(
     private readonly logger: AppLogger,
     private readonly config: AppConfigService,
+    @Inject(ERROR_REPORTER) private readonly reporter: ErrorReporter,
   ) {}
 
   catch(exception: unknown, host: ArgumentsHost): void {
@@ -75,6 +78,17 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     if (problem.status >= 500) {
       this.logger.error(`${request.method} ${request.url} -> ${problem.status}`, logPayload);
+
+      // 5xx is the only class worth paging a human about, so it is the only one
+      // forwarded to the error reporter. 4xx is expected client behaviour;
+      // sending it to Sentry would bury the real incidents in noise.
+      this.reporter.report(exception, {
+        correlationId: context?.correlationId,
+        requestId: context?.requestId,
+        path: request.url,
+        method: request.method,
+        status: problem.status,
+      });
     } else if (problem.status >= 400 && problem.status !== 404) {
       this.logger.warn(`${request.method} ${request.url} -> ${problem.status}`, logPayload);
     }

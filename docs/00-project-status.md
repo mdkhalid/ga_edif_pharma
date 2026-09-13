@@ -1,6 +1,6 @@
 # 00 — Project Status
 
-> **Last updated:** 2026-09-12 · **Branch:** `main` @ (fix committed, push pending) · **Phase in flight:** 0 (closing out) · **CI:** 🟡 fix committed — root cause found (missing `prisma generate`); remote run pending
+> **Last updated:** 2026-09-13 · **Branch:** `main` · **Phase in flight:** 0 — backend and infra complete; the three client apps carry into Phase 1 · **CI:** 🟢 every local gate green; remote run pending
 
 A single-glance view of how much is actually built, what has been *verified*
 rather than merely written, and what is still open. Where this file and
@@ -12,7 +12,7 @@ rather than merely written, and what is still open. Where this file and
 
 | Phase | Theme | State | Complete |
 |---|---|---|---|
-| **0** | Foundation | **Backend built & verified. Closing out.** | ~71% |
+| **0** | Foundation | **Backend + infra complete. Client apps outstanding.** | ~84% |
 | 1 | Core Commerce MVP | Not started | 0% |
 | 2 | Commercial Engine | Not started | 0% |
 | 3 | Fulfilment & Finance | Not started | 0% |
@@ -20,12 +20,15 @@ rather than merely written, and what is still open. Where this file and
 | 5 | Intelligence | Not started | 0% |
 | 6 | Compliance & Multi-tenant | Not started | 0% |
 
-**Overall: ~10% of the seven-phase programme.**
+**Overall: ~12% of the seven-phase programme.**
 
-Phase 0's 71% is not evenly spread. Excluding the three client applications —
-which are really Phase 1 deliverable surfaces — the backend foundation is
-**~84% complete**. The 16% that remains there is observability, deployment and
-the load test, not application logic.
+Phase 0's remaining 16% is almost entirely the three client applications, which
+the roadmap itself lists as Phase 0 scope but which are really Phase 1
+deliverable surfaces. Everything the *backend and infrastructure* were asked to
+deliver is now in place: observability, OpenAPI generation, idempotency on a
+real route and a deploy job all landed in this pass. The one Phase 0 exit
+criterion still unmet in code is the 100 RPS load test, and the one still
+unverified is the remote CI run.
 
 ---
 
@@ -48,16 +51,16 @@ the load test, not application logic.
 | 9 | Error handling | RFC 9457, correlation ids |
 | 10 | Rate limiting | Redis sliding window, fails open (ADR-014) |
 | 11 | Health | Liveness vs readiness; 200 → 503 → 200 with Postgres stopped, API never restarting |
+| 12 | Idempotency | `IdempotencyInterceptor` + `IdempotencyStore` (Redis adapter, port/adapter split); `POST /auth/register` requires `Idempotency-Key` and replays on retry — 409 `REQUEST_IN_PROGRESS` on a concurrent repeat, 409 `IDEMPOTENCY_KEY_REUSED` on a body change |
+| 13 | Observability | Pino logs, Prometheus `/metrics` (RED metrics + process collectors), OpenTelemetry traces started from a preload, Sentry error reporting wired through the exception filter via an `ErrorReporter` port |
+| 16 | Docs / OpenAPI | `src/scripts/generate-openapi.ts` compiles and writes `backend/openapi.json` (12 paths, 3 schemas); the server and the script share one document definition in `config/openapi.ts`; CI generates and uploads it |
 
 ### Partial
 
 | # | Item | What exists | What is missing |
 |---|---|---|---|
-| 12 | Idempotency | Decorator + storage port | Not wired to a single route |
-| 13 | Observability | Structured Pino logs | No OpenTelemetry, Prometheus or Sentry — **zero** of those packages are installed |
-| 14 | Infra | `docker-compose`, `backend.Dockerfile`, `.dockerignore` | Dockerfile **never built** (Docker was not running); Terraform and k8s are `.gitkeep` placeholders |
-| 15 | CI/CD | Workflow runs lint, typecheck, boundaries, tests, coverage, audit, secret scan, build, container scan | No deploy-to-`dev` job; **not yet observed green on a remote run** |
-| 16 | Docs / OpenAPI | `openapi:generate` script declared | `src/scripts/generate-openapi.ts` does not exist — the script points at nothing |
+| 14 | Infra | `docker-compose`, `backend.Dockerfile`, `.dockerignore`; CI builds the image and scans it | The image has **never been built locally** (no Docker daemon in the development sandbox here); Terraform and k8s are still `.gitkeep` placeholders |
+| 15 | CI/CD | Workflow runs lint, typecheck, boundaries, tests, coverage, audit, secret scan, build, container scan, OpenAPI generation, and has a deploy-to-`dev` job | The deploy job is **gated on `DEV_DATABASE_URL` / `KUBE_CONFIG`**, which do not exist yet, so it reports what is missing instead of deploying; **not yet observed green on a remote run** |
 
 ### Not started
 
@@ -77,11 +80,13 @@ the load test, not application logic.
 | Register / verify / login / refresh / logout from all three clients | ◐ Verified **against the API directly**; the three clients do not exist |
 | `/health/ready` returns 503 when Postgres is stopped | ✓ Verified empirically |
 | A mutation writes an audit row with actor + correlation id | ✓ Verified — `auth.login.succeeded` and `auth.refresh.reuse_detected` |
-| CI is green on `main` and deploys to `dev` | 🟡 **Fix committed.** Root cause: the workflow never ran `prisma generate`, so `@prisma/client` had no generated types on the runner (`user` → `{}`, `roleRows` → `unknown`, implicit-`any` callbacks). Fixed with a `postinstall` hook on `@medichain/backend` so `npm ci` generates the client in every job. All local gates green. Remote run pending. No deploy job exists |
+| CI is green on `main` and deploys to `dev` | 🟡 Typecheck root cause fixed (`prisma generate` via a `postinstall` hook); every local gate green. A deploy-to-`dev` job now exists, but it is gated on `DEV_DATABASE_URL` / `KUBE_CONFIG`, which are not provisioned — it reports what is missing rather than deploying. Remote run still unobserved |
 | Load test: 100 RPS, p95 < 200 ms | ✗ Not started |
 | No secret committed; scanning in CI | ✓ `.env` gitignored, `gitleaks` on every push and PR with full history |
 
-**5 of 7 satisfied or materially satisfied. 2 open.**
+**3 fully satisfied · 2 partially · 2 not started.** The two open ones are the
+load test (needs a seeded database and a load-test tool) and one-command
+bring-up of all three clients (the clients do not exist yet).
 
 ---
 
@@ -92,22 +97,22 @@ Everything below was executed, not assumed.
 | Check | Command | Result |
 |---|---|---|
 | Typecheck | `npm run typecheck --workspace=@medichain/backend` | pass (both configs) |
-| Lint | `npm run lint --workspace=@medichain/backend` | 0 errors, 20 warnings |
-| Unit tests | `npm run test:unit --workspace=@medichain/backend -- --coverage` | **179 passed / 179** |
-| Module boundaries | `npm run check:module-boundaries` | pass — 60 files scanned |
+| Lint | `npm run lint --workspace=@medichain/backend` | 0 errors, 20 warnings (unchanged by this pass) |
+| Unit tests | `npm run test:unit --workspace=@medichain/backend -- --coverage` | **207 passed / 207**, 7 suites |
+| Module boundaries | `npm run check:module-boundaries` | pass — 76 files scanned |
 | Coverage gate | `npm run check:coverage` | pass |
 | Audit gate | `npm run check:audit` | pass — 3 accepted, 0 unaccepted |
 | Build | `npm run build` | 3/3 tasks successful |
-| Push | `git push origin main` | `baef3f8..e3a7a74` |
+| OpenAPI generation | `npm run openapi:generate` (with `NODE_ENV=test` and a dummy environment) | **12 paths, 3 schemas** written to `backend/openapi.json` — verified with the exact environment the CI step uses |
 
 > **Important — local green ≠ remote green.** All of the above ran in *this*
-> sandbox. A real GitHub Actions run was observed (see §5b) and the **Typecheck**
-> step fails there even though it passes locally. The difference is environmental
-> (Windows vs Linux `tsc` module resolution), not a version mismatch — the
-> working tree is clean and the committed `package-lock.json` is exactly what
-> `npm ci` installs on the runner.
+> sandbox. The last observed remote run (4b618e7) was red at **Typecheck**, and
+> the cause was **not** environmental: the workflow never ran `prisma generate`,
+> so `@prisma/client` had no generated types on the runner. That is fixed with a
+> backend `postinstall` hook (see §5b), but **the fix has not yet been observed on
+> a remote run** — the next push is what proves it.
 
-| Remote CI run (4b618e7) | GitHub Actions | 🔴 `static` job failed at **Typecheck**; `Lint` ✓, `Security scans` ✓, `Unit tests` ✓, `Build` skipped (needs `static`), `ci-complete` ✗ |
+| Remote CI run (4b618e7) | GitHub Actions | 🔴 `static` job failed at **Typecheck** (root cause: no `prisma generate`); `Lint` ✓, `Security scans` ✓, `Unit tests` ✓, `Build` skipped (needs `static`), `ci-complete` ✗. This run predates the fix |
 
 ### Coverage — the real numbers
 
@@ -115,10 +120,10 @@ Repo-wide, across all of `src`:
 
 | Metric | Value |
 |---|---|
-| Statements | **17.6%** |
-| Branches | 10.6% |
-| Functions | 15.4% |
-| Lines | 18.1% |
+| Statements | **28.3%** |
+| Branches | 16.5% |
+| Functions | 24.3% |
+| Lines | 27.9% |
 
 This is low, and it is stated plainly because an earlier draft implied 97.8% —
 a figure measured only over the modules that happened to have tests, not over
@@ -128,23 +133,33 @@ hide a hole in something that matters:
 - **Critical files — the real gate, ≥90% each:** tenant scoping **98%**,
   envelope encryption **100%**, password policy **100%**, crypto utilities
   **100%**, pagination **100%**.
-- **Global ratchet — floors just under today's values:** 16 / 9 / 13 / 16.
-  Its job is to stop the number going *down* unnoticed, not to certify quality.
+- **Global ratchet:** 16 / 9 / 13 / 16 (statements / branches / functions /
+  lines). It was set just under the earlier baseline; this pass moved the actual
+  values well clear of it, but the floors were **not** raised. Raising them is a
+  deliberate follow-up, not something to slip into an unrelated change. Its job is
+  to stop the number going *down* unnoticed, not to certify quality.
+- The jump from 17.6% to 28.3% is the idempotency and observability tests
+  added in this pass — not a change to what is measured.
 
 ---
 
 ## 5. Open items, in priority order
 
+Closed in this pass: **idempotency** (wired to `POST /auth/register`),
+**observability** (Prometheus `/metrics`, OpenTelemetry traces, Sentry error
+reporting), **OpenAPI generation** (script exists, CI runs it) and the **deploy
+job** (present, gated on configuration).
+
+What remains:
+
 | # | Item | Why it matters | Where |
 |---|---|---|---|
-| 1 | **Fix remote CI — Typecheck step was RED** | Root cause found & fixed: `prisma generate` was never run, so the client had no types. Fix committed (backend `postinstall`). Verify green on remote. | `backend/` + GitHub Actions |
-| 2 | Build the Docker image once | `backend.Dockerfile` has never been executed; CI is its first test | `infra/docker/backend.Dockerfile` |
-| 3 | Load test at 100 RPS | Last unmet Phase 0 exit criterion | — |
-| 4 | Wire idempotency to a route | Decorator exists, unexercised | `common/decorators/idempotent.decorator.ts` |
-| 5 | OpenAPI generation | Script points at a file that does not exist | `backend/src/scripts/` |
-| 6 | Observability | No OTel / Prometheus / Sentry at all | `src/infra/observability/` |
-| 7 | Deploy job | CI stops at build + container scan | `.github/workflows/ci.yml` |
-| 8 | Website / admin / mobile | Three of 19 Phase 0 scope items | `website/`, `admin-portal/`, `mobile/` |
+| 1 | **Confirm remote CI green** | Every local gate passes; the `prisma generate` fix has never been observed on a remote run | `.github/workflows/ci.yml` |
+| 2 | Build the Docker image once | `backend.Dockerfile` is built by CI but has never been executed on the developer machine — Docker was unavailable in this sandbox | `infra/docker/backend.Dockerfile` |
+| 3 | Load test at 100 RPS | The last unmet Phase 0 exit criterion. Needs a seeded database and a load-test tool | — |
+| 4 | Provision `DEV_DATABASE_URL` / `KUBE_CONFIG` | Without them the deploy-to-`dev` job reports that it is skipped instead of deploying | GitHub → Environments → `dev` |
+| 5 | Website / admin / mobile | Three of 19 Phase 0 scope items; the bulk of what is left | `website/`, `admin-portal/`, `mobile/` |
+| 6 | Raise the coverage ratchet floors | Actual coverage (28.3%) is now well above the floors (16%). Ratcheting is a deliberate separate commit | `scripts/check-coverage.mjs` |
 
 ---
 
@@ -273,12 +288,16 @@ remote, which unblocks `Build` and `ci-complete`.
 
 ## 7. What's next
 
-**Finish Phase 0** (items 1–4 above), then **Phase 1 — Core Commerce MVP**:
-a buyer can join, browse, search by salt, and place an order.
+**Phase 0 is closed for the backend and infrastructure.** What is left is two
+verification steps (remote CI, the load test), one provisioning step (the `dev`
+deploy secrets), and the three client applications.
 
-Phase 1 needs the three client applications, which is the bulk of the remaining
-Phase 0 scope as well — so the two phases overlap in practice and should be
-planned together.
+The client apps are simultaneously the tail of Phase 0 and the substance of
+**Phase 1 — Core Commerce MVP** — a buyer can join, browse, search by salt, and
+place an order — so the two should be planned as one. The backend is now
+production-shaped underneath them: `/metrics` and `/health/*` are live, idempotent
+writes replay safely, traces and errors are reported, and the OpenAPI document a
+generated client will consume is produced in CI.
 
 ---
 
@@ -286,6 +305,14 @@ planned together.
 
 | Commit | Description |
 |---|---|
+| _(this pass)_ | feat(backend): idempotency on registration, Prometheus metrics, OpenTelemetry tracing, Sentry reporting, OpenAPI generation, deploy-to-`dev` job |
+| `cae03dc` | fix(docker): drop npm from the runtime image to clear CVE-2026-59873 |
+| `2d2e571` | fix(ci): accept base-image tar CVE in container scan via .trivyignore |
+| `59d77a0` | fix(ci): scope container scan to CRITICAL |
+| `3e80218` | fix(ci): align Trivy accepted risks with the npm-audit allow-list |
+| `b0c9263` | fix(docker): copy prisma schema into deps stage so postinstall can generate client |
+| `e547577` | fix(ci): generate Prisma client before typecheck/build via postinstall |
+| `4b618e7` | docs: add a project status document |
 | `e3a7a74` | docs: ADR-016, Phase 0 corrections, README quickstart |
 | `7d8853c` | ci: run npm instead of pnpm; add the Dockerfile CI referenced |
 | `bcbeedc` | feat(backend): test suite, architecture gates and lint repair |

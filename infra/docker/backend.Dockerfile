@@ -108,4 +108,7 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=15s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/health/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 ENTRYPOINT ["/sbin/tini", "--"]
-CMD ["node", "dist/main.js"]
+# `-r` loads the tracing preload before any application module, which is what
+# makes OpenTelemetry auto-instrumentation work. It is a no-op unless
+# OTEL_ENABLED is set. See backend/src/infra/observability/tracing-preload.ts.
+CMD ["node", "-r", "./dist/infra/observability/tracing-preload.js", "dist/main.js"]

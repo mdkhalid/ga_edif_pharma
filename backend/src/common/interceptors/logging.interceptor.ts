@@ -8,6 +8,7 @@ import { tap, type Observable } from 'rxjs';
 
 import { requestContext } from '../context/request-context';
 import { AppLogger } from '../logger/app-logger.service';
+import { statusOfError } from '../utils/error-status.util';
 
 /**
  * Logs one line per completed request: method, path, status, duration.
@@ -54,7 +55,7 @@ export class LoggingInterceptor implements NestInterceptor {
 
     const emit = (outcome: 'ok' | 'error', error?: unknown): void => {
       const durationMs = Date.now() - startedAt;
-      const status = outcome === 'ok' ? (response.statusCode ?? 200) : statusOf(error);
+      const status = outcome === 'ok' ? (response.statusCode ?? 200) : statusOfError(error);
 
       const fields = {
         method,
@@ -81,16 +82,4 @@ export class LoggingInterceptor implements NestInterceptor {
       }),
     );
   }
-}
-
-function statusOf(error: unknown): number {
-  if (typeof error === 'object' && error !== null && 'getStatus' in error) {
-    const candidate = error as { getStatus?: () => number };
-    if (typeof candidate.getStatus === 'function') return candidate.getStatus();
-  }
-  if (typeof error === 'object' && error !== null && 'httpStatus' in error) {
-    const status = (error as { httpStatus?: unknown }).httpStatus;
-    if (typeof status === 'number') return status;
-  }
-  return 500;
 }

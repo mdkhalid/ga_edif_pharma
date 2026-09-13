@@ -1,0 +1,403 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/metrics": {
+      "get": {
+        "description": "Returns the metrics registry in the Prometheus text exposition format. Mounted at /metrics, outside the versioned API prefix.",
+        "operationId": "scrape",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Prometheus text exposition format."
+          }
+        },
+        "summary": "Prometheus metrics",
+        "tags": [
+          "metrics"
+        ]
+      }
+    },
+    "/health/live": {
+      "get": {
+        "description": "Returns 200 while the process is running. Never checks dependencies — a restart cannot fix a database outage, and failing here would crash-loop the whole fleet.",
+        "operationId": "live",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The process is alive."
+          }
+        },
+        "summary": "Liveness probe",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "description": "Returns 200 when the pod can serve traffic, 503 when a required dependency (Postgres) is unavailable. A degraded optional dependency (Redis) still returns 200.",
+        "operationId": "ready",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Ready to serve traffic."
+          },
+          "503": {
+            "description": "A required dependency is unavailable."
+          }
+        },
+        "summary": "Readiness probe",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "root",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Readiness (alias of /health/ready)",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "description": "Creates an account in PENDING_VERIFICATION. The account cannot sign in until the email or phone number is verified — that address is where order confirmations and prescription decisions are sent, so it must be real before it can be used.",
+        "operationId": "register",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Client-generated unique key (a UUID). A retry with the same key and body replays the original response instead of creating a second attempt; reusing a key with a different body is rejected with 409 IDEMPOTENCY_KEY_REUSED.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Account created; verification required."
+          },
+          "409": {
+            "description": "An account with these details already exists."
+          },
+          "429": {
+            "description": "Too many registration attempts."
+          }
+        },
+        "summary": "Register a new account",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "description": "Exchanges credentials for an access token (15 minutes) and a refresh token (30 days). The refresh token is rotated on every use; reuse of a rotated token revokes the entire token family.",
+        "operationId": "login",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Signed in."
+          },
+          "401": {
+            "description": "Credentials are incorrect."
+          },
+          "423": {
+            "description": "Account temporarily locked."
+          },
+          "429": {
+            "description": "Too many attempts."
+          }
+        },
+        "summary": "Sign in",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "description": "Exchanges a refresh token for a new access/refresh pair. The presented token is invalidated. Presenting an already-used token revokes every session in its family — that is the replay-detection behaviour, and it is intentional.",
+        "operationId": "refresh",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Tokens rotated."
+          },
+          "401": {
+            "description": "The refresh token is invalid, expired or replayed."
+          }
+        },
+        "summary": "Rotate tokens",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "description": "Revokes only the session that made the request. Other devices stay signed in — use \"sign out everywhere\" for that.",
+        "operationId": "logout",
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": "Signed out."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Sign out of this device",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/logout-all": {
+      "post": {
+        "description": "Revokes every active session for the account, including this one.",
+        "operationId": "logoutAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "All sessions revoked."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Sign out of every device",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "description": "Returns the authenticated account with its roles and the capabilities it currently holds. Capabilities are resolved live, so a permission change is reflected on the next request rather than when the access token expires.",
+        "operationId": "me",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The authenticated profile."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Current profile",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/sessions": {
+      "get": {
+        "description": "Lists the devices currently signed in, for the \"your devices\" screen.",
+        "operationId": "listSessions",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Active sessions."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Active sessions",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/sessions/{sessionId}": {
+      "delete": {
+        "description": "Signs out one device. The caller must own the session.",
+        "operationId": "revokeSession",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Session revoked."
+          },
+          "401": {
+            "description": "The session does not belong to this account."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Revoke a specific session",
+        "tags": [
+          "auth"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "MediChain API",
+    "description": "Pharma distribution and ordering platform. Errors follow RFC 9457 (`application/problem+json`); collections are always paginated.",
+    "version": "0.1.0",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "auth",
+      "description": "Registration, sign-in, token rotation and sessions"
+    },
+    {
+      "name": "health",
+      "description": "Liveness and readiness probes"
+    },
+    {
+      "name": "metrics",
+      "description": "Prometheus metrics scrape endpoint"
+    }
+  ],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      }
+    },
+    "schemas": {
+      "RegisterDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "buyer@sunrisepharma.in",
+            "description": "Email address. Either this or `phone` is required."
+          },
+          "phone": {
+            "type": "string",
+            "example": "+919876543210",
+            "description": "E.164 phone number. Either this or `email` is required."
+          },
+          "fullName": {
+            "type": "string",
+            "example": "Priya Sharma",
+            "minLength": 2,
+            "maxLength": 200
+          },
+          "password": {
+            "type": "string",
+            "example": "a-long-and-memorable-passphrase",
+            "minLength": 12,
+            "maxLength": 128,
+            "description": "At least 12 characters. A phrase of a few words is stronger and easier to remember than a short jumble of symbols."
+          },
+          "tenantCode": {
+            "type": "string",
+            "example": "SUNRISE",
+            "description": "Code of the pharma company you are registering with. Required when the platform hosts more than one."
+          }
+        },
+        "required": [
+          "fullName",
+          "password"
+        ]
+      },
+      "LoginDto": {
+        "type": "object",
+        "properties": {
+          "identifier": {
+            "type": "string",
+            "example": "buyer@sunrisepharma.in",
+            "description": "Email address or phone number."
+          },
+          "password": {
+            "type": "string",
+            "example": "a-long-and-memorable-passphrase"
+          },
+          "deviceId": {
+            "type": "string",
+            "example": "a1b2c3d4-e5f6-...",
+            "description": "Stable per-installation identifier, shown on the \"your devices\" screen."
+          },
+          "deviceLabel": {
+            "type": "string",
+            "example": "Chrome on Windows",
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "identifier",
+          "password"
+        ]
+      },
+      "RefreshTokenDto": {
+        "type": "object",
+        "properties": {
+          "refreshToken": {
+            "type": "string",
+            "description": "The refresh token issued by the previous sign-in or refresh. Rotated on every use — store the new value returned by this call and discard the old one."
+          }
+        },
+        "required": [
+          "refreshToken"
+        ]
+      }
+    }
+  }
+}

@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 /**
  * Cache key builders and the list of things that may be cached.
  *
@@ -67,6 +69,19 @@ export function sessionGrantKey(sessionId: string): string {
 /** Per-tenant feature-flag key. */
 export function featureFlagKey(tenantId: string): string {
   return cacheKey(CacheNamespace.FEATURE_FLAGS, tenantId);
+}
+
+/**
+ * Idempotency replay key.
+ *
+ * The scope is hashed rather than embedded because it contains the
+ * client-supplied `Idempotency-Key`, which is attacker-controlled: an unbounded
+ * header value would otherwise be copied verbatim into Redis as a key. The hash
+ * bounds the key length and makes the key opaque, while the scope itself is
+ * still hashed deterministically so the same request maps to the same key.
+ */
+export function idempotencyKey(scope: string): string {
+  return cacheKey(CacheNamespace.IDEMPOTENCY, createHash('sha256').update(scope).digest('hex'));
 }
 
 /**
