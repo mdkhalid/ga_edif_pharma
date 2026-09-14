@@ -1,0 +1,46 @@
+/**
+ * MediChain design tokens — Tailwind CSS v4, CSS-first.
+ *
+ * Imported by both web apps after `@import 'tailwindcss'`:
+ *
+ *   @import 'tailwindcss';
+ *   @import '@medichain/config/tailwind/theme.css';
+ *
+ * Tailwind 4 replaced `tailwind.config.js` with `@theme`, so the tokens are CSS
+ * custom properties rather than a JS object. That is why this file ships as CSS
+ * and not as a JS preset.
+ *
+ * Only the *palette* and a few semantic tokens are fixed here. Everything else
+ * (spacing, radii, type scale) comes from Tailwind's defaults, so the two apps
+ * inherit upstream improvements instead of freezing a snapshot of them.
+ *
+ * Accessibility note: the brand ramp is chosen so `brand-700` on white and
+ * `brand-100` on `brand-900` both clear WCAG AA for body text. Do not use
+ * `brand-400`/`brand-500` for text on white.
+ */
+@theme {
+  /* Brand — a clinical teal. Distinguishable from the red/amber used for
+     controlled-substance and expiry warnings, so colour never implies "danger"
+     by accident. */
+  --color-brand-50: oklch(0.977 0.013 190);
+  --color-brand-100: oklch(0.945 0.032 190);
+  --color-brand-200: oklch(0.899 0.063 190);
+  --color-brand-300: oklch(0.833 0.101 190);
+  --color-brand-400: oklch(0.755 0.13 190);
+  --color-brand-500: oklch(0.68 0.135 190);
+  --color-brand-600: oklch(0.58 0.12 190);
+  --color-brand-700: oklch(0.49 0.101 190);
+  --color-brand-800: oklch(0.41 0.083 190);
+  --color-brand-900: oklch(0.35 0.07 190);
+
+  /* Semantic status colours. Named by meaning, not by hue, so a palette change
+     does not require renaming every call site. */
+  --color-success-500: oklch(0.65 0.17 150);
+  --color-warning-500: oklch(0.75 0.16 75);
+  --color-danger-500: oklch(0.58 0.22 25);
+
+  /* Card and control radii. One value each, so "slightly different rounded
+     corners on two screens" cannot happen. */
+  --radius-card: 0.75rem;
+  --radius-control: 0.5rem;
+}

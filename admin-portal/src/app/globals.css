@@ -1,0 +1,17 @@
+@import 'tailwindcss';
+@import '@medichain/config/tailwind/theme.css';
+
+/* Same design tokens as the website — both apps extend `@medichain/config`, so the
+   brand ramp and radii cannot drift apart. */
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  @apply bg-slate-100 text-slate-900 antialiased;
+}
+
+:focus-visible {
+  @apply outline outline-2 outline-offset-2 outline-brand-700;
+}

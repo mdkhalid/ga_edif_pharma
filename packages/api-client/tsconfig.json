@@ -1,0 +1,8 @@
+{
+  "extends": "@medichain/config/tsconfig/library.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM"]
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

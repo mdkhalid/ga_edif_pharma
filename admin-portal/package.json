@@ -1,0 +1,37 @@
+{
+  "name": "@medichain/admin-portal",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MediChain back-office portal — pharma staff",
+  "scripts": {
+    "dev": "next dev --port 3002",
+    "build": "next build",
+    "start": "next start --port 3002",
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "clean": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\""
+  },
+  "dependencies": {
+    "@medichain/api-client": "*",
+    "@medichain/shared-types": "*",
+    "@medichain/shared-utils": "*",
+    "@medichain/ui": "*",
+    "@tanstack/react-query": "5.102.8",
+    "next": "16.3.5",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "zod": "3.24.1",
+    "zustand": "5.0.15"
+  },
+  "devDependencies": {
+    "@medichain/config": "*",
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/node": "26.5.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.3.5",
+    "tailwindcss": "4.3.3",
+    "typescript": "5.7.2"
+  }
+}

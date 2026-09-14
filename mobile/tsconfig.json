@@ -1,0 +1,5 @@
+{
+  "extends": "@medichain/config/tsconfig/react-native.json",
+  "include": ["index.ts", "src/**/*.ts", "src/**/*.tsx", "app.json", "expo-env.d.ts"],
+  "exclude": ["node_modules", ".expo", "dist"]
+}

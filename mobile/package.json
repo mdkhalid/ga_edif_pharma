@@ -1,0 +1,41 @@
+{
+  "name": "@medichain/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MediChain mobile app — React Native + Expo",
+  "main": "index.ts",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "clean": "node -e \"require('fs').rmSync('.expo',{recursive:true,force:true})\""
+  },
+  "dependencies": {
+    "@medichain/api-client": "*",
+    "@medichain/shared-types": "*",
+    "@medichain/shared-utils": "*",
+    "@react-navigation/bottom-tabs": "7.18.18",
+    "@react-navigation/native": "7.3.18",
+    "@react-navigation/native-stack": "7.18.10",
+    "@tanstack/react-query": "5.102.8",
+    "expo": "57.0.22",
+    "expo-secure-store": "57.0.4",
+    "expo-status-bar": "57.0.1",
+    "react": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-safe-area-context": "5.9.1",
+    "react-native-screens": "4.27.0",
+    "zod": "3.24.1",
+    "zustand": "5.0.15"
+  },
+  "devDependencies": {
+    "@babel/core": "7.29.7",
+    "@medichain/config": "*",
+    "@types/react": "19.2.18",
+    "babel-preset-expo": "57.0.11",
+    "eslint": "9.39.5",
+    "typescript": "5.7.2"
+  }
+}

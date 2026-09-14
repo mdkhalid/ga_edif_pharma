@@ -1,0 +1,20 @@
+@import 'tailwindcss';
+@import '@medichain/config/tailwind/theme.css';
+
+/* The design tokens (brand ramp, radii) come from the shared package above, so the
+   website and the admin portal cannot drift apart visually. Everything else is
+   Tailwind's default scale, inherited rather than frozen. */
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  @apply bg-slate-50 text-slate-900 antialiased;
+}
+
+/* A single focus treatment for the whole app. Keyboard users get a consistent,
+   visible indicator; the browser default (often a faint ring) is not relied on. */
+:focus-visible {
+  @apply outline outline-2 outline-offset-2 outline-brand-700;
+}

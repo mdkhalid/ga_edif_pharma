@@ -1,0 +1,28 @@
+{
+  "name": "@medichain/api-client",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Typed MediChain API client, generated from the backend OpenAPI document",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "src/generated"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "generate": "openapi-typescript ../../backend/openapi.json -o src/generated/schema.ts",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
+  },
+  "dependencies": {
+    "@medichain/shared-types": "*",
+    "openapi-fetch": "0.17.0"
+  },
+  "devDependencies": {
+    "@medichain/config": "*",
+    "openapi-typescript": "7.13.0",
+    "typescript": "5.7.2"
+  }
+}

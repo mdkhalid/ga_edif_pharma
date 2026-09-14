@@ -23,15 +23,20 @@
     "test:unit": "npm run test:unit --workspace=@medichain/backend",
     "clean": "turbo run clean",
     "build:shared": "npm run build --workspace=@medichain/shared-types --workspace=@medichain/shared-utils",
+    "dev:mobile": "npm run start --workspace=@medichain/mobile",
+    "api-client:generate": "npm run generate --workspace=@medichain/api-client",
     "check:module-boundaries": "node scripts/check-module-boundaries.mjs",
     "check:coverage": "node scripts/check-coverage.mjs",
     "check:audit": "node scripts/check-audit.mjs",
+    "load:local": "node loadtest/run-local.mjs",
+    "load:k6": "k6 run loadtest/k6/auth-baseline.js",
     "db:migrate": "npm run db:migrate --workspace=@medichain/backend",
     "db:seed": "npm run db:seed --workspace=@medichain/backend",
     "db:reset": "npm run db:reset --workspace=@medichain/backend",
     "openapi:generate": "npm run openapi:generate --workspace=@medichain/backend"
   },
   "devDependencies": {
+    "autocannon": "8.0.0",
     "turbo": "2.10.12",
     "typescript": "5.7.2"
   }

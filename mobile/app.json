@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "MediChain",
+    "slug": "medichain",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "medichain",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.medichain.app"
+    },
+    "android": {
+      "package": "com.medichain.app"
+    },
+    "plugins": ["expo-secure-store"]
+  }
+}
