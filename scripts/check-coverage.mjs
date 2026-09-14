@@ -64,6 +64,21 @@ const CRITICAL_FILES = [
     min: 90,
     why: 'cursor encoding and the sort allow-list (injection surface)',
   },
+  {
+    path: 'src/modules/iam/application/services/otp.service.ts',
+    min: 90,
+    why: 'one-time-code issue/consume — the single-use, expiry and attempt-cap guarantees',
+  },
+  {
+    path: 'src/modules/iam/application/services/contact-verification.service.ts',
+    min: 90,
+    why: 'activates an account from a one-time code — a gap here is an authentication bypass',
+  },
+  {
+    path: 'src/modules/iam/application/services/password-reset.service.ts',
+    min: 90,
+    why: 'replaces a credential and revokes sessions — a gap here is account takeover',
+  },
 ];
 
 /**
@@ -71,7 +86,7 @@ const CRITICAL_FILES = [
  * lower them to make a build pass. Values sit ~1pt under the measured baseline
  * at the time of writing so ordinary refactoring does not trip them.
  */
-const GLOBAL_FLOORS = { statements: 16, branches: 9, functions: 13, lines: 16 };
+const GLOBAL_FLOORS = { statements: 38, branches: 26, functions: 27, lines: 37 };
 
 if (!existsSync(SUMMARY)) {
   console.error(

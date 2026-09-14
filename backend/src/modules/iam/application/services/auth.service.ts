@@ -23,6 +23,7 @@ import {
 import { ExtendedPrismaClient, PRISMA_EXTENDED } from '../../../../database/prisma.service';
 import { UnitOfWork } from '../../../../database/unit-of-work';
 import { AuditService } from '../../../audit';
+import { normaliseEmail, normalisePhone } from '../../domain/identifier';
 import { Password } from '../../domain/value-objects/password.vo';
 import { PasswordService } from './password.service';
 import { RoleResolver } from './role-resolver.service';
@@ -644,37 +645,11 @@ export class AuthService {
 export const PLATFORM_AUDIT_TENANT = '00000000-0000-0000-0000-000000000000';
 
 /**
- * Normalises an email for storage and lookup.
+ * Re-exported from `domain/identifier` so this module's public API is unchanged.
  *
- * Lowercased because `Admin@Example.com` and `admin@example.com` are the same
- * mailbox at every provider that matters, and the column is `citext` — but
- * normalising here too means the value is canonical before it reaches an index
- * or a comparison that might not be case-insensitive.
+ * The canonicalisation rule now lives in one place, shared with contact
+ * verification and password reset. Three copies of "how do we recognise a phone
+ * number" would eventually disagree, and the flow that disagreed would fail to
+ * find an account that plainly exists.
  */
-export function normaliseEmail(value: string | undefined): string | null {
-  if (value === undefined) return null;
-  const trimmed = value.trim().toLowerCase();
-  return trimmed === '' ? null : trimmed;
-}
-
-/**
- * Normalises a phone number to E.164-ish digits.
- *
- * Indian numbers arrive as `+91 98765 43210`, `09876543210` and `9876543210` —
- * all the same subscriber. Stripping separators and a leading zero collapses them
- * to one value, so the unique index actually prevents duplicate accounts rather
- * than storing three.
- *
- * Not a full E.164 implementation: that needs a country context the request does
- * not always carry. Phase 2 replaces this with a libphonenumber-based parser.
- */
-export function normalisePhone(value: string | undefined): string | null {
-  if (value === undefined) return null;
-
-  const digits = value.replace(/[^\d+]/g, '');
-  if (digits === '') return null;
-
-  // `09876543210` and `9876543210` are the same number.
-  const withoutTrunkZero = digits.startsWith('0') ? digits.slice(1) : digits;
-  return withoutTrunkZero === '' ? null : withoutTrunkZero;
-}
+export { normaliseEmail, normalisePhone };

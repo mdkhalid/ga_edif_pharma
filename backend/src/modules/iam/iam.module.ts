@@ -3,9 +3,14 @@ import { JwtModule } from '@nestjs/jwt';
 
 import { AppConfigService } from '../../config/app-config.service';
 import { SESSION_AUTHORITY, TOKEN_VERIFIER } from '../../common/ports/auth.port';
+import { NOTIFICATION_PORT } from '../../common/ports/notification.port';
+import { LogNotificationAdapter } from '../../infra/notifications/log-notification.adapter';
 import { AuditModule } from '../audit';
 import { AuthController } from './api/auth.controller';
 import { AuthService } from './application/services/auth.service';
+import { ContactVerificationService } from './application/services/contact-verification.service';
+import { OtpService } from './application/services/otp.service';
+import { PasswordResetService } from './application/services/password-reset.service';
 import { PasswordService } from './application/services/password.service';
 import { RoleResolver } from './application/services/role-resolver.service';
 import { SessionService } from './application/services/session.service';
@@ -66,14 +71,24 @@ import { TokenService } from './application/services/token.service';
     RoleResolver,
     SessionService,
     AuthService,
+    OtpService,
+    ContactVerificationService,
+    PasswordResetService,
     { provide: TOKEN_VERIFIER, useExisting: TokenService },
     { provide: SESSION_AUTHORITY, useExisting: SessionService },
+    // No email/SMS transport exists in Phase 0. The logging adapter makes the
+    // verification and reset flows driveable locally; Phase 1 swaps in a real
+    // adapter here and nothing else changes. See `NotificationPort`.
+    { provide: NOTIFICATION_PORT, useClass: LogNotificationAdapter },
   ],
   exports: [
     AuthService,
     SessionService,
     PasswordService,
     RoleResolver,
+    OtpService,
+    ContactVerificationService,
+    PasswordResetService,
     // Exported so the guards' dependencies resolve for any module that needs
     // them, and so an integration test can drive the token lifecycle directly.
     TOKEN_VERIFIER,

@@ -93,6 +93,16 @@ export const envSchema = z
     ARGON2_PARALLELISM: z.coerce.number().int().positive().default(1),
     MAX_LOGIN_ATTEMPTS: z.coerce.number().int().positive().default(5),
     ACCOUNT_LOCK_MINUTES: z.coerce.number().int().positive().default(15),
+    /** Lifetime of a contact-verification or password-reset code. */
+    AUTH_OTP_TTL_MINUTES: z.coerce.number().int().positive().default(10),
+    /** Guesses allowed against one code before it must be reissued. */
+    AUTH_OTP_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
+    /**
+     * Returns one-time codes in the API response body. Development only — it
+     * exists so the verification and reset flows are driveable without a mail or
+     * SMS transport. The env schema refuses it in production.
+     */
+    AUTH_EXPOSE_OTP_IN_RESPONSE: booleanFromEnv(false),
 
     // ------------------------------------------------------- rate limiting
     RATE_LIMIT_ENABLED: booleanFromEnv(true),
@@ -184,6 +194,15 @@ export const envSchema = z
           code: z.ZodIssueCode.custom,
           path: ['SMS_PROVIDER'],
           message: 'The console SMS provider writes to stdout and must not be used in production.',
+        });
+      }
+
+      if (env.AUTH_EXPOSE_OTP_IN_RESPONSE) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['AUTH_EXPOSE_OTP_IN_RESPONSE'],
+          message:
+            'AUTH_EXPOSE_OTP_IN_RESPONSE returns live one-time codes in the response body. That is an account takeover for anyone who can read a response, and must be false in production.',
         });
       }
 

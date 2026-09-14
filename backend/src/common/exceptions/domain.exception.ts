@@ -68,6 +68,43 @@ export class AccountNotVerifiedError extends DomainException {
   }
 }
 
+/**
+ * A one-time code that does not match any outstanding challenge.
+ *
+ * Deliberately a single error for "no code was requested", "the code is wrong"
+ * and "the code was already used": distinguishing them would tell a caller which
+ * identifiers have a live challenge, and a code that has been consumed is not
+ * meaningfully different from one that never existed.
+ */
+export class OtpInvalidError extends DomainException {
+  constructor(message = 'That code is not valid. Request a new one and try again.') {
+    super(message, ErrorCode.OTP_INVALID, 400);
+  }
+}
+
+export class OtpExpiredError extends DomainException {
+  constructor() {
+    super('That code has expired. Request a new one and try again.', ErrorCode.OTP_EXPIRED, 400);
+  }
+}
+
+/**
+ * The attempt cap for a challenge has been reached.
+ *
+ * 429 rather than 400: the caller must stop trying and request a fresh code. The
+ * cap is what makes a six-digit code safe — without it, a million guesses fit
+ * comfortably inside a ten-minute window.
+ */
+export class OtpAttemptsExceededError extends DomainException {
+  constructor() {
+    super(
+      'Too many incorrect attempts for this code. Request a new one.',
+      ErrorCode.OTP_ATTEMPTS_EXCEEDED,
+      429,
+    );
+  }
+}
+
 export class TokenExpiredError extends DomainException {
   constructor() {
     super('Token has expired.', ErrorCode.TOKEN_EXPIRED, 401);

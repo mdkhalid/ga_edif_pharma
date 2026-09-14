@@ -109,6 +109,67 @@
         ]
       }
     },
+    "/auth/verify/request": {
+      "post": {
+        "description": "Sends a one-time code to the email address or phone number an account was registered with. The response is the same whether or not the account exists, and whether or not it still needs verifying — so this cannot be used to discover which addresses are registered.",
+        "operationId": "requestContactVerification",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyContactRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "If the account is pending verification, a code has been sent."
+          },
+          "429": {
+            "description": "Too many requests."
+          }
+        },
+        "summary": "Request a contact-verification code",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/verify": {
+      "post": {
+        "description": "Consumes a verification code and activates the account. The code is single-use, expires, and is rejected after a small number of wrong attempts.",
+        "operationId": "verifyContact",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyContactDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Contact verified; the account is now active."
+          },
+          "400": {
+            "description": "The code is invalid or has expired."
+          },
+          "429": {
+            "description": "Too many wrong attempts for this code."
+          }
+        },
+        "summary": "Verify an email address or phone number",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/auth/login": {
       "post": {
         "description": "Exchanges credentials for an access token (15 minutes) and a refresh token (30 days). The refresh token is rotated on every use; reuse of a rotated token revokes the entire token family.",
@@ -168,6 +229,67 @@
           }
         },
         "summary": "Rotate tokens",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/password/forgot": {
+      "post": {
+        "description": "Sends a one-time code to the email address or phone number on the account. The response is identical whether or not an account exists, so it cannot be used to enumerate users.",
+        "operationId": "forgotPassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForgotPasswordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "If an account exists, a reset code has been sent."
+          },
+          "429": {
+            "description": "Too many requests."
+          }
+        },
+        "summary": "Request a password-reset code",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/password/reset": {
+      "post": {
+        "description": "Consumes a reset code and sets a new password. Every existing session is revoked, so a stolen session does not outlive the reset.",
+        "operationId": "resetPassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetPasswordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password reset; all sessions revoked."
+          },
+          "400": {
+            "description": "The code is invalid or has expired."
+          },
+          "429": {
+            "description": "Too many wrong attempts for this code."
+          }
+        },
+        "summary": "Reset a password with a one-time code",
         "tags": [
           "auth"
         ]
@@ -358,6 +480,40 @@
           "password"
         ]
       },
+      "VerifyContactRequestDto": {
+        "type": "object",
+        "properties": {
+          "identifier": {
+            "type": "string",
+            "example": "buyer@sunrisepharma.in",
+            "description": "The email address or phone number to verify."
+          }
+        },
+        "required": [
+          "identifier"
+        ]
+      },
+      "VerifyContactDto": {
+        "type": "object",
+        "properties": {
+          "identifier": {
+            "type": "string",
+            "example": "buyer@sunrisepharma.in",
+            "description": "The email address or phone number that was registered."
+          },
+          "code": {
+            "type": "string",
+            "example": "048392",
+            "minLength": 6,
+            "maxLength": 6,
+            "description": "The six-digit code sent to the email address or phone number. Single-use, expires shortly, and capped after a few wrong attempts."
+          }
+        },
+        "required": [
+          "identifier",
+          "code"
+        ]
+      },
       "LoginDto": {
         "type": "object",
         "properties": {
@@ -396,6 +552,48 @@
         },
         "required": [
           "refreshToken"
+        ]
+      },
+      "ForgotPasswordDto": {
+        "type": "object",
+        "properties": {
+          "identifier": {
+            "type": "string",
+            "example": "buyer@sunrisepharma.in",
+            "description": "The email address or phone number on the account. The response is the same whether or not an account exists."
+          }
+        },
+        "required": [
+          "identifier"
+        ]
+      },
+      "ResetPasswordDto": {
+        "type": "object",
+        "properties": {
+          "identifier": {
+            "type": "string",
+            "example": "buyer@sunrisepharma.in",
+            "description": "The email address or phone number on the account."
+          },
+          "code": {
+            "type": "string",
+            "example": "048392",
+            "minLength": 6,
+            "maxLength": 6,
+            "description": "The six-digit reset code."
+          },
+          "newPassword": {
+            "type": "string",
+            "example": "a-new-long-and-memorable-passphrase",
+            "minLength": 12,
+            "maxLength": 128,
+            "description": "The new password, at least 12 characters. The same policy as registration applies, and every existing session is signed out."
+          }
+        },
+        "required": [
+          "identifier",
+          "code",
+          "newPassword"
         ]
       }
     }

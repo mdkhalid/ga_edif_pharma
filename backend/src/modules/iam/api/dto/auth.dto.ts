@@ -130,3 +130,97 @@ export class RevokeSessionDto {
   @MaxLength(36)
   sessionId!: string;
 }
+
+/**
+ * The six-digit code the user received, as a string.
+ *
+ * A string rather than a number on purpose: `048392` is a valid code, and typing
+ * it into a JSON number field loses the leading zero. `@Length(6, 6)` also rejects
+ * a padded or truncated value before it reaches the digest comparison.
+ */
+const OTP_CODE_VALIDATORS = {
+  message: 'Enter the six-digit code from the email or SMS.',
+} as const;
+
+export class VerifyContactRequestDto {
+  @ApiProperty({
+    example: 'buyer@sunrisepharma.in',
+    description: 'The email address or phone number to verify.',
+  })
+  @IsString()
+  @MinLength(3)
+  @MaxLength(320)
+  identifier!: string;
+}
+
+export class VerifyContactDto {
+  @ApiProperty({
+    example: 'buyer@sunrisepharma.in',
+    description: 'The email address or phone number that was registered.',
+  })
+  @IsString()
+  @MinLength(3)
+  @MaxLength(320)
+  identifier!: string;
+
+  @ApiProperty({
+    example: '048392',
+    minLength: 6,
+    maxLength: 6,
+    description:
+      'The six-digit code sent to the email address or phone number. Single-use, ' +
+      'expires shortly, and capped after a few wrong attempts.',
+  })
+  @IsString()
+  @Length(6, 6)
+  @Matches(/^\d{6}$/, OTP_CODE_VALIDATORS)
+  code!: string;
+}
+
+export class ForgotPasswordDto {
+  @ApiProperty({
+    example: 'buyer@sunrisepharma.in',
+    description:
+      'The email address or phone number on the account. The response is the same ' +
+      'whether or not an account exists.',
+  })
+  @IsString()
+  @MinLength(3)
+  @MaxLength(320)
+  identifier!: string;
+}
+
+export class ResetPasswordDto {
+  @ApiProperty({
+    example: 'buyer@sunrisepharma.in',
+    description: 'The email address or phone number on the account.',
+  })
+  @IsString()
+  @MinLength(3)
+  @MaxLength(320)
+  identifier!: string;
+
+  @ApiProperty({
+    example: '048392',
+    minLength: 6,
+    maxLength: 6,
+    description: 'The six-digit reset code.',
+  })
+  @IsString()
+  @Length(6, 6)
+  @Matches(/^\d{6}$/, OTP_CODE_VALIDATORS)
+  code!: string;
+
+  @ApiProperty({
+    example: 'a-new-long-and-memorable-passphrase',
+    minLength: PASSWORD_MIN_LENGTH,
+    maxLength: PASSWORD_MAX_LENGTH,
+    description:
+      `The new password, at least ${PASSWORD_MIN_LENGTH} characters. The same policy as ` +
+      'registration applies, and every existing session is signed out.',
+  })
+  @IsString()
+  @MinLength(PASSWORD_MIN_LENGTH)
+  @MaxLength(PASSWORD_MAX_LENGTH)
+  newPassword!: string;
+}

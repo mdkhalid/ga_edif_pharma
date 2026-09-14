@@ -70,5 +70,23 @@ module.exports = {
       },
     ],
   },
+  /**
+   * Test files.
+   *
+   * Jest's asymmetric matchers (`expect.any`, `expect.objectContaining`) are typed
+   * `any`, and a test-double factory's return type is not worth spelling out. Both
+   * rules are relaxed for specs so the warning baseline reflects *production* code
+   * rather than test scaffolding — a count that is mostly test noise is how a real
+   * warning in `src` gets missed. Everything else still applies to tests.
+   */
+  overrides: [
+    {
+      files: ['test/**/*.ts'],
+      rules: {
+        '@typescript-eslint/explicit-function-return-type': 'off',
+        '@typescript-eslint/no-unsafe-assignment': 'off',
+      },
+    },
+  ],
   ignorePatterns: ['.eslintrc.cjs', 'jest*.config.js', 'dist', 'node_modules', 'coverage'],
 };

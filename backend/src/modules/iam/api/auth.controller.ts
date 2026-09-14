@@ -13,8 +13,18 @@ import {
 import { HEADERS, RATE_LIMIT_BUCKET } from '../../../common/constants/metadata';
 import { uuidParam } from '../../../common/pipes/parse-uuid.pipe';
 import { AuthService } from '../application/services/auth.service';
+import { ContactVerificationService } from '../application/services/contact-verification.service';
+import { PasswordResetService } from '../application/services/password-reset.service';
 import { SessionService } from '../application/services/session.service';
-import { LoginDto, RefreshTokenDto, RegisterDto } from './dto/auth.dto';
+import {
+  ForgotPasswordDto,
+  LoginDto,
+  RefreshTokenDto,
+  RegisterDto,
+  ResetPasswordDto,
+  VerifyContactDto,
+  VerifyContactRequestDto,
+} from './dto/auth.dto';
 
 /**
  * Authentication endpoints.
@@ -44,6 +54,8 @@ export class AuthController {
   constructor(
     private readonly auth: AuthService,
     private readonly sessions: SessionService,
+    private readonly verification: ContactVerificationService,
+    private readonly passwordReset: PasswordResetService,
   ) {}
 
   @Post('register')
@@ -82,6 +94,51 @@ export class AuthController {
     return {
       data: result,
     };
+  }
+
+  @Post('verify/request')
+  @Public()
+  @SkipTenantScope()
+  @HttpCode(HttpStatus.ACCEPTED)
+  @RateLimit({ bucket: RATE_LIMIT_BUCKET.OTP, keyBy: 'ip+identifier', max: 5, windowSeconds: 300 })
+  @ApiOperation({
+    summary: 'Request a contact-verification code',
+    description:
+      'Sends a one-time code to the email address or phone number an account was registered with. ' +
+      'The response is the same whether or not the account exists, and whether or not it still ' +
+      'needs verifying — so this cannot be used to discover which addresses are registered.',
+  })
+  @ApiResponse({
+    status: 202,
+    description: 'If the account is pending verification, a code has been sent.',
+  })
+  @ApiResponse({ status: 429, description: 'Too many requests.' })
+  async requestContactVerification(
+    @Body() dto: VerifyContactRequestDto,
+  ): Promise<{ data: Awaited<ReturnType<ContactVerificationService['request']>> }> {
+    const result = await this.verification.request(dto.identifier);
+    return { data: result };
+  }
+
+  @Post('verify')
+  @Public()
+  @SkipTenantScope()
+  @HttpCode(HttpStatus.OK)
+  @RateLimit({ bucket: RATE_LIMIT_BUCKET.OTP, keyBy: 'ip+identifier', max: 10, windowSeconds: 300 })
+  @ApiOperation({
+    summary: 'Verify an email address or phone number',
+    description:
+      'Consumes a verification code and activates the account. The code is single-use, expires, ' +
+      'and is rejected after a small number of wrong attempts.',
+  })
+  @ApiResponse({ status: 200, description: 'Contact verified; the account is now active.' })
+  @ApiResponse({ status: 400, description: 'The code is invalid or has expired.' })
+  @ApiResponse({ status: 429, description: 'Too many wrong attempts for this code.' })
+  async verifyContact(
+    @Body() dto: VerifyContactDto,
+  ): Promise<{ data: Awaited<ReturnType<ContactVerificationService['verify']>> }> {
+    const result = await this.verification.verify(dto.identifier, dto.code);
+    return { data: result };
   }
 
   @Post('login')
@@ -134,6 +191,51 @@ export class AuthController {
     @Body() dto: RefreshTokenDto,
   ): Promise<{ data: Awaited<ReturnType<AuthService['refresh']>> }> {
     const result = await this.auth.refresh(dto.refreshToken);
+    return { data: result };
+  }
+
+  @Post('password/forgot')
+  @Public()
+  @SkipTenantScope()
+  @HttpCode(HttpStatus.ACCEPTED)
+  @RateLimit({ bucket: RATE_LIMIT_BUCKET.OTP, keyBy: 'ip+identifier', max: 5, windowSeconds: 300 })
+  @ApiOperation({
+    summary: 'Request a password-reset code',
+    description:
+      'Sends a one-time code to the email address or phone number on the account. The response is ' +
+      'identical whether or not an account exists, so it cannot be used to enumerate users.',
+  })
+  @ApiResponse({ status: 202, description: 'If an account exists, a reset code has been sent.' })
+  @ApiResponse({ status: 429, description: 'Too many requests.' })
+  async forgotPassword(
+    @Body() dto: ForgotPasswordDto,
+  ): Promise<{ data: Awaited<ReturnType<PasswordResetService['forgot']>> }> {
+    const result = await this.passwordReset.forgot(dto.identifier);
+    return { data: result };
+  }
+
+  @Post('password/reset')
+  @Public()
+  @SkipTenantScope()
+  @HttpCode(HttpStatus.OK)
+  @RateLimit({ bucket: RATE_LIMIT_BUCKET.OTP, keyBy: 'ip+identifier', max: 10, windowSeconds: 300 })
+  @ApiOperation({
+    summary: 'Reset a password with a one-time code',
+    description:
+      'Consumes a reset code and sets a new password. Every existing session is revoked, so a ' +
+      'stolen session does not outlive the reset.',
+  })
+  @ApiResponse({ status: 200, description: 'Password reset; all sessions revoked.' })
+  @ApiResponse({ status: 400, description: 'The code is invalid or has expired.' })
+  @ApiResponse({ status: 429, description: 'Too many wrong attempts for this code.' })
+  async resetPassword(
+    @Body() dto: ResetPasswordDto,
+  ): Promise<{ data: Awaited<ReturnType<PasswordResetService['reset']>> }> {
+    const result = await this.passwordReset.reset({
+      identifier: dto.identifier,
+      code: dto.code,
+      newPassword: dto.newPassword,
+    });
     return { data: result };
   }
 

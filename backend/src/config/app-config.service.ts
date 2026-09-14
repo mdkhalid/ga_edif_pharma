@@ -150,6 +150,25 @@ export class AppConfigService {
     } as const;
   }
 
+  /** One-time-code policy for contact verification and password reset. */
+  get authOtp(): {
+    readonly ttlMinutes: number;
+    readonly maxAttempts: number;
+    readonly exposeInResponse: boolean;
+  } {
+    return {
+      ttlMinutes: this.raw.AUTH_OTP_TTL_MINUTES,
+      maxAttempts: this.raw.AUTH_OTP_MAX_ATTEMPTS,
+      /**
+       * True only when explicitly enabled AND not in production, so a
+       * misconfiguration in a real environment cannot leak codes even if the
+       * schema's production guard were somehow bypassed.
+       */
+      exposeInResponse:
+        this.raw.AUTH_EXPOSE_OTP_IN_RESPONSE && this.raw.NODE_ENV !== 'production',
+    };
+  }
+
   // -------------------------------------------------------- rate limiting
 
   get rateLimit() {
