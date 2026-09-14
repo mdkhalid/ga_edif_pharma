@@ -1,0 +1,73 @@
+name: Load test
+
+# ---------------------------------------------------------------------------
+# The Phase 0 exit criterion, run on a schedule rather than on every push:
+#
+#   A load test sustains 100 RPS on a login + profile read with p95 < 200 ms.
+#
+# It runs against a deployed environment, not a CI runner — a load test against a
+# container on the same machine as the load generator measures the generator. The
+# scheduled run is weekly, which is the cadence `docs/15-testing-strategy.md`
+# prescribes; the manual trigger exists so a release can run it on demand.
+#
+# Like `deploy-dev`, the job is gated on configuration and reports what is missing
+# instead of failing. A weekly job that is red because a secret does not exist is a
+# weekly job everyone learns to ignore.
+# ---------------------------------------------------------------------------
+
+on:
+  schedule:
+    # 03:00 UTC every Monday — outside Indian business hours, so the run does not
+    # compete with real traffic for the environment it targets.
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
+    inputs:
+      duration:
+        description: Test duration (k6 syntax, e.g. 10m)
+        required: false
+        default: 10m
+      target_rps:
+        description: Requests per second for the profile-read scenario
+        required: false
+        default: '100'
+
+jobs:
+  k6-baseline:
+    name: k6 baseline (100 RPS)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check load-test configuration
+        id: config
+        env:
+          BASE_URL: ${{ secrets.LOAD_TEST_BASE_URL }}
+          PASSWORD: ${{ secrets.LOAD_TEST_PASSWORD }}
+        run: |
+          if [ -n "$BASE_URL" ] && [ -n "$PASSWORD" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Load test skipped::LOAD_TEST_BASE_URL and LOAD_TEST_PASSWORD are not set. Add them to run the weekly k6 baseline."
+          fi
+
+      - name: Install k6
+        if: steps.config.outputs.configured == 'true'
+        uses: grafana/setup-k6-action@v1
+
+      - name: Run the baseline
+        if: steps.config.outputs.configured == 'true'
+        env:
+          BASE_URL: ${{ secrets.LOAD_TEST_BASE_URL }}
+          PASSWORD: ${{ secrets.LOAD_TEST_PASSWORD }}
+          IDENTIFIER: ${{ secrets.LOAD_TEST_IDENTIFIER }}
+          DURATION: ${{ inputs.duration || '10m' }}
+          TARGET_RPS: ${{ inputs.target_rps || '100' }}
+        run: |
+          k6 run \
+            -e BASE_URL="$BASE_URL" \
+            -e PASSWORD="$PASSWORD" \
+            -e IDENTIFIER="${IDENTIFIER:-admin@sunrisepharma.local}" \
+            -e DURATION="$DURATION" \
+            -e TARGET_RPS="$TARGET_RPS" \
+            loadtest/k6/auth-baseline.js

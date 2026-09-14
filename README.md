@@ -93,14 +93,25 @@ npm run build:shared
 npm run db:migrate
 npm run db:seed
 
-# 6. Run the backend (website and admin do not exist yet — see the roadmap)
+# 6. Run everything: backend + website + admin (Turborepo runs them concurrently)
+npm run dev
+
+#    ...or just the backend
 npm run dev --workspace=@medichain/backend
+
+# 7. Mobile — a separate terminal, because Metro is not a Next dev server
+npm run dev:mobile
 ```
 
-**What runs today:** the backend API only. The website, admin portal and mobile
-apps are folder skeletons; Phase 0 delivered the backend foundation. Run
-`npm run build:shared` before any backend command that typechecks or tests, since
-the backend consumes the shared packages' built output.
+**What runs today:** all four applications. `npm run dev` brings up the backend API
+(:3001), the customer website (:3000) and the admin portal (:3002) concurrently;
+`npm run dev:mobile` starts the Expo dev server on its own. The catalogue, cart and
+order screens are Phase 1 — what exists now is the application shell and the full
+authentication flow, which is what Phase 0 promised.
+
+Run `npm run build:shared` before any command that typechecks or tests a consumer of
+the shared packages, and `npm run api-client:generate` after a backend contract
+change (CI fails on drift between the two).
 
 | Service | URL |
 |---|---|
@@ -116,12 +127,21 @@ the backend consumes the shared packages' built output.
 
 ## 5. Status
 
-🟢 **Phase 0 — backend and infrastructure complete.** The backend API and its
-migrations, IAM, tenancy, configuration, audit trail, observability and CI/CD are
-built and verified — see [Project Status](docs/00-project-status.md) for what was
+🟢 **Phase 0 complete** — every exit criterion is met except the automatic deploy to
+`dev`, which is blocked on GitHub secrets rather than on code. The backend foundation,
+the three client applications, the generated API client and the load test are all
+built and verified; see [Project Status](docs/00-project-status.md) for what was
 actually executed rather than merely written.
 
-The three client applications (`website/`, `admin-portal/`, `mobile/`) are still
-folder skeletons. They are the remaining Phase 0 scope and the substance of
-Phase 1, so the two are planned as one — see
-[the roadmap](docs/05-phases-roadmap.md).
+What the clients implement today is the **application shell and the full auth flow** —
+sign in, register, verify a contact, reset a password, silent token refresh, and the
+RBAC-aware admin navigation. Catalogue, salt search, cart and orders are **Phase 1**;
+see [the roadmap](docs/05-phases-roadmap.md).
+
+Two caveats, stated rather than buried:
+
+- The **mobile app** is verified by typecheck and `expo config` only — it has not been
+  run on a device or simulator.
+- The **Docker images** are written but have never been built: this environment has no
+  Docker daemon. CI's `build` job is the first thing that will execute the backend
+  image.

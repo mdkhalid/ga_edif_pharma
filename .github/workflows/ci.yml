@@ -50,11 +50,15 @@ jobs:
       - name: Build shared packages
         run: npm run build:shared
 
+      # Every workspace, not just the backend. Turborepo builds each workspace's
+      # dependencies before linting or typechecking it (`dependsOn: ["^build"]` in
+      # turbo.json), so the client apps see built shared packages without a
+      # hand-ordered build step here.
       - name: Lint
-        run: npm run lint --workspace=@medichain/backend
+        run: npm run lint
 
       - name: Typecheck
-        run: npm run typecheck --workspace=@medichain/backend
+        run: npm run typecheck
 
       - name: Enforce module boundaries
         run: npm run check:module-boundaries
@@ -160,6 +164,17 @@ jobs:
           name: openapi
           path: backend/openapi.json
 
+      # The committed contract and the generated client must both match the code.
+      # Without this check, a controller change that was never regenerated ships as
+      # a client/API mismatch — and that failure surfaces at runtime, in
+      # production, as an `undefined` rather than as a red build.
+      - name: Regenerate the API client and check for contract drift
+        run: |
+          npm run api-client:generate
+          git diff --exit-code -- \
+            backend/openapi.json \
+            packages/api-client/src/generated/schema.ts
+
       - name: Build backend image
         run: docker build -f infra/docker/backend.Dockerfile -t medichain-backend:${{ github.sha }} .
 
@@ -199,9 +214,10 @@ jobs:
   #                       equals ledger sum, stock ledger invariant,
   #                       advisory-locked cron runs exactly once.
   #   test-isolation    → Phase 2, BLOCKING. Cross-tenant access must fail.
-  #   contract          → Phase 1. OpenAPI diff + regenerated client must be
-  #                       committed (`packages/api-client` has no generate
-  #                       script yet).
+  #   contract          → Phase 1. The OpenAPI diff + regenerated client are now
+  #                       enforced in the Build job; a dedicated contract job
+  #                       (breaking-change detection, consumer-driven tests) is
+  #                       still owed.
   # ─────────────────────────────────────────────────────────────
 
   # ─────────────────────────────────────────────────────────────

@@ -13,7 +13,7 @@ stated trade-offs is a stack nobody thought about.
 |---|---|---|
 | Language (all) | **TypeScript** | 5.7+ |
 | Runtime | **Node.js** | 22 LTS |
-| Package manager | **pnpm** workspaces + **Turborepo** | 9 / 2 |
+| Package manager | **npm** workspaces + **Turborepo** (ADR-016) | 10 / 2 |
 | Backend framework | **NestJS** | 11 |
 | ORM / query builder | **Prisma** (+ Kysely for complex reads) | 6 |
 | Primary database | **PostgreSQL** | 17 |
@@ -22,15 +22,23 @@ stated trade-offs is a stack nobody thought about.
 | Job queue | **BullMQ** | 5 |
 | Event streaming | **Kafka** (phase 4+); outbox in Postgres before that | 3.7 |
 | Object storage | **S3-compatible** (MinIO local, S3/Spaces prod) | — |
-| API contract | **OpenAPI 3.1** + generated client | — |
-| Website framework | **Next.js** (App Router) | 15 |
+| API contract | **OpenAPI 3.0** (as emitted by Swagger) + generated client (ADR-017) | — |
+| Website framework | **Next.js** (App Router) | 16 |
 | UI library | **React** + Tailwind + shadcn/ui | 19 |
-| Mobile framework | **React Native** + **Expo** | 0.76 / SDK 52 |
+| Mobile framework | **React Native** + **Expo** | 0.86 / SDK 57 |
 | Validation | **class-validator** (server), **Zod** (client + env) | — |
 | Testing | **Vitest/Jest**, **Supertest**, **Testcontainers**, **Playwright** | — |
 | Observability | **Pino**, **OpenTelemetry**, **Prometheus**, **Grafana**, **Sentry** | — |
 | Container / orchestration | **Docker**, **Kubernetes** (or ECS Fargate) | — |
 | IaC | **Terraform** | 1.9 |
+
+> **On version numbers.** This table is design intent. The workspace `package.json`
+> files are the source of truth for what is actually installed, and the client
+> applications pin the versions that were current when they were built — newer than
+> several rows above. See
+> [ADR-017](03-architecture-decisions.md#adr-017--client-apps-pin-the-current-stable-frontend-stack)
+> for the reasoning, and [ADR-016](03-architecture-decisions.md#adr-016--npm-workspaces-instead-of-pnpm)
+> for the package manager.
 
 ---
 

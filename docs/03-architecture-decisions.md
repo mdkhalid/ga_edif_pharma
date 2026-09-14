@@ -594,6 +594,60 @@ commit, and verify `pnpm install --frozen-lockfile` locally first.
 
 ---
 
+## ADR-017 — Client apps pin the current stable frontend stack
+
+### Context
+
+[02-tech-stack.md](02-tech-stack.md) pins Next.js 15, React 19, TailwindCSS 4,
+React Native 0.76 and Expo SDK 52. Those were current when the design documents
+were written. By the time the Phase 0 client applications were built, the
+ecosystem had shipped Next 16, React 19.3, TailwindCSS 4.3, React Native 0.86/0.87
+and Expo SDK 57 — the table was behind by a full major version in two places.
+
+### Decision
+
+The three client applications pin the versions that are current when they are
+built, not the versions in the tech-stack document:
+
+| App | Pinned |
+|---|---|
+| `website`, `admin-portal` | Next **16.3.5** · React **19.3.0** · TailwindCSS **4.3.3** · TanStack Query **5.102.8** · ESLint **9.39.5** |
+| `mobile` | Expo SDK **57.0.22** · React Native **0.86.3** · React **19.2.3** · Babel **7.29.7** |
+
+This is the same move ADR-016 made for the package manager: reconcile the document
+to the implementation in one place rather than leave the drift implicit.
+
+### Why
+
+- The version table is **design intent, not a contract**, and it had already
+  drifted. Starting a greenfield application on a superseded major means paying a
+  migration before the first feature ships.
+- Exact pins (no `^`), matching the backend's policy, so the lockfile is the only
+  thing that moves a dependency.
+
+### Consequences
+
+- **Mobile is deliberately not on the newest React/React Native.** Expo SDK 57
+  targets React Native 0.86 / React 19.2; the newest standalone React Native (0.87)
+  is not the pairing Expo supports. For an Expo app the SDK's pairing *is* the
+  compatibility contract, and the two must be taken as a set.
+- **Babel 7, not Babel 8.** `@babel/core` 8 is released; `babel-preset-expo` targets
+  7, so the mobile app pins 7.29.7.
+- **Next 16 removed `next lint` and the `eslint` key in `next.config.ts`.** The web
+  apps lint with ESLint 9 and a flat `eslint.config.mjs` instead.
+- `middleware.ts` is deprecated in favour of `proxy.ts` in Next 16. It still works
+  and is still used; the rename is a follow-up rather than a build failure, and the
+  redirect it performs is a convenience, not an access control.
+- [02-tech-stack.md](02-tech-stack.md) carries a pointer to this ADR; its version
+  column is illustrative rather than authoritative.
+
+### Revisit when
+
+Expo's SDK line moves — each SDK pins a React Native pairing, so the whole set moves
+together — or a security advisory requires a version the SDK does not support.
+
+---
+
 ## Decision summary
 
 | ADR | Decision | Revisit trigger |
@@ -615,3 +669,4 @@ commit, and verify `pnpm install --frozen-lockfile` locally first.
 | 014 | Layered rate limiting, fail-open | Per-tenant quotas |
 | 015 | Append-only partitioned audit log | Columnar analysis |
 | 016 | npm workspaces, not pnpm | Install cost or phantom deps bite |
+| 017 | Client apps pin current stable, not docs/02's versions | Expo SDK moves, or an advisory forces it |

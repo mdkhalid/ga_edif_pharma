@@ -74,6 +74,7 @@ crash.*.log
 .cursor/
 .claude/
 .aider*
+.commandcode/
 
 # Local overrides that must never be shared
 docker-compose.override.yml
