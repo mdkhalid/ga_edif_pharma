@@ -22,6 +22,7 @@ import { MetricsInterceptor, ObservabilityModule } from './infra/observability';
 // Feature modules are reached through their public barrels, never by deep
 // import — see `scripts/check-module-boundaries.mjs`.
 import { AuditModule } from './modules/audit';
+import { CatalogModule } from './modules/catalog';
 import { HealthModule } from './modules/health';
 import { IamModule } from './modules/iam';
 import { OnboardingModule } from './modules/onboarding-kyc';
@@ -83,6 +84,7 @@ import { OnboardingModule } from './modules/onboarding-kyc';
     HealthModule,
     IamModule,
     OnboardingModule,
+    CatalogModule,
   ],
   providers: [
     // ---------------------------------------------------------------- pipes
