@@ -19,6 +19,8 @@
 //   - Timestamps are TIMESTAMPTZ. A naive timestamp in a system with warehouses
 //     in more than one timezone is a bug waiting for a DST boundary.
 
+// Phase 1 models (Core Commerce MVP) — added for Onboarding, Catalogue, Salt Engine, Cart and Orders.
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -84,6 +86,10 @@ model Tenant {
   organisations Organisation[]
   users         User[]
   roles         Role[]
+  products      Product[]
+  warehouseStocks WarehouseStock[]
+  carts         Cart[]
+  customerOrders CustomerOrder[]
 
   @@map("tenant")
 }
@@ -131,6 +137,9 @@ model Organisation {
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   users  User[]
+  products Product[]
+  carts Cart[]
+  customerOrders CustomerOrder[]
 
   @@unique([tenantId, gstin])
   @@index([tenantId, status])
@@ -615,3 +624,163 @@ model OutboxEvent {
   @@index([aggregateType, aggregateId, createdAt])
   @@map("outbox_event")
 }
+
+// ===========================================================================
+// Phase 1 — Core Commerce MVP
+// ===========================================================================
+
+enum ProductStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum ProductVisibility {
+  PUBLIC
+  CATALOGUE_ONLY
+}
+
+/// A medicine/product in the catalogue.
+/// Controlled by schedule (H, H1, X, OTC). Every product belongs to a tenant
+/// and is visible only within that tenant's catalogue.
+model Product {
+  id             String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId       String            @map("tenant_id") @db.Uuid
+  organisationId String?           @map("organisation_id") @db.Uuid
+  name           String            @db.VarChar(300)
+  description    String?           @db.Text
+  // OTC|H|H1|X|NARCOTIC
+  schedule       String            @db.VarChar(10)
+  hsnCode        String?           @db.VarChar(16)
+  strength       String?           @db.VarChar(50)
+  packSize       Decimal           @default(0) @map("pack_size") @db.Decimal(18, 4)
+  // e.g. strip, bottle, cap
+  packUnit       String?           @db.VarChar(20)
+  price          Decimal           @default(0) @map("price") @db.Decimal(18, 4)
+  currency       String            @default("INR") @db.VarChar(3)
+  status         ProductStatus     @default(ACTIVE)
+  visibility     ProductVisibility @default(PUBLIC)
+
+  // Aliases / salt variations that this product maps to.
+  saltAliases String[] @default([]) @map("salt_aliases")
+  // Composition key + ingredient names.
+  compositionKey   String?  @map("composition_key") @db.Text
+  compositionNames String[] @default([]) @map("composition_names")
+
+  warehouseStock WarehouseStock[]
+  cartItems CartItem[]
+  orderItems OrderItem[]
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  organisation Organisation? @relation(fields: [organisationId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([tenantId, schedule])
+  @@index([tenantId, status])
+  @@map("product")
+}
+
+/// Warehouse stock level for a product.
+model WarehouseStock {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  productId   String    @map("product_id") @db.Uuid
+  warehouseId String    @db.VarChar(100)
+  quantity    Decimal   @default(0) @map("quantity") @db.Decimal(18, 4)
+  batchId     String?   @db.VarChar(64)
+  expiryDate  DateTime? @map("expiry_date") @db.Timestamptz(6)
+  reserved    Decimal   @default(0) @map("reserved") @db.Decimal(18, 4)
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, productId, warehouseId])
+  @@index([tenantId, productId])
+  @@map("warehouse_stock")
+}
+
+/// A customer shopping cart. ACTIVE, ABANDONED, CONVERTED.
+model Cart {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Uuid
+  organisationId String   @map("organisation_id") @db.Uuid
+  status         String   @default("ACTIVE") @db.VarChar(20)
+  expiresAt      DateTime @map("expires_at") @db.Timestamptz(6)
+
+  items CartItem[]
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status])
+  @@map("cart")
+}
+
+/// A cart item line. Price is snapshot at time of add.
+model CartItem {
+  id        String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cartId    String  @map("cart_id") @db.Uuid
+  productId String  @map("product_id") @db.Uuid
+  quantity  Decimal @default(0) @map("quantity") @db.Decimal(18, 4)
+  price     Decimal @default(0) @map("price") @db.Decimal(18, 4)
+
+  cart    Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([cartId, productId])
+  @@index([cartId])
+  @@map("cart_item")
+}
+
+/// A placed order. Status: PLACED, CONFIRMED, DISPATCHED, DELIVERED, CANCELLED.
+/// Payment: PENDING, PAID, FAILED, REFUNDED.
+model CustomerOrder {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Uuid
+  organisationId String   @map("organisation_id") @db.Uuid
+  status         String   @default("PLACED") @db.VarChar(20)
+  paymentStatus  String   @default("PENDING") @db.VarChar(20)
+  subtotal       Decimal  @default(0) @map("subtotal") @db.Decimal(18, 4)
+  discount       Decimal  @default(0) @map("discount") @db.Decimal(18, 4)
+  total          Decimal  @default(0) @map("total") @db.Decimal(18, 4)
+  currency       String   @default("INR") @db.VarChar(3)
+  deliveryAddress String? @db.Text
+  notes           String? @db.Text
+  scheduledAt     DateTime? @map("scheduled_at") @db.Timestamptz(6)
+  cancelledAt     DateTime? @map("cancelled_at") @db.Timestamptz(6)
+  cancelledReason String?   @map("cancelled_reason") @db.VarChar(200)
+
+  orderItems OrderItem[]
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([tenantId, status])
+  @@index([tenantId, createdAt])
+  @@map("customer_order")
+}
+
+/// An order item line. Price is snapshot at order time.
+model OrderItem {
+  id        String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId   String  @map("order_id") @db.Uuid
+  productId String  @map("product_id") @db.Uuid
+  quantity  Decimal @default(0) @map("quantity") @db.Decimal(18, 4)
+  price     Decimal @default(0) @map("price") @db.Decimal(18, 4)
+
+  order   CustomerOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([orderId, productId])
+  @@index([orderId])
+  @@map("order_item")
+}
+
+// ===========================================================================
+// End Phase 1 models
+// ===========================================================================
