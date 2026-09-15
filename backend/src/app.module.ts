@@ -24,6 +24,7 @@ import { MetricsInterceptor, ObservabilityModule } from './infra/observability';
 import { AuditModule } from './modules/audit';
 import { HealthModule } from './modules/health';
 import { IamModule } from './modules/iam';
+import { OnboardingModule } from './modules/onboarding-kyc';
 
 /**
  * Root module.
@@ -81,6 +82,7 @@ import { IamModule } from './modules/iam';
     // HTTP-facing modules.
     HealthModule,
     IamModule,
+    OnboardingModule,
   ],
   providers: [
     // ---------------------------------------------------------------- pipes
