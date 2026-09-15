@@ -26,6 +26,8 @@ import { CatalogModule } from './modules/catalog';
 import { HealthModule } from './modules/health';
 import { IamModule } from './modules/iam';
 import { OnboardingModule } from './modules/onboarding-kyc';
+import { SaltEngineModule } from './modules/salt-engine';
+import { SearchModule } from './modules/search';
 
 /**
  * Root module.
@@ -85,6 +87,8 @@ import { OnboardingModule } from './modules/onboarding-kyc';
     IamModule,
     OnboardingModule,
     CatalogModule,
+    SaltEngineModule,
+    SearchModule,
   ],
   providers: [
     // ---------------------------------------------------------------- pipes
