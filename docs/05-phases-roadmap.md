@@ -223,10 +223,17 @@ This is the phase that proves the product. Everything else is refinement.
 | Onboarding & KYC (backend) | Submit → PENDING, reviewer queue, approve → ACTIVE, reject → BLOCKED; audited | typecheck, boundaries, lint, 243 unit tests green |
 | Catalogue (backend) | Product create/browse/detail/update; paginated, allow-listed sort; audited writes | typecheck, boundaries, lint, 243 unit tests green |
 | Salt engine + search (backend) | Canonical composition key; `GET /search/products` with AND combination matching + `exact` flag; no `pg_trgm` yet | typecheck, boundaries, lint, 248 unit tests green |
+| Cart (backend) | Server-side cart per org; live price, availability checks; add/update/remove | typecheck, boundaries, lint, 248 unit tests green |
+| Orders (backend) | Idempotent placement with row-locked reservation; canonical state machine; cancel releases stock; audited | typecheck, boundaries, lint, 248 unit tests green |
 
-Not started: cart, orders, notifications, admin queues, website/mobile
-storefronts, OpenAPI regen. Typo tolerance (`Paracetmol`) needs the `pg_trgm`
-migration and is explicitly not claimed yet.
+Also fixed in this slice: `tenantId` added to line-item tables (scoping
+extension requirement); commerce models classified in
+`tenant-scoping.extension.ts`; earlier slices retrofitted to
+`findFirst`/`updateMany` (Prisma rejects extension-rewritten unique `where`).
+
+Not started: notifications, admin queues, website/mobile storefronts, OpenAPI
+regen, migration run. Typo tolerance (`Paracetmol`) needs the `pg_trgm`
+migration; `order_status_history` needs its table — both explicitly unclaimed.
 
 ### Risks
 
