@@ -222,9 +222,11 @@ This is the phase that proves the product. Everything else is refinement.
 | DB models | `product`, `warehouse_stock`, `cart`, `cart_item`, `customer_order`, `order_item` | `prisma validate` clean; migration not run |
 | Onboarding & KYC (backend) | Submit → PENDING, reviewer queue, approve → ACTIVE, reject → BLOCKED; audited | typecheck, boundaries, lint, 243 unit tests green |
 | Catalogue (backend) | Product create/browse/detail/update; paginated, allow-listed sort; audited writes | typecheck, boundaries, lint, 243 unit tests green |
+| Salt engine + search (backend) | Canonical composition key; `GET /search/products` with AND combination matching + `exact` flag; no `pg_trgm` yet | typecheck, boundaries, lint, 248 unit tests green |
 
-Not started: salt engine, search, cart, orders, notifications, admin queues,
-website/mobile storefronts, OpenAPI regen.
+Not started: cart, orders, notifications, admin queues, website/mobile
+storefronts, OpenAPI regen. Typo tolerance (`Paracetmol`) needs the `pg_trgm`
+migration and is explicitly not claimed yet.
 
 ### Risks
 

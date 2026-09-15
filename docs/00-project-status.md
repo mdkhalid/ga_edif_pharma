@@ -13,16 +13,16 @@ than merely written, and what is still open. Where this file and
 | Phase | Theme | State | Complete |
 |---|---|---|---|
 | **0** | Foundation | **Complete but for the `dev` deploy, which needs credentials** | ~97% |
-| 1 | Core Commerce MVP | **In flight — schema + onboarding + catalogue backend landed, unverified end-to-end** | ~15% |
+| 1 | Core Commerce MVP | **In flight — schema, onboarding, catalogue, salt-engine + search backend landed, unverified end-to-end** | ~25% |
 | 2 | Commercial Engine | Not started | 0% |
 | 3 | Fulfilment & Finance | Not started | 0% |
 | 4 | Scale & Mobile GA | Not started | 0% |
 | 5 | Intelligence | Not started | 0% |
 | 6 | Compliance & Multi-tenant | Not started | 0% |
 
-**Overall: ~16% of the seven-phase programme.** Phase 0 is finished except the
+**Overall: ~17% of the seven-phase programme.** Phase 0 is finished except the
 credential-blocked `dev` deploy; Phase 1 backend work has started (DB models,
-onboarding, catalogue) with no exit criterion met yet.
+onboarding, catalogue, salt-engine + search) with no exit criterion met yet.
 
 Everything Phase 0 promised now exists: the backend foundation, the three client
 applications, an API client generated from the contract, and a load test that proves
@@ -179,9 +179,10 @@ something that matters:
 | DB models | `product`, `warehouse_stock`, `cart`, `cart_item`, `customer_order`, `order_item` in `schema.prisma` | `prisma validate` + client regenerated; migration **not** run |
 | Onboarding | `POST /onboarding/applications`, `GET /onboarding/applications`, approve/reject; row-locked, audited | typecheck, boundaries, lint, 243 unit tests green |
 | Catalogue | `POST/GET/PATCH /catalog/products`; paginated browse with search/schedule/sort allow-list; audited writes | typecheck, boundaries, lint, 243 unit tests green |
+| Salt engine + search | Canonical composition key (pure, unit-tested); `GET /search/products` with AND combination matching + `exact` flag | typecheck, boundaries, lint, 248 unit tests green |
 
-Still open: salt engine + search, cart + orders, notifications, admin queues,
-storefronts, OpenAPI regen, migration run, and every Phase 1 exit criterion.
+Still open: cart + orders, notifications, admin queues, storefronts, OpenAPI
+regen, migration run, `pg_trgm` typo tolerance, and every Phase 1 exit criterion.
 
 ---
 
