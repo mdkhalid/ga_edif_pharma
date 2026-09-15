@@ -1,6 +1,6 @@
 # 00 — Project Status
 
-> **Last updated:** 2026-09-15 · **Branch:** `main` · **Phase in flight:** Phase 1 — backend slices landing (schema, onboarding, catalogue, salt/search, cart/orders); no exit criterion met yet · **CI:** 🟢 every local gate green; remote run still pending
+> **Last updated:** 2026-09-15 · **Branch:** `main` · **Phase in flight:** Phase 1 — backend complete except storefronts (schema, onboarding, catalogue, salt/search, cart/orders, notifications); no exit criterion met yet · **CI:** 🟢 every local gate green; remote run still pending
 
 A single-glance view of how much is actually built, what has been *verified* rather
 than merely written, and what is still open. Where this file and
@@ -13,16 +13,17 @@ than merely written, and what is still open. Where this file and
 | Phase | Theme | State | Complete |
 |---|---|---|---|
 | **0** | Foundation | **Complete but for the `dev` deploy, which needs credentials** | ~97% |
-| 1 | Core Commerce MVP | **In flight — schema, onboarding, catalogue, salt/search, cart/orders backend landed, unverified end-to-end** | ~40% |
+| 1 | Core Commerce MVP | **In flight — backend landed (schema, onboarding, catalogue, salt/search, cart/orders, notifications); storefronts open** | ~55% |
 | 2 | Commercial Engine | Not started | 0% |
 | 3 | Fulfilment & Finance | Not started | 0% |
 | 4 | Scale & Mobile GA | Not started | 0% |
 | 5 | Intelligence | Not started | 0% |
 | 6 | Compliance & Multi-tenant | Not started | 0% |
 
-**Overall: ~20% of the seven-phase programme.** Phase 0 is finished except the
-credential-blocked `dev` deploy; Phase 1 backend is halfway (DB models,
-onboarding, catalogue, salt/search, cart/orders) with no exit criterion met yet.
+**Overall: ~22% of the seven-phase programme.** Phase 0 is finished except the
+credential-blocked `dev` deploy; Phase 1 backend is landed (DB models,
+onboarding, catalogue, salt/search, cart/orders, notifications) with storefronts
+open and no exit criterion met yet.
 
 Everything Phase 0 promised now exists: the backend foundation, the three client
 applications, an API client generated from the contract, and a load test that proves
@@ -182,10 +183,13 @@ something that matters:
 | Salt engine + search | Canonical composition key (pure, unit-tested); `GET /search/products` with AND combination matching + `exact` flag | typecheck, boundaries, lint, 248 unit tests green |
 | Cart | One ACTIVE cart per org; live pricing, availability checks, add/update/remove | typecheck, boundaries, lint, 248 unit tests green |
 | Orders | Idempotent placement from cart with row-locked stock reservation; `ORDER_TRANSITIONS` machine (confirm/process/dispatch/deliver/cancel with release); audited | typecheck, boundaries, lint, 248 unit tests green |
+| Notifications | `NotificationPort.sendOrderPlaced` + `NotificationService` (best-effort, post-commit); pure order templates, unit-tested; log adapter | typecheck, boundaries, lint, 250 unit tests green |
+| Admin (backend) | No new code needed: buyer queue = onboarding endpoints, catalogue CRUD = catalog endpoints, order list/status = orders endpoints (all capability-gated) | covered by the slices above |
 
-Still open: notifications, admin queues, storefronts, OpenAPI regen, migration
-run, `pg_trgm` typo tolerance, `order_status_history` table, and every Phase 1
-exit criterion (none proven end-to-end yet).
+Still open: website + mobile storefronts, OpenAPI regen, migration run,
+durable notification retry (outbox relay), `pg_trgm` typo tolerance,
+`order_status_history` table, and every Phase 1 exit criterion (none proven
+end-to-end yet).
 
 ---
 

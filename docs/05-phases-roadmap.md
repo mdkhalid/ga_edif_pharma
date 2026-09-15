@@ -231,9 +231,12 @@ extension requirement); commerce models classified in
 `tenant-scoping.extension.ts`; earlier slices retrofitted to
 `findFirst`/`updateMany` (Prisma rejects extension-rewritten unique `where`).
 
-Not started: notifications, admin queues, website/mobile storefronts, OpenAPI
-regen, migration run. Typo tolerance (`Paracetmol`) needs the `pg_trgm`
-migration; `order_status_history` needs its table — both explicitly unclaimed.
+| Notifications (backend) | `sendOrderPlaced` port + best-effort post-commit send; pure templates, unit-tested; log adapter only | typecheck, boundaries, lint, 250 unit tests green |
+| Admin (backend) | Covered by existing endpoints: buyer queue (onboarding), catalogue CRUD, order list + manual status (orders) | covered above |
+
+Not started: website/mobile storefronts, OpenAPI regen, migration run.
+Durable retry (outbox relay), typo tolerance (`pg_trgm`), and
+`order_status_history` remain explicitly unclaimed.
 
 ### Risks
 
