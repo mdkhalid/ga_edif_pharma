@@ -48,6 +48,15 @@ export const TENANT_SCOPED_MODELS = [
   'OtpChallenge',
   'AuditLog',
   'OutboxEvent',
+  // Phase 1 commerce models. Every one carries a non-null `tenantId` —
+  // including the line-item tables, which are denormalised per the schema
+  // convention so the extension can filter them directly.
+  'Product',
+  'WarehouseStock',
+  'Cart',
+  'CartItem',
+  'CustomerOrder',
+  'OrderItem',
 ] as const;
 
 /**

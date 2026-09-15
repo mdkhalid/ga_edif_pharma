@@ -81,7 +81,10 @@ export class OnboardingService {
         throw new BusinessRuleViolationError('Only PENDING applications can be approved.');
       }
 
-      await tx.organisation.update({
+      // updateMany, not update: the scoping extension adds `tenantId` to the
+      // filter, and Prisma rejects a non-unique `where` on update/findUnique.
+      // Ownership is already proven by the row lock above.
+      await tx.organisation.updateMany({
         where: { id },
         data: {
           status: OrganisationStatus.ACTIVE,
@@ -117,7 +120,8 @@ export class OnboardingService {
         throw new BusinessRuleViolationError('Only PENDING applications can be rejected.');
       }
 
-      await tx.organisation.update({
+      // updateMany for the same Prisma-unique-where reason as in approve.
+      await tx.organisation.updateMany({
         where: { id },
         data: { status: OrganisationStatus.BLOCKED },
       });

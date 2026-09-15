@@ -119,7 +119,9 @@ export class CatalogService {
     status: string;
     strength: string | null;
   } | null> {
-    const row = await this.prisma.product.findUnique({
+    // findFirst, not findUnique: the scoping extension adds `tenantId` to the
+    // filter, and Prisma rejects a non-unique `where` on findUnique/update.
+    const row = await this.prisma.product.findFirst({
       where: { id },
       select: { id: true, name: true, schedule: true, price: true, status: true, strength: true },
     });
@@ -144,7 +146,9 @@ export class CatalogService {
       );
       if (!existing) throw new NotFoundError('Product not found.');
 
-      await tx.product.update({
+      // updateMany for the same Prisma-unique-where reason; ownership is
+      // proven by the row lock above.
+      await tx.product.updateMany({
         where: { id },
         data: {
           ...(dto.name !== undefined ? { name: dto.name } : {}),

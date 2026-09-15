@@ -44,26 +44,27 @@ describe('applyTenantScope', () => {
     });
 
     it('throws for an unclassified model rather than querying it unscoped', () => {
-      // `Product` is a realistic future table. If someone adds it to the schema
-      // and forgets to classify it, this is the failure they get — which is far
-      // better than a query that silently returns every tenant's rows.
+      // `FutureWidget` is a realistic future table. If someone adds it to the
+      // schema and forgets to classify it, this is the failure they get —
+      // which is far better than a query that silently returns every tenant's
+      // rows. (`Product` used to play this role; it is now classified.)
       expect(() =>
         asTenant(TENANT_A, () =>
-          applyTenantScope({ model: 'Product', operation: 'findMany', args: {} }),
+          applyTenantScope({ model: 'FutureWidget', operation: 'findMany', args: {} }),
         ),
       ).toThrow(/not classified for tenant scoping/);
 
       expect(() =>
         asTenant(TENANT_A, () =>
-          applyTenantScope({ model: 'Product', operation: 'findMany', args: {} }),
+          applyTenantScope({ model: 'FutureWidget', operation: 'findMany', args: {} }),
         ),
-      ).toThrow(/Product/);
+      ).toThrow(/FutureWidget/);
     });
 
     it('names the file to edit in the error, so the fix is obvious', () => {
       expect(() =>
         asTenant(TENANT_A, () =>
-          applyTenantScope({ model: 'Product', operation: 'findMany', args: {} }),
+          applyTenantScope({ model: 'FutureWidget', operation: 'findMany', args: {} }),
         ),
       ).toThrow(/tenant-scoping\.extension\.ts/);
     });
@@ -289,7 +290,7 @@ describe('applyTenantScope', () => {
       // is a decision someone has not made yet.
       await expect(
         requestContext.runUnscoped(async () =>
-          applyTenantScope({ model: 'Product', operation: 'findMany', args: {} }),
+          applyTenantScope({ model: 'FutureWidget', operation: 'findMany', args: {} }),
         ),
       ).rejects.toThrow(/not classified for tenant scoping/);
     });

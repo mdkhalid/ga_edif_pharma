@@ -89,7 +89,9 @@ model Tenant {
   products      Product[]
   warehouseStocks WarehouseStock[]
   carts         Cart[]
+  cartItems     CartItem[]
   customerOrders CustomerOrder[]
+  orderItems    OrderItem[]
 
   @@map("tenant")
 }
@@ -719,13 +721,18 @@ model Cart {
 }
 
 /// A cart item line. Price is snapshot at time of add.
+/// Carries its own `tenant_id` per the project convention: the scoping
+/// extension injects a tenant filter into every query on a scoped model, so a
+/// line item without the column could not be classified as scoped.
 model CartItem {
   id        String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String  @map("tenant_id") @db.Uuid
   cartId    String  @map("cart_id") @db.Uuid
   productId String  @map("product_id") @db.Uuid
   quantity  Decimal @default(0) @map("quantity") @db.Decimal(18, 4)
   price     Decimal @default(0) @map("price") @db.Decimal(18, 4)
 
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   cart    Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
@@ -766,13 +773,16 @@ model CustomerOrder {
 }
 
 /// An order item line. Price is snapshot at order time.
+/// Carries its own `tenant_id` — see CartItem.
 model OrderItem {
   id        String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String  @map("tenant_id") @db.Uuid
   orderId   String  @map("order_id") @db.Uuid
   productId String  @map("product_id") @db.Uuid
   quantity  Decimal @default(0) @map("quantity") @db.Decimal(18, 4)
   price     Decimal @default(0) @map("price") @db.Decimal(18, 4)
 
+  tenant  Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   order   CustomerOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
 
