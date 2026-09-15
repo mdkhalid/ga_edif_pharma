@@ -30,7 +30,29 @@ export interface OtpDelivery {
   readonly expiresInMinutes: number;
 }
 
+export interface OrderPlacedNotice {
+  /** Order id for tracking. Never contains line-item or payment details. */
+  readonly orderId: string;
+  readonly total: string;
+  readonly currency: string;
+  readonly itemCount: number;
+  /** Rendered subject/body — the adapter transports, never composes. */
+  readonly emailSubject: string;
+  readonly emailBody: string;
+  readonly smsBody: string;
+  readonly email: string | null;
+  readonly phone: string | null;
+}
+
 export interface NotificationPort {
   /** Delivers a one-time code. Must not throw for an unknown destination. */
   sendOtp(delivery: OtpDelivery): Promise<void>;
+  /**
+   * Delivers an order-placed notice by email and SMS.
+   *
+   * Best-effort by contract: a notification must never fail order placement.
+   * Callers catch and log; durability (outbox relay with retry) arrives with
+   * the fulfilment phase. Skips channels with no destination.
+   */
+  sendOrderPlaced(notice: OrderPlacedNotice): Promise<void>;
 }

@@ -16,6 +16,7 @@ import {
   NotFoundError,
 } from '../../../common/exceptions/domain.exception';
 import { AuditService } from '../../audit';
+import { NotificationService } from '../../notifications';
 import type { ListOrdersQuery, PlaceOrderDto } from '../api/dto/order.dto';
 
 /**
@@ -45,6 +46,7 @@ export class OrderService {
     @Inject(PRISMA_EXTENDED) private readonly prisma: ExtendedPrismaClient,
     private readonly uow: UnitOfWork,
     private readonly audit: AuditService,
+    private readonly notifications: NotificationService,
   ) {}
 
   async place(
@@ -53,7 +55,11 @@ export class OrderService {
     actorId: string,
     dto: PlaceOrderDto,
   ): Promise<{ id: string; total: string }> {
-    return this.uow.transaction(async (tx) => {
+    // The notification goes out after the commit, never inside it: a
+    // retried transaction must not re-send, and a failed send must not roll
+    // back a placed order. Best-effort — durability is the outbox relay's
+    // job, which is still to come.
+    const placed = await this.uow.transaction(async (tx) => {
       const cart = await tx.cart.findFirst({
         where: { organisationId, status: 'ACTIVE' },
         include: {
@@ -127,8 +133,31 @@ export class OrderService {
         metadata: { lines: lines.length, total: total.toString() },
       });
 
-      return { id: order.id, total: total.toString() };
+      return { id: order.id, total: total.toString(), lines: lines.length };
     });
+
+    const [org, tenant] = await Promise.all([
+      this.prisma.organisation.findFirst({
+        where: { id: organisationId },
+        select: { email: true, phone: true },
+      }),
+      this.prisma.tenant.findFirst({
+        where: { id: tenantId },
+        select: { name: true },
+      }),
+    ]);
+
+    await this.notifications.sendOrderPlaced({
+      orderId: placed.id,
+      total: placed.total,
+      currency: 'INR',
+      itemCount: placed.lines,
+      tenantName: tenant?.name ?? 'MediChain',
+      email: org?.email ?? null,
+      phone: org?.phone ?? null,
+    });
+
+    return { id: placed.id, total: placed.total };
   }
 
   async list(

@@ -1,6 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 
-import type { NotificationPort, OtpDelivery } from '../../common/ports/notification.port';
+import type {
+  NotificationPort,
+  OrderPlacedNotice,
+  OtpDelivery,
+} from '../../common/ports/notification.port';
 
 /**
  * Development OTP transport: writes the code to the structured log.
@@ -26,5 +30,23 @@ export class LogNotificationAdapter implements NotificationPort {
         `valid for ${delivery.expiresInMinutes} minute(s). ` +
         'No email/SMS transport is configured; the code is logged only.',
     );
+  }
+
+  async sendOrderPlaced(notice: OrderPlacedNotice): Promise<void> {
+    // Logged, not sent — same dev-only rationale as sendOtp. The real
+    // SMTP/SMS adapters implement this same method; callers do not change.
+    if (notice.email) {
+      this.logger.log(
+        `Order-placed email to ${notice.email}: ${notice.emailSubject} — ${notice.emailBody}`,
+      );
+    }
+    if (notice.phone) {
+      this.logger.log(`Order-placed SMS to ${notice.phone}: ${notice.smsBody}`);
+    }
+    if (!notice.email && !notice.phone) {
+      this.logger.warn(
+        `Order ${notice.orderId} placed but the organisation has no email or phone; notice dropped.`,
+      );
+    }
   }
 }

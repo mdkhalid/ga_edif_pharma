@@ -26,6 +26,7 @@ import { CartModule } from './modules/cart';
 import { CatalogModule } from './modules/catalog';
 import { HealthModule } from './modules/health';
 import { IamModule } from './modules/iam';
+import { NotificationsModule } from './modules/notifications';
 import { OnboardingModule } from './modules/onboarding-kyc';
 import { OrdersModule } from './modules/orders';
 import { SaltEngineModule } from './modules/salt-engine';
@@ -84,6 +85,7 @@ import { SearchModule } from './modules/search';
     ObservabilityModule,
     // Cross-cutting feature modules.
     AuditModule,
+    NotificationsModule,
     // HTTP-facing modules.
     HealthModule,
     IamModule,

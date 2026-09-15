@@ -3,9 +3,8 @@ import { JwtModule } from '@nestjs/jwt';
 
 import { AppConfigService } from '../../config/app-config.service';
 import { SESSION_AUTHORITY, TOKEN_VERIFIER } from '../../common/ports/auth.port';
-import { NOTIFICATION_PORT } from '../../common/ports/notification.port';
-import { LogNotificationAdapter } from '../../infra/notifications/log-notification.adapter';
 import { AuditModule } from '../audit';
+import { NotificationsModule } from '../notifications';
 import { AuthController } from './api/auth.controller';
 import { AuthService } from './application/services/auth.service';
 import { ContactVerificationService } from './application/services/contact-verification.service';
@@ -36,6 +35,12 @@ import { TokenService } from './application/services/token.service';
  * It also means a future extracted auth service satisfies the same two
  * interfaces over HTTP, and only this file changes.
  *
+ * ## Where the notification transport comes from
+ *
+ * `NotificationsModule` owns the `NOTIFICATION_PORT` binding (it used to live
+ * here). Importing the module keeps the OTP flows working with no other
+ * change, and the order flows consume the same transport.
+ *
  * ## Why `JwtModule` is registered here and not globally
  *
  * Only this module signs and verifies tokens. Registering it globally would put
@@ -45,6 +50,7 @@ import { TokenService } from './application/services/token.service';
 @Module({
   imports: [
     AuditModule,
+    NotificationsModule,
     JwtModule.registerAsync({
       inject: [AppConfigService],
       useFactory: (config: AppConfigService) => ({
@@ -76,10 +82,6 @@ import { TokenService } from './application/services/token.service';
     PasswordResetService,
     { provide: TOKEN_VERIFIER, useExisting: TokenService },
     { provide: SESSION_AUTHORITY, useExisting: SessionService },
-    // No email/SMS transport exists in Phase 0. The logging adapter makes the
-    // verification and reset flows driveable locally; Phase 1 swaps in a real
-    // adapter here and nothing else changes. See `NotificationPort`.
-    { provide: NOTIFICATION_PORT, useClass: LogNotificationAdapter },
   ],
   exports: [
     AuthService,
