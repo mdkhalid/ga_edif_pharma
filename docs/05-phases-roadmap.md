@@ -1,6 +1,6 @@
 # 05 — Phased Roadmap
 
-> **Status:** Approved · **Owner:** Product + Architecture · **Last updated:** 2026-09-11
+> **Status:** Approved · **Owner:** Product + Architecture · **Last updated:** 2026-09-15
 
 Seven phases. Each phase is **independently deployable and commercially useful** —
 no phase exists purely to set up the next one. A phase is done when its exit
@@ -214,6 +214,17 @@ This is the phase that proves the product. Everything else is refinement.
 - [ ] An order triggers an email **and** an SMS within 30 s of placement.
 - [ ] Order placement p95 < 800 ms at 200 RPS sustained.
 - [ ] 100% of order state transitions appear in `order_status_history` with an actor.
+
+### Build status (updated 2026-09-15 — no exit criterion met yet)
+
+| Slice | Landed | Evidence |
+|---|---|---|
+| DB models | `product`, `warehouse_stock`, `cart`, `cart_item`, `customer_order`, `order_item` | `prisma validate` clean; migration not run |
+| Onboarding & KYC (backend) | Submit → PENDING, reviewer queue, approve → ACTIVE, reject → BLOCKED; audited | typecheck, boundaries, lint, 243 unit tests green |
+| Catalogue (backend) | Product create/browse/detail/update; paginated, allow-listed sort; audited writes | typecheck, boundaries, lint, 243 unit tests green |
+
+Not started: salt engine, search, cart, orders, notifications, admin queues,
+website/mobile storefronts, OpenAPI regen.
 
 ### Risks
 

@@ -1,6 +1,6 @@
 # 00 — Project Status
 
-> **Last updated:** 2026-09-14 · **Branch:** `main` · **Phase in flight:** none — Phase 0 is closed apart from the deploy-to-`dev` job, which is blocked on credentials · **CI:** 🟢 every local gate green; remote run still pending
+> **Last updated:** 2026-09-15 · **Branch:** `main` · **Phase in flight:** Phase 1 — backend slices landing (schema + onboarding + catalogue); no exit criterion met yet · **CI:** 🟢 every local gate green; remote run still pending
 
 A single-glance view of how much is actually built, what has been *verified* rather
 than merely written, and what is still open. Where this file and
@@ -13,16 +13,16 @@ than merely written, and what is still open. Where this file and
 | Phase | Theme | State | Complete |
 |---|---|---|---|
 | **0** | Foundation | **Complete but for the `dev` deploy, which needs credentials** | ~97% |
-| 1 | Core Commerce MVP | Not started | 0% |
+| 1 | Core Commerce MVP | **In flight — schema + onboarding + catalogue backend landed, unverified end-to-end** | ~15% |
 | 2 | Commercial Engine | Not started | 0% |
 | 3 | Fulfilment & Finance | Not started | 0% |
 | 4 | Scale & Mobile GA | Not started | 0% |
 | 5 | Intelligence | Not started | 0% |
 | 6 | Compliance & Multi-tenant | Not started | 0% |
 
-**Overall: ~14% of the seven-phase programme.** Phase 0 is the only phase with work in
-it, and it is finished except for one item that cannot be finished from inside the
-repository.
+**Overall: ~16% of the seven-phase programme.** Phase 0 is finished except the
+credential-blocked `dev` deploy; Phase 1 backend work has started (DB models,
+onboarding, catalogue) with no exit criterion met yet.
 
 Everything Phase 0 promised now exists: the backend foundation, the three client
 applications, an API client generated from the contract, and a load test that proves
@@ -170,12 +170,18 @@ something that matters:
 
 ---
 
-## 7. What's next
+## 7. Phase 1 — in flight
 
-**Phase 1 — Core Commerce MVP.** A buyer joins, browses, searches by salt, and places
-an order. The foundation is now genuinely underneath it: the client apps exist with a
-working auth flow, the typed API client is generated from a contract CI checks for
-drift, and the throughput target is proven rather than assumed.
+**Phase 1 — Core Commerce MVP** is underway. Landed so far (backend only, local commits):
+
+| Slice | What exists | Verified |
+|---|---|---|
+| DB models | `product`, `warehouse_stock`, `cart`, `cart_item`, `customer_order`, `order_item` in `schema.prisma` | `prisma validate` + client regenerated; migration **not** run |
+| Onboarding | `POST /onboarding/applications`, `GET /onboarding/applications`, approve/reject; row-locked, audited | typecheck, boundaries, lint, 243 unit tests green |
+| Catalogue | `POST/GET/PATCH /catalog/products`; paginated browse with search/schedule/sort allow-list; audited writes | typecheck, boundaries, lint, 243 unit tests green |
+
+Still open: salt engine + search, cart + orders, notifications, admin queues,
+storefronts, OpenAPI regen, migration run, and every Phase 1 exit criterion.
 
 ---
 
