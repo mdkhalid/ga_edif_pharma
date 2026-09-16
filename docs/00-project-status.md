@@ -1,6 +1,6 @@
 # 00 — Project Status
 
-> **Last updated:** 2026-09-16 · **Branch:** `main` · **Phase in flight:** Phase 1 — backend complete except storefronts (schema, onboarding, catalogue, salt/search, cart/orders, notifications) and the contract + typed client are published; no exit criterion met yet · **CI:** 🟢 every local gate green; remote run still pending
+> **Last updated:** 2026-09-16 · **Branch:** `main` · **Phase in flight:** Phase 1 — backend landed, contract + typed client published, and the website catalogue and salt search are live screens; cart, checkout, order history and the mobile storefront are open · **CI:** 🟢 every local gate green; remote run still pending
 
 A single-glance view of how much is actually built, what has been *verified* rather
 than merely written, and what is still open. Where this file and
@@ -13,7 +13,7 @@ than merely written, and what is still open. Where this file and
 | Phase | Theme | State | Complete |
 |---|---|---|---|
 | **0** | Foundation | **Complete but for the `dev` deploy, which needs credentials** | ~97% |
-| 1 | Core Commerce MVP | **In flight — backend landed (schema, onboarding, catalogue, salt/search, cart/orders, notifications); contract + typed client published; storefronts open** | ~55% |
+| 1 | Core Commerce MVP | **In flight — backend landed, contract + typed client published, website catalogue and salt search live; cart, checkout, orders and mobile open** | ~60% |
 | 2 | Commercial Engine | Not started | 0% |
 | 3 | Fulfilment & Finance | Not started | 0% |
 | 4 | Scale & Mobile GA | Not started | 0% |
@@ -118,6 +118,7 @@ Everything below was executed in this environment, not assumed.
 | Database | `npm run db:migrate` / `db:seed` against PostgreSQL 17 | migration current; seed idempotent |
 | **IAM end to end** | register → verify → login → reset against a live API | **pass** — including single-use code, wrong-code rejection, no enumeration on `forgot`, old password refused, sessions revoked |
 | **Web BFF end to end** | login / refresh / logout on :3000 and :3002 | **pass** — cookie set and rotated, session revoked, cross-origin refused |
+| **Storefront routing** | `next start` on the built website, probed path by path | **pass** — `/products`, `/salt-search` and `/dashboard` answer `307` to `/login?next=…` with no refresh cookie and `200` with one; `/` and `/login` stay `200` either way |
 | **Load test** | `LOAD_PASSWORD=… npm run load:local` | **pass** — 100 RPS, p97.5 23 ms, 0 errors |
 
 > **Important — local green ≠ remote green.** Every row above ran in *this* sandbox.
@@ -188,11 +189,21 @@ something that matters:
 | Admin (backend) | No new code needed: buyer queue = onboarding endpoints, catalogue CRUD = catalog endpoints, order list/status = orders endpoints (all capability-gated) | covered by the slices above |
 | Contract (OpenAPI) | Regenerated to 32 paths / 15 schemas. Operation ids are now qualified by resource, and `Idempotency-Key` is declared on all five routes that require it | `npm run openapi:generate`; CI diffs the committed artifacts |
 | Typed API client | `catalog`, `search`, `cart`, `orders`, `onboarding` endpoint modules over the generated client; response shapes declared once in `@medichain/shared-types` | typecheck + build green across all 9 workspaces; 250 unit tests green |
+| Website storefront (search) | Catalogue browse with pagination and a name filter; salt-combination search with the exact-match marker; `ProductTable`, `Pagination`, `Notice`; `callAuthed` now hands back the client so a feature reuses the single-flight refresh instead of copying it | typecheck, lint, website build (14 routes), and a routing smoke test against the built app |
 
-Still open: website + mobile storefronts, migration run,
-durable notification retry (outbox relay), `pg_trgm` typo tolerance,
-`order_status_history` table, admin MFA, and every Phase 1 exit criterion (none
-proven end-to-end yet).
+Still open: website cart, checkout and order history; the mobile storefront;
+migration run, durable notification retry (outbox relay), `pg_trgm` typo
+tolerance, `order_status_history` table, admin MFA, and every Phase 1 exit
+criterion (none proven end-to-end yet).
+
+**Storefront placement.** `/products` and `/salt-search` moved out of the `(public)`
+route group and into the authenticated one, and their placeholder pages were
+deleted. They were written as public, crawlable pages and cannot be: the endpoints
+require `catalog:read` / `salt:read`, every price is resolved per organisation, and
+availability is live warehouse stock. There is no anonymous catalogue to render
+until a deliberately public endpoint exists, so the links in the public header now
+lead to the sign-in page with the destination preserved. Both paths are in the
+middleware matcher.
 
 ---
 

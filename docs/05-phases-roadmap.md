@@ -235,8 +235,9 @@ extension requirement); commerce models classified in
 | Admin (backend) | Covered by existing endpoints: buyer queue (onboarding), catalogue CRUD, order list + manual status (orders) | covered above |
 | Contract (OpenAPI) | 32 paths / 15 schemas, up from 16 / 7. Operation ids qualified by resource; `Idempotency-Key` declared on all five routes that require it | `npm run openapi:generate`; the contract-drift job diffs the committed artifacts |
 | Typed API client | `catalog`, `search`, `cart`, `orders`, `onboarding` endpoint modules over the generated client; response shapes in `@medichain/shared-types` | typecheck + build green across all 9 workspaces; 250 unit tests green |
+| Website storefront — search | `/products` browse with pagination and a name filter; `/salt-search` by composition with the exact-match marker. Both moved into the authenticated route group: the endpoints require a capability and price per organisation, so there is no anonymous catalogue to render | typecheck, lint, website build; routing smoke test on the built app (`307` to sign-in without a refresh cookie, `200` with one) |
 
-Not started: website/mobile storefronts, migration run.
+Not started: website cart / checkout / order history, mobile storefront, migration run.
 Durable retry (outbox relay), typo tolerance (`pg_trgm`), and
 `order_status_history` remain explicitly unclaimed.
 
