@@ -205,6 +205,12 @@ until a deliberately public endpoint exists, so the links in the public header n
 lead to the sign-in page with the destination preserved. Both paths are in the
 middleware matcher.
 
+**Next action: the Phase 1 migration.** Every slice above is verified statically —
+typecheck, lint, unit tests — and the two storefront screens only as far as their
+routing. The commerce tables are in `schema.prisma` and in no database, so nothing
+above can be exercised against real data until the migration is applied and the seed
+populates stock.
+
 ---
 
 ## 8. Changes in this pass (not yet committed)

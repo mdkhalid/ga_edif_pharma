@@ -190,18 +190,21 @@ This is the phase that proves the product. Everything else is refinement.
 
 ### Scope
 
-| Module | Deliverable |
-|---|---|
-| Onboarding & KYC | Application wizard, document upload, reviewer queue, approval → org + user creation |
-| Catalogue | Product master, composition, pack, images, categories, bulk Excel import |
-| Salt Engine | Salt master + aliases, composition links, **canonical composition key**, exact and combination search |
-| Search | Postgres FTS + `pg_trgm` adapter behind `SearchPort`, autocomplete, filters |
-| Cart | Server-side cart, live price/availability, quick order pad, CSV indent upload |
-| Orders | Placement with idempotency, state machine, list/detail, cancellation, order PDF |
-| Notifications | Email + SMS templates, event-driven sending, retry with backoff |
-| Admin | Buyer approval queue, catalogue CRUD, order list and manual status update |
-| Website | Catalogue browse, salt search, cart, checkout, order history |
-| Mobile | Catalogue browse, salt search, cart, order placement (internal TestFlight / APK) |
+Status is as at the build status table below; "backend landed" means the endpoints
+exist and are capability-gated, not that a screen consumes them yet.
+
+| Module | Deliverable | Status |
+|---|---|---|
+| Onboarding & KYC | Application wizard, document upload, reviewer queue, approval → org + user creation | **Partial** — submit → PENDING, reviewer queue, approve/reject landed. Wizard, document upload and org/user creation on approval open |
+| Catalogue | Product master, composition, pack, images, categories, bulk Excel import | **Partial** — create/browse/detail/update landed. Images, categories and bulk import open |
+| Salt Engine | Salt master + aliases, composition links, **canonical composition key**, exact and combination search | **Landed** — canonical key (pure, unit-tested) + AND combination search with the `exact` flag |
+| Search | Postgres FTS + `pg_trgm` adapter behind `SearchPort`, autocomplete, filters | **Partial** — app-level matching capped at 500 rows. `pg_trgm`, FTS, autocomplete, filters open |
+| Cart | Server-side cart, live price/availability, quick order pad, CSV indent upload | **Partial** — backend cart landed. Screen, quick order pad, CSV indent upload open |
+| Orders | Placement with idempotency, state machine, list/detail, cancellation, order PDF | **Partial** — backend landed incl. cancel-with-release. Screen and order PDF open |
+| Notifications | Email + SMS templates, event-driven sending, retry with backoff | **Partial** — templates + best-effort post-commit send behind a port. No transport, no retry |
+| Admin | Buyer approval queue, catalogue CRUD, order list and manual status update | **Partial** — backend landed (capability-gated endpoints). Admin UI screens open |
+| Website | Catalogue browse, salt search, cart, checkout, order history | **Partial** — browse and salt search live (authenticated). Cart, checkout, order history open |
+| Mobile | Catalogue browse, salt search, cart, order placement (internal TestFlight / APK) | **Not started** — auth shell only |
 
 ### Exit criteria
 
@@ -219,27 +222,37 @@ This is the phase that proves the product. Everything else is refinement.
 
 | Slice | Landed | Evidence |
 |---|---|---|
-| DB models | `product`, `warehouse_stock`, `cart`, `cart_item`, `customer_order`, `order_item` | `prisma validate` clean; migration not run |
-| Onboarding & KYC (backend) | Submit → PENDING, reviewer queue, approve → ACTIVE, reject → BLOCKED; audited | typecheck, boundaries, lint, 243 unit tests green |
-| Catalogue (backend) | Product create/browse/detail/update; paginated, allow-listed sort; audited writes | typecheck, boundaries, lint, 243 unit tests green |
-| Salt engine + search (backend) | Canonical composition key; `GET /search/products` with AND combination matching + `exact` flag; no `pg_trgm` yet | typecheck, boundaries, lint, 248 unit tests green |
-| Cart (backend) | Server-side cart per org; live price, availability checks; add/update/remove | typecheck, boundaries, lint, 248 unit tests green |
-| Orders (backend) | Idempotent placement with row-locked reservation; canonical state machine; cancel releases stock; audited | typecheck, boundaries, lint, 248 unit tests green |
+| DB models | `product`, `warehouse_stock`, `cart`, `cart_item`, `customer_order`, `order_item` | `prisma validate` clean; **migration not run** |
+| Onboarding & KYC (backend) | Submit → PENDING, reviewer queue, approve → ACTIVE, reject → BLOCKED; audited | typecheck, boundaries, lint, unit tests green |
+| Catalogue (backend) | Product create/browse/detail/update; paginated, allow-listed sort; audited writes | typecheck, boundaries, lint, unit tests green |
+| Salt engine + search (backend) | Canonical composition key; `GET /search/products` with AND combination matching + `exact` flag; no `pg_trgm` yet | typecheck, boundaries, lint, unit tests green |
+| Cart (backend) | Server-side cart per org; live price, availability checks; add/update/remove | typecheck, boundaries, lint, unit tests green |
+| Orders (backend) | Idempotent placement with row-locked reservation; canonical state machine; cancel releases stock; audited | typecheck, boundaries, lint, unit tests green |
+| Notifications (backend) | `sendOrderPlaced` port + best-effort post-commit send; pure templates, unit-tested; log adapter only | typecheck, boundaries, lint, unit tests green |
+| Admin (backend) | Covered by existing endpoints: buyer queue (onboarding), catalogue CRUD, order list + manual status (orders) | covered above |
+| Contract (OpenAPI) | 32 paths / 15 schemas, up from 16 / 7. Operation ids qualified by resource; `Idempotency-Key` declared on all five routes that require it | `npm run openapi:generate`; the contract-drift job diffs the committed artifacts |
+| Typed API client | `catalog`, `search`, `cart`, `orders`, `onboarding` endpoint modules over the generated client; response shapes in `@medichain/shared-types` | typecheck + build green across all 9 workspaces |
+| Website storefront — search | `/products` browse with pagination and a name filter; `/salt-search` by composition with the exact-match marker. Both moved into the authenticated route group: the endpoints require a capability and price per organisation, so there is no anonymous catalogue to render | typecheck, lint, website build; routing smoke test on the built app (`307` to sign-in without a refresh cookie, `200` with one) |
 
-Also fixed in this slice: `tenantId` added to line-item tables (scoping
+Unit-test evidence is the suite as it stood when the row landed; it now stands at
+**250 tests across 12 suites**.
+
+Also fixed while landing cart/orders: `tenantId` added to line-item tables (scoping
 extension requirement); commerce models classified in
 `tenant-scoping.extension.ts`; earlier slices retrofitted to
 `findFirst`/`updateMany` (Prisma rejects extension-rewritten unique `where`).
 
-| Notifications (backend) | `sendOrderPlaced` port + best-effort post-commit send; pure templates, unit-tested; log adapter only | typecheck, boundaries, lint, 250 unit tests green |
-| Admin (backend) | Covered by existing endpoints: buyer queue (onboarding), catalogue CRUD, order list + manual status (orders) | covered above |
-| Contract (OpenAPI) | 32 paths / 15 schemas, up from 16 / 7. Operation ids qualified by resource; `Idempotency-Key` declared on all five routes that require it | `npm run openapi:generate`; the contract-drift job diffs the committed artifacts |
-| Typed API client | `catalog`, `search`, `cart`, `orders`, `onboarding` endpoint modules over the generated client; response shapes in `@medichain/shared-types` | typecheck + build green across all 9 workspaces; 250 unit tests green |
-| Website storefront — search | `/products` browse with pagination and a name filter; `/salt-search` by composition with the exact-match marker. Both moved into the authenticated route group: the endpoints require a capability and price per organisation, so there is no anonymous catalogue to render | typecheck, lint, website build; routing smoke test on the built app (`307` to sign-in without a refresh cookie, `200` with one) |
-
-Not started: website cart / checkout / order history, mobile storefront, migration run.
-Durable retry (outbox relay), typo tolerance (`pg_trgm`), and
+**Not started:** website cart / checkout / order history, mobile storefront, the
+migration run. Durable retry (outbox relay), typo tolerance (`pg_trgm`), and
 `order_status_history` remain explicitly unclaimed.
+
+**Next up — the Phase 1 migration.** It is now the only thing blocking end-to-end
+verification of everything above: the commerce tables exist in `schema.prisma` and in
+no database, so no catalogue can be seeded and none of the storefront, cart or order
+paths can be exercised against real data. Every row in this table is verified
+statically (typecheck, boundaries, lint, unit tests), and the two storefront screens
+only as far as their routing. That gap closes as soon as the migration is applied and
+the seed populates stock.
 
 ### Risks
 
