@@ -59,6 +59,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               <Link href="/products" className="hover:text-slate-900">
                 Catalogue
               </Link>
+              <Link href="/salt-search" className="hover:text-slate-900">
+                Search by salt
+              </Link>
             </nav>
           </div>
 

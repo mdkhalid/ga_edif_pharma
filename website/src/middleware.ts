@@ -31,7 +31,11 @@ export function middleware(request: NextRequest): NextResponse {
 }
 
 export const config = {
-  // Only the authenticated area. Everything else — the landing page, the public
-  // catalogue, the auth screens themselves — must stay reachable.
-  matcher: ['/dashboard/:path*'],
+  // Only the authenticated area. Everything else — the landing page, the auth
+  // screens themselves — must stay reachable.
+  //
+  // The storefront is listed here because it is authenticated, not public: the
+  // catalogue and salt-search endpoints require a capability and return prices
+  // resolved per organisation. See the note in `(app)/products/page.tsx`.
+  matcher: ['/dashboard/:path*', '/products/:path*', '/salt-search/:path*'],
 };

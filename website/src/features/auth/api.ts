@@ -6,6 +6,7 @@ import {
   createAuthApi,
   toApiError,
   type AuthApi,
+  type MediChainClient,
   type RegisterResult,
 } from '@medichain/api-client';
 import type { AuthenticatedUserProfile } from '@medichain/shared-types';
@@ -93,18 +94,25 @@ async function refreshAccessToken(): Promise<string | null> {
 /**
  * Runs an authenticated call, refreshing once and retrying on a 401.
  *
+ * The callable is handed a **client**, not an `AuthApi`, so every feature runs
+ * through this one function rather than growing its own transport. That matters
+ * more than it looks: the single-flight guard above is what makes concurrent 401s
+ * safe, and a second copy of this function is a second place for the guard to be
+ * forgotten — at which point five simultaneous refreshes present an already-rotated
+ * token and the API, correctly, revokes the whole family.
+ *
  * The retry is bounded to a single attempt: a second 401 after a successful
  * refresh means the problem is not an expired token, and looping would hammer the
  * API while the user stares at a spinner.
  */
-export async function callAuthed<T>(fn: (auth: AuthApi) => Promise<T>): Promise<T> {
+export async function callAuthed<T>(fn: (client: MediChainClient) => Promise<T>): Promise<T> {
   try {
-    return await fn(createAuthApi(clientWith(() => useAuthStore.getState().accessToken)));
+    return await fn(clientWith(() => useAuthStore.getState().accessToken));
   } catch (error) {
     if (error instanceof ApiError && error.isUnauthenticated) {
       const token = await refreshAccessToken();
       if (token !== null) {
-        return fn(createAuthApi(clientWith(() => token)));
+        return fn(clientWith(() => token));
       }
     }
     throw error;
@@ -127,7 +135,9 @@ export async function bootstrapSession(): Promise<void> {
   }
 
   try {
-    const user: AuthenticatedUserProfile = await callAuthed((auth) => auth.me());
+    const user: AuthenticatedUserProfile = await callAuthed((client) =>
+      createAuthApi(client).me(),
+    );
     useAuthStore.getState().setSession(token, user);
   } catch {
     useAuthStore.getState().clear();

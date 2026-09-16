@@ -5,8 +5,14 @@ import type { ReactNode } from 'react';
  * Layout for the public, crawlable pages.
  *
  * Server-rendered by default: buyers search for things like "Paracetamol 500mg
- * supplier" on the open web, so these pages need to be indexable and fast on first
- * paint. The authenticated area is the opposite — a client-side app behind a guard.
+ * supplier" on the open web, so the landing and account pages need to be indexable
+ * and fast on first paint.
+ *
+ * The catalogue and salt search are linked from this header but are **not** public.
+ * The API authorises them with a capability and prices them per organisation, so an
+ * anonymous visitor who follows either link lands on the sign-in page with the
+ * destination preserved. That is the intended funnel: this header advertises what is
+ * behind the wall, rather than pretending it is open.
  */
 export default function PublicLayout({ children }: { children: ReactNode }) {
   return (

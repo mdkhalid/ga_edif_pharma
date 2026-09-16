@@ -1,7 +1,9 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { createAuthApi } from '@medichain/api-client';
 import { Card, CardDescription, CardHeader, CardTitle } from '@medichain/ui';
+import Link from 'next/link';
 
 import { callAuthed } from '@/features/auth/api';
 
@@ -15,7 +17,7 @@ import { callAuthed } from '@/features/auth/api';
 export default function DashboardPage() {
   const profile = useQuery({
     queryKey: ['auth', 'me'],
-    queryFn: () => callAuthed((auth) => auth.me()),
+    queryFn: () => callAuthed((client) => createAuthApi(client).me()),
   });
 
   if (profile.isPending) {
@@ -64,12 +66,21 @@ export default function DashboardPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>What comes next</CardTitle>
+            <CardTitle>Start ordering</CardTitle>
             <CardDescription>
-              The catalogue, salt search, cart and orders arrive with Phase 1. This screen exists to
-              prove the session, the API client and the silent refresh all work end to end.
+              Browse the catalogue for a brand, or search by salt composition when you know what
+              the product contains but not what it is called. The cart and order history arrive
+              with the rest of Phase 1.
             </CardDescription>
           </CardHeader>
+          <div className="flex gap-4 text-sm">
+            <Link href="/products" className="font-medium text-brand-700 hover:underline">
+              Browse the catalogue
+            </Link>
+            <Link href="/salt-search" className="font-medium text-brand-700 hover:underline">
+              Search by salt
+            </Link>
+          </div>
         </Card>
       </div>
     </div>
