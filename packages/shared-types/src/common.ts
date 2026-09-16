@@ -9,6 +9,19 @@ export interface Paginated<T> {
   readonly meta: OffsetPageMeta | CursorPageMeta;
 }
 
+/**
+ * A collection paged by offset.
+ *
+ * `Paginated` leaves `meta` a union because either strategy is legal, but every
+ * list endpoint today pages by offset — so a consumer that was handed the union
+ * cannot read `meta.total` without narrowing first. This specialisation is what
+ * the offset endpoints actually return, and it keeps the narrowing where it
+ * belongs: in the type, once, instead of at each call site.
+ */
+export interface OffsetPaginated<T> extends Paginated<T> {
+  readonly meta: OffsetPageMeta;
+}
+
 export interface OffsetPageMeta {
   readonly page: number;
   readonly pageSize: number;
@@ -17,6 +30,19 @@ export interface OffsetPageMeta {
   readonly hasNext: boolean;
   readonly hasPrev: boolean;
 }
+
+/**
+ * A money or stock-quantity value as it travels over JSON.
+ *
+ * Prices and quantities are `Decimal` columns in Postgres. JSON has no decimal
+ * type, so the API sends the exact value as a string rather than as a number: a
+ * `Decimal(18,4)` price routed through a JavaScript float loses precision, and a
+ * rounding error in a pharma price is not a display bug — it is a wrong invoice.
+ *
+ * Parse at the point of arithmetic, and prefer a decimal library over `Number()`
+ * when the result is a total or a tax figure.
+ */
+export type DecimalString = string;
 
 export interface CursorPageMeta {
   readonly limit: number;

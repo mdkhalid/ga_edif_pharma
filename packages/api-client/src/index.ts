@@ -13,6 +13,18 @@
 
 export { createApiClient, unwrap, unwrapVoid, type ApiClientOptions, type MediChainClient } from './client';
 export { ApiError, toApiError } from './error';
+
+/*
+ * One factory per backend module, each a thin typed layer over the generated
+ * client.
+ *
+ * They exist for two things the generated client cannot know. First, the
+ * `{ data: … }` success envelope: controllers author it themselves, so it is not
+ * in the spec and `unwrap` has to unwrap it. Second, the response body types:
+ * the spec models request DTOs only, so response shapes are declared once in
+ * `@medichain/shared-types` and both sides of the wire compile against them.
+ */
+
 export {
   createAuthApi,
   type AuthApi,
@@ -22,3 +34,32 @@ export {
   type RegisterRequest,
   type RegisterResult,
 } from './endpoints/auth';
+export {
+  createCatalogApi,
+  type CatalogApi,
+  type CreateProductRequest,
+  type ListProductsOptions,
+  type UpdateProductRequest,
+} from './endpoints/catalog';
+export {
+  createSearchApi,
+  type SearchApi,
+  type SearchProductsOptions,
+} from './endpoints/search';
+export {
+  createCartApi,
+  type AddCartItemRequest,
+  type CartApi,
+} from './endpoints/cart';
+export {
+  createOrdersApi,
+  type ListOrdersOptions,
+  type OrdersApi,
+  type PlaceOrderRequest,
+} from './endpoints/orders';
+export {
+  createOnboardingApi,
+  type OnboardingApi,
+  type ReviewApplicationRequest,
+  type SubmitApplicationRequest,
+} from './endpoints/onboarding';

@@ -259,6 +259,23 @@ export function canTransition(from: OrderStatus, to: OrderStatus): boolean {
   return ORDER_TRANSITIONS[from].includes(to);
 }
 
+// ----------------------------------------------------------------- catalogue
+
+/**
+ * Product lifecycle. Mirrors the `ProductStatus` database enum.
+ *
+ * `ARCHIVED` is terminal and is not the same as `INACTIVE`: an inactive product
+ * is temporarily unavailable for ordering, while an archived one is withdrawn
+ * from the catalogue and should never be offered again — but old order lines
+ * still reference it, so the row is kept rather than deleted.
+ */
+export const ProductStatus = {
+  ACTIVE: 'ACTIVE',
+  INACTIVE: 'INACTIVE',
+  ARCHIVED: 'ARCHIVED',
+} as const;
+export type ProductStatus = (typeof ProductStatus)[keyof typeof ProductStatus];
+
 // -------------------------------------------------------------------- pharma
 
 export const ScheduleClass = {
