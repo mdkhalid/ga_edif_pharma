@@ -28,8 +28,27 @@ export function buildOpenApiDocument(app: INestApplication): OpenAPIObject {
     .build();
 
   return SwaggerModule.createDocument(app, config, {
-    // Operation ids become the generated client's method names. The controller
-    // prefix is noise there and is already carried by the route's tag.
-    operationIdFactory: (_controller, method) => method,
+    // Operation ids become the keys of the generated `operations` interface, and
+    // `openapi-typescript` keys that interface by id alone — so an id must be
+    // unique across the whole document, not merely within its controller.
+    //
+    // The bare method name stopped being unique as soon as a second controller
+    // exposed `list`: catalogue and orders both do, and so do catalogue and cart
+    // for `update`, and catalogue and orders for `getById`. The failure is not
+    // loud — the generated file gets duplicate interface members, which either
+    // fails the client's typecheck with "Duplicate identifier", or, where the two
+    // signatures happen to line up, silently keeps the later declaration and
+    // types one operation as the other.
+    //
+    // Qualifying with the controller's resource fixes both: `CatalogController`
+    // plus `list` becomes `catalogList`, and `OrdersController` plus `list`
+    // becomes `ordersList`. The route's tag still groups operations by resource
+    // for humans; this is the machine-readable half.
+    operationIdFactory: (controller, method) => {
+      const resource = controller.replace(/Controller$/, '');
+      const noun = resource.charAt(0).toLowerCase() + resource.slice(1);
+      const verb = method.charAt(0).toUpperCase() + method.slice(1);
+      return `${noun}${verb}`;
+    },
   });
 }

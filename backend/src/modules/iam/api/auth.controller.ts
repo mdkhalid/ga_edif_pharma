@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
-import { ApiBearerAuth, ApiHeader, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 import { SessionRevokedReason } from '@medichain/shared-types';
 
@@ -64,14 +64,6 @@ export class AuthController {
   @Idempotent()
   @HttpCode(HttpStatus.CREATED)
   @RateLimit({ bucket: RATE_LIMIT_BUCKET.AUTH, keyBy: 'ip', max: 5, windowSeconds: 300 })
-  @ApiHeader({
-    name: 'Idempotency-Key',
-    required: true,
-    description:
-      'Client-generated unique key (a UUID). A retry with the same key and body replays the ' +
-      'original response instead of creating a second attempt; reusing a key with a different ' +
-      'body is rejected with 409 IDEMPOTENCY_KEY_REUSED.',
-  })
   @ApiOperation({
     summary: 'Register a new account',
     description:

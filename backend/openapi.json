@@ -4,7 +4,7 @@
     "/metrics": {
       "get": {
         "description": "Returns the metrics registry in the Prometheus text exposition format. Mounted at /metrics, outside the versioned API prefix.",
-        "operationId": "scrape",
+        "operationId": "metricsScrape",
         "parameters": [],
         "responses": {
           "200": {
@@ -20,7 +20,7 @@
     "/health/live": {
       "get": {
         "description": "Returns 200 while the process is running. Never checks dependencies — a restart cannot fix a database outage, and failing here would crash-loop the whole fleet.",
-        "operationId": "live",
+        "operationId": "healthLive",
         "parameters": [],
         "responses": {
           "200": {
@@ -36,7 +36,7 @@
     "/health/ready": {
       "get": {
         "description": "Returns 200 when the pod can serve traffic, 503 when a required dependency (Postgres) is unavailable. A degraded optional dependency (Redis) still returns 200.",
-        "operationId": "ready",
+        "operationId": "healthReady",
         "parameters": [],
         "responses": {
           "200": {
@@ -54,7 +54,7 @@
     },
     "/health": {
       "get": {
-        "operationId": "root",
+        "operationId": "healthRoot",
         "parameters": [],
         "responses": {
           "200": {
@@ -70,12 +70,12 @@
     "/auth/register": {
       "post": {
         "description": "Creates an account in PENDING_VERIFICATION. The account cannot sign in until the email or phone number is verified — that address is where order confirmations and prescription decisions are sent, so it must be real before it can be used.",
-        "operationId": "register",
+        "operationId": "authRegister",
         "parameters": [
           {
             "name": "Idempotency-Key",
             "in": "header",
-            "description": "Client-generated unique key (a UUID). A retry with the same key and body replays the original response instead of creating a second attempt; reusing a key with a different body is rejected with 409 IDEMPOTENCY_KEY_REUSED.",
+            "description": "Client-generated unique key (a UUID). A retry with the same key and body replays the original response instead of performing the operation a second time; reusing a key with a different body is rejected with 409 IDEMPOTENCY_KEY_REUSED.",
             "required": true,
             "schema": {
               "type": "string"
@@ -112,7 +112,7 @@
     "/auth/verify/request": {
       "post": {
         "description": "Sends a one-time code to the email address or phone number an account was registered with. The response is the same whether or not the account exists, and whether or not it still needs verifying — so this cannot be used to discover which addresses are registered.",
-        "operationId": "requestContactVerification",
+        "operationId": "authRequestContactVerification",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -141,7 +141,7 @@
     "/auth/verify": {
       "post": {
         "description": "Consumes a verification code and activates the account. The code is single-use, expires, and is rejected after a small number of wrong attempts.",
-        "operationId": "verifyContact",
+        "operationId": "authVerifyContact",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -173,7 +173,7 @@
     "/auth/login": {
       "post": {
         "description": "Exchanges credentials for an access token (15 minutes) and a refresh token (30 days). The refresh token is rotated on every use; reuse of a rotated token revokes the entire token family.",
-        "operationId": "login",
+        "operationId": "authLogin",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -208,7 +208,7 @@
     "/auth/refresh": {
       "post": {
         "description": "Exchanges a refresh token for a new access/refresh pair. The presented token is invalidated. Presenting an already-used token revokes every session in its family — that is the replay-detection behaviour, and it is intentional.",
-        "operationId": "refresh",
+        "operationId": "authRefresh",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -237,7 +237,7 @@
     "/auth/password/forgot": {
       "post": {
         "description": "Sends a one-time code to the email address or phone number on the account. The response is identical whether or not an account exists, so it cannot be used to enumerate users.",
-        "operationId": "forgotPassword",
+        "operationId": "authForgotPassword",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -266,7 +266,7 @@
     "/auth/password/reset": {
       "post": {
         "description": "Consumes a reset code and sets a new password. Every existing session is revoked, so a stolen session does not outlive the reset.",
-        "operationId": "resetPassword",
+        "operationId": "authResetPassword",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -298,7 +298,7 @@
     "/auth/logout": {
       "post": {
         "description": "Revokes only the session that made the request. Other devices stay signed in — use \"sign out everywhere\" for that.",
-        "operationId": "logout",
+        "operationId": "authLogout",
         "parameters": [],
         "responses": {
           "204": {
@@ -319,7 +319,7 @@
     "/auth/logout-all": {
       "post": {
         "description": "Revokes every active session for the account, including this one.",
-        "operationId": "logoutAll",
+        "operationId": "authLogoutAll",
         "parameters": [],
         "responses": {
           "200": {
@@ -340,7 +340,7 @@
     "/auth/me": {
       "get": {
         "description": "Returns the authenticated account with its roles and the capabilities it currently holds. Capabilities are resolved live, so a permission change is reflected on the next request rather than when the access token expires.",
-        "operationId": "me",
+        "operationId": "authMe",
         "parameters": [],
         "responses": {
           "200": {
@@ -361,7 +361,7 @@
     "/auth/sessions": {
       "get": {
         "description": "Lists the devices currently signed in, for the \"your devices\" screen.",
-        "operationId": "listSessions",
+        "operationId": "authListSessions",
         "parameters": [],
         "responses": {
           "200": {
@@ -382,7 +382,7 @@
     "/auth/sessions/{sessionId}": {
       "delete": {
         "description": "Signs out one device. The caller must own the session.",
-        "operationId": "revokeSession",
+        "operationId": "authRevokeSession",
         "parameters": [
           {
             "name": "sessionId",
@@ -409,6 +409,817 @@
         "summary": "Revoke a specific session",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/onboarding/applications": {
+      "post": {
+        "operationId": "onboardingSubmit",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Client-generated unique key (a UUID). A retry with the same key and body replays the original response instead of performing the operation a second time; reusing a key with a different body is rejected with 409 IDEMPOTENCY_KEY_REUSED.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitApplicationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Application received as PENDING."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Submit a distributor onboarding application",
+        "tags": [
+          "onboarding"
+        ]
+      },
+      "get": {
+        "operationId": "onboardingListPending",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Reviewer queue."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List pending onboarding applications",
+        "tags": [
+          "onboarding"
+        ]
+      }
+    },
+    "/onboarding/applications/{id}/approve": {
+      "post": {
+        "operationId": "onboardingApprove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewApplicationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Organisation is now ACTIVE."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Approve an application",
+        "tags": [
+          "onboarding"
+        ]
+      }
+    },
+    "/onboarding/applications/{id}/reject": {
+      "post": {
+        "operationId": "onboardingReject",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewApplicationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Organisation is now BLOCKED."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Reject an application",
+        "tags": [
+          "onboarding"
+        ]
+      }
+    },
+    "/catalog/products": {
+      "post": {
+        "operationId": "catalogCreate",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Client-generated unique key (a UUID). A retry with the same key and body replays the original response instead of performing the operation a second time; reusing a key with a different body is rejected with 409 IDEMPOTENCY_KEY_REUSED.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProductDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Product created."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a product",
+        "tags": [
+          "catalog"
+        ]
+      },
+      "get": {
+        "operationId": "catalogList",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "para",
+              "type": "string"
+            }
+          },
+          {
+            "name": "schedule",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "OTC",
+                "H",
+                "H1",
+                "X",
+                "NARCOTIC"
+              ]
+            }
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated product list."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Browse products",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/catalog/products/{id}": {
+      "get": {
+        "operationId": "catalogGetById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The product."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get a product by id",
+        "tags": [
+          "catalog"
+        ]
+      },
+      "patch": {
+        "operationId": "catalogUpdate",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProductDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Product updated."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update a product",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/search/products": {
+      "get": {
+        "operationId": "searchSearchProducts",
+        "parameters": [
+          {
+            "name": "q",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "example": "Paracetamol + Cetirizine",
+              "type": "string"
+            }
+          },
+          {
+            "name": "schedule",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "OTC",
+                "H",
+                "H1",
+                "X",
+                "NARCOTIC"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Matching products; `exact` marks canonical-key hits."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Search products by salt combination",
+        "tags": [
+          "search"
+        ]
+      }
+    },
+    "/cart": {
+      "get": {
+        "operationId": "cartGet",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Cart with live prices and availability."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Read the caller organisation’s active cart",
+        "tags": [
+          "cart"
+        ]
+      }
+    },
+    "/cart/items": {
+      "post": {
+        "operationId": "cartAdd",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Client-generated unique key (a UUID). A retry with the same key and body replays the original response instead of performing the operation a second time; reusing a key with a different body is rejected with 409 IDEMPOTENCY_KEY_REUSED.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddItemDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Item added."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Add an item to the cart at the live price",
+        "tags": [
+          "cart"
+        ]
+      }
+    },
+    "/cart/items/{productId}": {
+      "patch": {
+        "operationId": "cartUpdate",
+        "parameters": [
+          {
+            "name": "productId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateItemDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Item updated."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Change an item quantity (zero removes it)",
+        "tags": [
+          "cart"
+        ]
+      },
+      "delete": {
+        "operationId": "cartRemove",
+        "parameters": [
+          {
+            "name": "productId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Item removed."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Remove an item from the cart",
+        "tags": [
+          "cart"
+        ]
+      }
+    },
+    "/orders": {
+      "post": {
+        "operationId": "orderPlace",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Client-generated unique key (a UUID). A retry with the same key and body replays the original response instead of performing the operation a second time; reusing a key with a different body is rejected with 409 IDEMPOTENCY_KEY_REUSED.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlaceOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Order placed; stock reserved."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Place an order from the active cart",
+        "tags": [
+          "orders"
+        ]
+      },
+      "get": {
+        "operationId": "orderList",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "PLACED",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated order list."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List orders (own organisation, or all for staff)",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/orders/{id}": {
+      "get": {
+        "operationId": "orderGetById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The order."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get an order with its lines",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/orders/{id}/confirm": {
+      "post": {
+        "operationId": "orderConfirm",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransitionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Confirm a placed order",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/orders/{id}/process": {
+      "post": {
+        "operationId": "orderProcess",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransitionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Start processing a confirmed order",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/orders/{id}/dispatch": {
+      "post": {
+        "operationId": "orderDispatch",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransitionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Dispatch a processing order",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/orders/{id}/deliver": {
+      "post": {
+        "operationId": "orderDeliver",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransitionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Mark a dispatched order delivered",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/orders/{id}/cancel": {
+      "post": {
+        "operationId": "orderCancel",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransitionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Cancel an order and release its reservations",
+        "tags": [
+          "orders"
         ]
       }
     }
@@ -595,6 +1406,207 @@
           "code",
           "newPassword"
         ]
+      },
+      "SubmitApplicationDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "DISTRIBUTOR",
+              "WHOLESALER",
+              "PHARMACY",
+              "HOSPITAL"
+            ],
+            "example": "DISTRIBUTOR"
+          },
+          "legalName": {
+            "type": "string",
+            "example": "Sunrise Pharma Distributors Pvt Ltd"
+          },
+          "tradeName": {
+            "type": "string",
+            "example": "Sunrise Pharma"
+          },
+          "drugLicenceNo": {
+            "type": "string",
+            "example": "DL-KA-2026-01234"
+          },
+          "gstin": {
+            "type": "string",
+            "example": "29ABCDE1234F1Z5"
+          },
+          "pan": {
+            "type": "string",
+            "example": "ABCDE1234F"
+          },
+          "stateCode": {
+            "type": "string",
+            "example": "29"
+          },
+          "email": {
+            "type": "string",
+            "example": "buyer@sunrisepharma.in"
+          },
+          "phone": {
+            "type": "string",
+            "example": "+919876543210"
+          }
+        },
+        "required": [
+          "type",
+          "legalName"
+        ]
+      },
+      "ReviewApplicationDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "example": "Licence verified against portal.",
+            "maxLength": 500
+          }
+        }
+      },
+      "CreateProductDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Paracetamol 650mg Strip of 15"
+          },
+          "description": {
+            "type": "string",
+            "example": "Fever and pain relief"
+          },
+          "schedule": {
+            "type": "string",
+            "example": "OTC",
+            "enum": [
+              "OTC",
+              "H",
+              "H1",
+              "X",
+              "NARCOTIC"
+            ]
+          },
+          "hsnCode": {
+            "type": "string",
+            "example": "30049099"
+          },
+          "strength": {
+            "type": "string",
+            "example": "650mg"
+          },
+          "packSize": {
+            "type": "number",
+            "example": 15
+          },
+          "packUnit": {
+            "type": "string",
+            "example": "strip"
+          },
+          "price": {
+            "type": "number",
+            "example": 42.5
+          },
+          "saltAliases": {
+            "example": [
+              "Paracetamol"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "compositionKey": {
+            "type": "string",
+            "example": "Paracetamol"
+          }
+        },
+        "required": [
+          "name",
+          "schedule",
+          "price"
+        ]
+      },
+      "UpdateProductDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Paracetamol 650mg Strip of 15"
+          },
+          "price": {
+            "type": "number",
+            "example": 45
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "INACTIVE",
+              "ARCHIVED"
+            ]
+          }
+        }
+      },
+      "AddItemDto": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "example": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+          },
+          "quantity": {
+            "type": "number",
+            "example": 10,
+            "minimum": 1,
+            "maximum": 10000
+          }
+        },
+        "required": [
+          "productId",
+          "quantity"
+        ]
+      },
+      "UpdateItemDto": {
+        "type": "object",
+        "properties": {
+          "quantity": {
+            "type": "number",
+            "example": 5,
+            "minimum": 0,
+            "maximum": 10000
+          }
+        },
+        "required": [
+          "quantity"
+        ]
+      },
+      "PlaceOrderDto": {
+        "type": "object",
+        "properties": {
+          "deliveryAddress": {
+            "type": "string",
+            "example": "14, Residency Road, Bengaluru 560025"
+          },
+          "notes": {
+            "type": "string",
+            "example": "Call before delivery",
+            "maxLength": 500
+          }
+        }
+      },
+      "TransitionDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "example": "Verified over phone.",
+            "maxLength": 500
+          }
+        }
       }
     }
   }

@@ -15,7 +15,7 @@ export interface paths {
          * Prometheus metrics
          * @description Returns the metrics registry in the Prometheus text exposition format. Mounted at /metrics, outside the versioned API prefix.
          */
-        get: operations["scrape"];
+        get: operations["metricsScrape"];
         put?: never;
         post?: never;
         delete?: never;
@@ -35,7 +35,7 @@ export interface paths {
          * Liveness probe
          * @description Returns 200 while the process is running. Never checks dependencies — a restart cannot fix a database outage, and failing here would crash-loop the whole fleet.
          */
-        get: operations["live"];
+        get: operations["healthLive"];
         put?: never;
         post?: never;
         delete?: never;
@@ -55,7 +55,7 @@ export interface paths {
          * Readiness probe
          * @description Returns 200 when the pod can serve traffic, 503 when a required dependency (Postgres) is unavailable. A degraded optional dependency (Redis) still returns 200.
          */
-        get: operations["ready"];
+        get: operations["healthReady"];
         put?: never;
         post?: never;
         delete?: never;
@@ -72,7 +72,7 @@ export interface paths {
             cookie?: never;
         };
         /** Readiness (alias of /health/ready) */
-        get: operations["root"];
+        get: operations["healthRoot"];
         put?: never;
         post?: never;
         delete?: never;
@@ -94,7 +94,7 @@ export interface paths {
          * Register a new account
          * @description Creates an account in PENDING_VERIFICATION. The account cannot sign in until the email or phone number is verified — that address is where order confirmations and prescription decisions are sent, so it must be real before it can be used.
          */
-        post: operations["register"];
+        post: operations["authRegister"];
         delete?: never;
         options?: never;
         head?: never;
@@ -114,7 +114,7 @@ export interface paths {
          * Request a contact-verification code
          * @description Sends a one-time code to the email address or phone number an account was registered with. The response is the same whether or not the account exists, and whether or not it still needs verifying — so this cannot be used to discover which addresses are registered.
          */
-        post: operations["requestContactVerification"];
+        post: operations["authRequestContactVerification"];
         delete?: never;
         options?: never;
         head?: never;
@@ -134,7 +134,7 @@ export interface paths {
          * Verify an email address or phone number
          * @description Consumes a verification code and activates the account. The code is single-use, expires, and is rejected after a small number of wrong attempts.
          */
-        post: operations["verifyContact"];
+        post: operations["authVerifyContact"];
         delete?: never;
         options?: never;
         head?: never;
@@ -154,7 +154,7 @@ export interface paths {
          * Sign in
          * @description Exchanges credentials for an access token (15 minutes) and a refresh token (30 days). The refresh token is rotated on every use; reuse of a rotated token revokes the entire token family.
          */
-        post: operations["login"];
+        post: operations["authLogin"];
         delete?: never;
         options?: never;
         head?: never;
@@ -174,7 +174,7 @@ export interface paths {
          * Rotate tokens
          * @description Exchanges a refresh token for a new access/refresh pair. The presented token is invalidated. Presenting an already-used token revokes every session in its family — that is the replay-detection behaviour, and it is intentional.
          */
-        post: operations["refresh"];
+        post: operations["authRefresh"];
         delete?: never;
         options?: never;
         head?: never;
@@ -194,7 +194,7 @@ export interface paths {
          * Request a password-reset code
          * @description Sends a one-time code to the email address or phone number on the account. The response is identical whether or not an account exists, so it cannot be used to enumerate users.
          */
-        post: operations["forgotPassword"];
+        post: operations["authForgotPassword"];
         delete?: never;
         options?: never;
         head?: never;
@@ -214,7 +214,7 @@ export interface paths {
          * Reset a password with a one-time code
          * @description Consumes a reset code and sets a new password. Every existing session is revoked, so a stolen session does not outlive the reset.
          */
-        post: operations["resetPassword"];
+        post: operations["authResetPassword"];
         delete?: never;
         options?: never;
         head?: never;
@@ -234,7 +234,7 @@ export interface paths {
          * Sign out of this device
          * @description Revokes only the session that made the request. Other devices stay signed in — use "sign out everywhere" for that.
          */
-        post: operations["logout"];
+        post: operations["authLogout"];
         delete?: never;
         options?: never;
         head?: never;
@@ -254,7 +254,7 @@ export interface paths {
          * Sign out of every device
          * @description Revokes every active session for the account, including this one.
          */
-        post: operations["logoutAll"];
+        post: operations["authLogoutAll"];
         delete?: never;
         options?: never;
         head?: never;
@@ -272,7 +272,7 @@ export interface paths {
          * Current profile
          * @description Returns the authenticated account with its roles and the capabilities it currently holds. Capabilities are resolved live, so a permission change is reflected on the next request rather than when the access token expires.
          */
-        get: operations["me"];
+        get: operations["authMe"];
         put?: never;
         post?: never;
         delete?: never;
@@ -292,7 +292,7 @@ export interface paths {
          * Active sessions
          * @description Lists the devices currently signed in, for the "your devices" screen.
          */
-        get: operations["listSessions"];
+        get: operations["authListSessions"];
         put?: never;
         post?: never;
         delete?: never;
@@ -315,7 +315,284 @@ export interface paths {
          * Revoke a specific session
          * @description Signs out one device. The caller must own the session.
          */
-        delete: operations["revokeSession"];
+        delete: operations["authRevokeSession"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/onboarding/applications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List pending onboarding applications */
+        get: operations["onboardingListPending"];
+        put?: never;
+        /** Submit a distributor onboarding application */
+        post: operations["onboardingSubmit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/onboarding/applications/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve an application */
+        post: operations["onboardingApprove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/onboarding/applications/{id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject an application */
+        post: operations["onboardingReject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/catalog/products": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Browse products */
+        get: operations["catalogList"];
+        put?: never;
+        /** Create a product */
+        post: operations["catalogCreate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/catalog/products/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a product by id */
+        get: operations["catalogGetById"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update a product */
+        patch: operations["catalogUpdate"];
+        trace?: never;
+    };
+    "/search/products": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search products by salt combination */
+        get: operations["searchSearchProducts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cart": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read the caller organisation’s active cart */
+        get: operations["cartGet"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cart/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add an item to the cart at the live price */
+        post: operations["cartAdd"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cart/items/{productId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove an item from the cart */
+        delete: operations["cartRemove"];
+        options?: never;
+        head?: never;
+        /** Change an item quantity (zero removes it) */
+        patch: operations["cartUpdate"];
+        trace?: never;
+    };
+    "/orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List orders (own organisation, or all for staff) */
+        get: operations["orderList"];
+        put?: never;
+        /** Place an order from the active cart */
+        post: operations["orderPlace"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get an order with its lines */
+        get: operations["orderGetById"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm a placed order */
+        post: operations["orderConfirm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{id}/process": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start processing a confirmed order */
+        post: operations["orderProcess"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{id}/dispatch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Dispatch a processing order */
+        post: operations["orderDispatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{id}/deliver": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark a dispatched order delivered */
+        post: operations["orderDeliver"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel an order and release its reservations */
+        post: operations["orderCancel"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -412,6 +689,90 @@ export interface components {
              */
             newPassword: string;
         };
+        SubmitApplicationDto: {
+            /**
+             * @example DISTRIBUTOR
+             * @enum {string}
+             */
+            type: "DISTRIBUTOR" | "WHOLESALER" | "PHARMACY" | "HOSPITAL";
+            /** @example Sunrise Pharma Distributors Pvt Ltd */
+            legalName: string;
+            /** @example Sunrise Pharma */
+            tradeName?: string;
+            /** @example DL-KA-2026-01234 */
+            drugLicenceNo?: string;
+            /** @example 29ABCDE1234F1Z5 */
+            gstin?: string;
+            /** @example ABCDE1234F */
+            pan?: string;
+            /** @example 29 */
+            stateCode?: string;
+            /** @example buyer@sunrisepharma.in */
+            email?: string;
+            /** @example +919876543210 */
+            phone?: string;
+        };
+        ReviewApplicationDto: {
+            /** @example Licence verified against portal. */
+            reason?: string;
+        };
+        CreateProductDto: {
+            /** @example Paracetamol 650mg Strip of 15 */
+            name: string;
+            /** @example Fever and pain relief */
+            description?: string;
+            /**
+             * @example OTC
+             * @enum {string}
+             */
+            schedule: "OTC" | "H" | "H1" | "X" | "NARCOTIC";
+            /** @example 30049099 */
+            hsnCode?: string;
+            /** @example 650mg */
+            strength?: string;
+            /** @example 15 */
+            packSize?: number;
+            /** @example strip */
+            packUnit?: string;
+            /** @example 42.5 */
+            price: number;
+            /**
+             * @example [
+             *       "Paracetamol"
+             *     ]
+             */
+            saltAliases?: string[];
+            /** @example Paracetamol */
+            compositionKey?: string;
+        };
+        UpdateProductDto: {
+            /** @example Paracetamol 650mg Strip of 15 */
+            name?: string;
+            /** @example 45 */
+            price?: number;
+            /** @enum {string} */
+            status?: "ACTIVE" | "INACTIVE" | "ARCHIVED";
+        };
+        AddItemDto: {
+            /** @example 3fa85f64-5717-4562-b3fc-2c963f66afa6 */
+            productId: string;
+            /** @example 10 */
+            quantity: number;
+        };
+        UpdateItemDto: {
+            /** @example 5 */
+            quantity: number;
+        };
+        PlaceOrderDto: {
+            /** @example 14, Residency Road, Bengaluru 560025 */
+            deliveryAddress?: string;
+            /** @example Call before delivery */
+            notes?: string;
+        };
+        TransitionDto: {
+            /** @example Verified over phone. */
+            reason?: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -421,7 +782,7 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    scrape: {
+    metricsScrape: {
         parameters: {
             query?: never;
             header?: never;
@@ -439,7 +800,7 @@ export interface operations {
             };
         };
     };
-    live: {
+    healthLive: {
         parameters: {
             query?: never;
             header?: never;
@@ -457,7 +818,7 @@ export interface operations {
             };
         };
     };
-    ready: {
+    healthReady: {
         parameters: {
             query?: never;
             header?: never;
@@ -482,7 +843,7 @@ export interface operations {
             };
         };
     };
-    root: {
+    healthRoot: {
         parameters: {
             query?: never;
             header?: never;
@@ -499,11 +860,11 @@ export interface operations {
             };
         };
     };
-    register: {
+    authRegister: {
         parameters: {
             query?: never;
             header: {
-                /** @description Client-generated unique key (a UUID). A retry with the same key and body replays the original response instead of creating a second attempt; reusing a key with a different body is rejected with 409 IDEMPOTENCY_KEY_REUSED. */
+                /** @description Client-generated unique key (a UUID). A retry with the same key and body replays the original response instead of performing the operation a second time; reusing a key with a different body is rejected with 409 IDEMPOTENCY_KEY_REUSED. */
                 "Idempotency-Key": string;
             };
             path?: never;
@@ -538,7 +899,7 @@ export interface operations {
             };
         };
     };
-    requestContactVerification: {
+    authRequestContactVerification: {
         parameters: {
             query?: never;
             header?: never;
@@ -567,7 +928,7 @@ export interface operations {
             };
         };
     };
-    verifyContact: {
+    authVerifyContact: {
         parameters: {
             query?: never;
             header?: never;
@@ -603,7 +964,7 @@ export interface operations {
             };
         };
     };
-    login: {
+    authLogin: {
         parameters: {
             query?: never;
             header?: never;
@@ -646,7 +1007,7 @@ export interface operations {
             };
         };
     };
-    refresh: {
+    authRefresh: {
         parameters: {
             query?: never;
             header?: never;
@@ -675,7 +1036,7 @@ export interface operations {
             };
         };
     };
-    forgotPassword: {
+    authForgotPassword: {
         parameters: {
             query?: never;
             header?: never;
@@ -704,7 +1065,7 @@ export interface operations {
             };
         };
     };
-    resetPassword: {
+    authResetPassword: {
         parameters: {
             query?: never;
             header?: never;
@@ -740,7 +1101,7 @@ export interface operations {
             };
         };
     };
-    logout: {
+    authLogout: {
         parameters: {
             query?: never;
             header?: never;
@@ -758,7 +1119,7 @@ export interface operations {
             };
         };
     };
-    logoutAll: {
+    authLogoutAll: {
         parameters: {
             query?: never;
             header?: never;
@@ -776,7 +1137,7 @@ export interface operations {
             };
         };
     };
-    me: {
+    authMe: {
         parameters: {
             query?: never;
             header?: never;
@@ -794,7 +1155,7 @@ export interface operations {
             };
         };
     };
-    listSessions: {
+    authListSessions: {
         parameters: {
             query?: never;
             header?: never;
@@ -812,7 +1173,7 @@ export interface operations {
             };
         };
     };
-    revokeSession: {
+    authRevokeSession: {
         parameters: {
             query?: never;
             header?: never;
@@ -832,6 +1193,482 @@ export interface operations {
             };
             /** @description The session does not belong to this account. */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    onboardingListPending: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reviewer queue. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    onboardingSubmit: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Client-generated unique key (a UUID). A retry with the same key and body replays the original response instead of performing the operation a second time; reusing a key with a different body is rejected with 409 IDEMPOTENCY_KEY_REUSED. */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmitApplicationDto"];
+            };
+        };
+        responses: {
+            /** @description Application received as PENDING. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    onboardingApprove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewApplicationDto"];
+            };
+        };
+        responses: {
+            /** @description Organisation is now ACTIVE. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    onboardingReject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewApplicationDto"];
+            };
+        };
+        responses: {
+            /** @description Organisation is now BLOCKED. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    catalogList: {
+        parameters: {
+            query?: {
+                page?: number;
+                pageSize?: number;
+                search?: string;
+                schedule?: "OTC" | "H" | "H1" | "X" | "NARCOTIC";
+                sort?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated product list. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    catalogCreate: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Client-generated unique key (a UUID). A retry with the same key and body replays the original response instead of performing the operation a second time; reusing a key with a different body is rejected with 409 IDEMPOTENCY_KEY_REUSED. */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateProductDto"];
+            };
+        };
+        responses: {
+            /** @description Product created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    catalogGetById: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The product. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    catalogUpdate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateProductDto"];
+            };
+        };
+        responses: {
+            /** @description Product updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    searchSearchProducts: {
+        parameters: {
+            query: {
+                q: string;
+                schedule?: "OTC" | "H" | "H1" | "X" | "NARCOTIC";
+                page?: number;
+                pageSize?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Matching products; `exact` marks canonical-key hits. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    cartGet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cart with live prices and availability. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    cartAdd: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Client-generated unique key (a UUID). A retry with the same key and body replays the original response instead of performing the operation a second time; reusing a key with a different body is rejected with 409 IDEMPOTENCY_KEY_REUSED. */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddItemDto"];
+            };
+        };
+        responses: {
+            /** @description Item added. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    cartRemove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                productId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Item removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    cartUpdate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                productId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateItemDto"];
+            };
+        };
+        responses: {
+            /** @description Item updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    orderList: {
+        parameters: {
+            query?: {
+                page?: number;
+                pageSize?: number;
+                status?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated order list. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    orderPlace: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Client-generated unique key (a UUID). A retry with the same key and body replays the original response instead of performing the operation a second time; reusing a key with a different body is rejected with 409 IDEMPOTENCY_KEY_REUSED. */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlaceOrderDto"];
+            };
+        };
+        responses: {
+            /** @description Order placed; stock reserved. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    orderGetById: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The order. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    orderConfirm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransitionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    orderProcess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransitionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    orderDispatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransitionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    orderDeliver: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransitionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    orderCancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransitionDto"];
+            };
+        };
+        responses: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
