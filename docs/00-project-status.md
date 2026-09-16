@@ -1,6 +1,6 @@
 # 00 — Project Status
 
-> **Last updated:** 2026-09-15 · **Branch:** `main` · **Phase in flight:** Phase 1 — backend complete except storefronts (schema, onboarding, catalogue, salt/search, cart/orders, notifications); no exit criterion met yet · **CI:** 🟢 every local gate green; remote run still pending
+> **Last updated:** 2026-09-16 · **Branch:** `main` · **Phase in flight:** Phase 1 — backend complete except storefronts (schema, onboarding, catalogue, salt/search, cart/orders, notifications) and the contract + typed client are published; no exit criterion met yet · **CI:** 🟢 every local gate green; remote run still pending
 
 A single-glance view of how much is actually built, what has been *verified* rather
 than merely written, and what is still open. Where this file and
@@ -13,7 +13,7 @@ than merely written, and what is still open. Where this file and
 | Phase | Theme | State | Complete |
 |---|---|---|---|
 | **0** | Foundation | **Complete but for the `dev` deploy, which needs credentials** | ~97% |
-| 1 | Core Commerce MVP | **In flight — backend landed (schema, onboarding, catalogue, salt/search, cart/orders, notifications); storefronts open** | ~55% |
+| 1 | Core Commerce MVP | **In flight — backend landed (schema, onboarding, catalogue, salt/search, cart/orders, notifications); contract + typed client published; storefronts open** | ~55% |
 | 2 | Commercial Engine | Not started | 0% |
 | 3 | Fulfilment & Finance | Not started | 0% |
 | 4 | Scale & Mobile GA | Not started | 0% |
@@ -22,7 +22,8 @@ than merely written, and what is still open. Where this file and
 
 **Overall: ~22% of the seven-phase programme.** Phase 0 is finished except the
 credential-blocked `dev` deploy; Phase 1 backend is landed (DB models,
-onboarding, catalogue, salt/search, cart/orders, notifications) with storefronts
+onboarding, catalogue, salt/search, cart/orders, notifications), the contract and
+the typed client that consumes it are published, with storefronts
 open and no exit criterion met yet.
 
 Everything Phase 0 promised now exists: the backend foundation, the three client
@@ -54,7 +55,7 @@ the throughput criterion rather than asserting it.
 | 13 | Observability | Pino logs, Prometheus `/metrics`, OpenTelemetry traces from a preload, Sentry through an `ErrorReporter` port |
 | 14 | Infra | `docker-compose`, `backend.Dockerfile`, and new `website.Dockerfile` / `admin.Dockerfile`. Terraform and k8s are still `.gitkeep` placeholders |
 | 15 | CI/CD | Runs lint + typecheck across **every** workspace, boundaries, unit tests, coverage, audit, secret scan, build, container scan, OpenAPI generation and a **contract-drift check**; deploy-to-`dev` present and gated |
-| 16 | Docs / OpenAPI | 16 paths / 7 schemas, generated from the same definition the server serves |
+| 16 | Docs / OpenAPI | 32 paths / 15 schemas, generated from the same definition the server serves |
 | 17 | Website | Next 16 App Router, shared design tokens, route groups, BFF auth flow |
 | 18 | Admin skeleton | Next 16, RBAC-aware navigation shell |
 | 19 | Mobile skeleton | Expo SDK 57, React Navigation 7, Keychain-backed tokens |
@@ -99,15 +100,15 @@ Everything below was executed in this environment, not assumed.
 | Check | Command | Result |
 |---|---|---|
 | Shared packages build | `npm run build:shared` | pass |
-| API client generation | `npm run api-client:generate` | 16 paths → `src/generated/schema.ts` |
+| API client generation | `npm run api-client:generate` | 32 paths → `src/generated/schema.ts` |
 | Backend typecheck | `npm run typecheck --workspace=@medichain/backend` | pass (both configs) |
 | Backend lint | `npm run lint --workspace=@medichain/backend` | 0 errors, 20 warnings (baseline unchanged) |
-| Unit tests | `npm run test:unit --workspace=@medichain/backend -- --coverage` | **243 passed / 243**, 10 suites |
+| Unit tests | `npm run test:unit --workspace=@medichain/backend -- --coverage` | **250 passed / 250**, 12 suites |
 | Coverage gate | `npm run check:coverage` | pass — 8 critical files, all ≥90% (3 at 100%) |
-| Module boundaries | `npm run check:module-boundaries` | pass — 83 files scanned |
+| Module boundaries | `npm run check:module-boundaries` | pass — 115 files scanned |
 | Dependency audit | `npm run check:audit` | pass — 3 accepted, 0 unaccepted |
 | Backend build | `npm run build --workspace=@medichain/backend` | pass |
-| OpenAPI generation | `npm run openapi:generate` | **16 paths, 7 schemas** |
+| OpenAPI generation | `npm run openapi:generate` | **32 paths, 15 schemas** |
 | Website build | `npm run build --workspace=@medichain/website` | pass — 13 routes |
 | Admin build | `npm run build --workspace=@medichain/admin-portal` | pass — 11 routes |
 | Website / admin lint | `npm run lint --workspace=@medichain/website` and `…admin-portal` | 0 problems |
@@ -185,11 +186,13 @@ something that matters:
 | Orders | Idempotent placement from cart with row-locked stock reservation; `ORDER_TRANSITIONS` machine (confirm/process/dispatch/deliver/cancel with release); audited | typecheck, boundaries, lint, 248 unit tests green |
 | Notifications | `NotificationPort.sendOrderPlaced` + `NotificationService` (best-effort, post-commit); pure order templates, unit-tested; log adapter | typecheck, boundaries, lint, 250 unit tests green |
 | Admin (backend) | No new code needed: buyer queue = onboarding endpoints, catalogue CRUD = catalog endpoints, order list/status = orders endpoints (all capability-gated) | covered by the slices above |
+| Contract (OpenAPI) | Regenerated to 32 paths / 15 schemas. Operation ids are now qualified by resource, and `Idempotency-Key` is declared on all five routes that require it | `npm run openapi:generate`; CI diffs the committed artifacts |
+| Typed API client | `catalog`, `search`, `cart`, `orders`, `onboarding` endpoint modules over the generated client; response shapes declared once in `@medichain/shared-types` | typecheck + build green across all 9 workspaces; 250 unit tests green |
 
-Still open: website + mobile storefronts, OpenAPI regen, migration run,
+Still open: website + mobile storefronts, migration run,
 durable notification retry (outbox relay), `pg_trgm` typo tolerance,
-`order_status_history` table, and every Phase 1 exit criterion (none proven
-end-to-end yet).
+`order_status_history` table, admin MFA, and every Phase 1 exit criterion (none
+proven end-to-end yet).
 
 ---
 

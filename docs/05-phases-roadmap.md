@@ -215,7 +215,7 @@ This is the phase that proves the product. Everything else is refinement.
 - [ ] Order placement p95 < 800 ms at 200 RPS sustained.
 - [ ] 100% of order state transitions appear in `order_status_history` with an actor.
 
-### Build status (updated 2026-09-15 — no exit criterion met yet)
+### Build status (updated 2026-09-16 — no exit criterion met yet)
 
 | Slice | Landed | Evidence |
 |---|---|---|
@@ -233,8 +233,10 @@ extension requirement); commerce models classified in
 
 | Notifications (backend) | `sendOrderPlaced` port + best-effort post-commit send; pure templates, unit-tested; log adapter only | typecheck, boundaries, lint, 250 unit tests green |
 | Admin (backend) | Covered by existing endpoints: buyer queue (onboarding), catalogue CRUD, order list + manual status (orders) | covered above |
+| Contract (OpenAPI) | 32 paths / 15 schemas, up from 16 / 7. Operation ids qualified by resource; `Idempotency-Key` declared on all five routes that require it | `npm run openapi:generate`; the contract-drift job diffs the committed artifacts |
+| Typed API client | `catalog`, `search`, `cart`, `orders`, `onboarding` endpoint modules over the generated client; response shapes in `@medichain/shared-types` | typecheck + build green across all 9 workspaces; 250 unit tests green |
 
-Not started: website/mobile storefronts, OpenAPI regen, migration run.
+Not started: website/mobile storefronts, migration run.
 Durable retry (outbox relay), typo tolerance (`pg_trgm`), and
 `order_status_history` remain explicitly unclaimed.
 
