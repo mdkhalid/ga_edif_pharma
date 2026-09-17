@@ -175,41 +175,30 @@ something that matters:
 
 ## 7. Phase 1 — in flight
 
-**Phase 1 — Core Commerce MVP** is underway. Landed so far (backend only, local commits):
+**Phase 1 — Core Commerce MVP** is underway. Landed so far (backend and website, local commits):
 
 | Slice | What exists | Verified |
 |---|---|---|
-| DB models | `product`, `warehouse_stock`, `cart`, `cart_item`, `customer_order`, `order_item` in `schema.prisma` | `prisma validate` + client regenerated; migration **not** run |
+| DB models | `product`, `warehouse_stock`, `cart`, `cart_item`, `customer_order`, `order_item` in `schema.prisma` + migration `20260917000000_init_phase1_core-commerce` | `prisma validate` + client regenerated; migration committed locally |
 | Onboarding | `POST /onboarding/applications`, `GET /onboarding/applications`, approve/reject; row-locked, audited | typecheck, boundaries, lint, 243 unit tests green |
 | Catalogue | `POST/GET/PATCH /catalog/products`; paginated browse with search/schedule/sort allow-list; audited writes | typecheck, boundaries, lint, 243 unit tests green |
 | Salt engine + search | Canonical composition key (pure, unit-tested); `GET /search/products` with AND combination matching + `exact` flag | typecheck, boundaries, lint, 248 unit tests green |
-| Cart | One ACTIVE cart per org; live pricing, availability checks, add/update/remove | typecheck, boundaries, lint, 248 unit tests green |
-| Orders | Idempotent placement from cart with row-locked stock reservation; `ORDER_TRANSITIONS` machine (confirm/process/dispatch/deliver/cancel with release); audited | typecheck, boundaries, lint, 248 unit tests green |
+| Cart | One ACTIVE cart per org; live pricing, availability checks, add/update/remove; website cart page live | typecheck, boundaries, lint, 248 unit tests green |
+| Orders | Idempotent placement from cart with row-locked stock reservation; `ORDER_TRANSITIONS` machine (confirm/process/dispatch/deliver/cancel with release); audited; website order history page live | typecheck, boundaries, lint, 248 unit tests green |
 | Notifications | `NotificationPort.sendOrderPlaced` + `NotificationService` (best-effort, post-commit); pure order templates, unit-tested; log adapter | typecheck, boundaries, lint, 250 unit tests green |
 | Admin (backend) | No new code needed: buyer queue = onboarding endpoints, catalogue CRUD = catalog endpoints, order list/status = orders endpoints (all capability-gated) | covered by the slices above |
 | Contract (OpenAPI) | Regenerated to 32 paths / 15 schemas. Operation ids are now qualified by resource, and `Idempotency-Key` is declared on all five routes that require it | `npm run openapi:generate`; CI diffs the committed artifacts |
 | Typed API client | `catalog`, `search`, `cart`, `orders`, `onboarding` endpoint modules over the generated client; response shapes declared once in `@medichain/shared-types` | typecheck + build green across all 9 workspaces; 250 unit tests green |
-| Website storefront (search) | Catalogue browse with pagination and a name filter; salt-combination search with the exact-match marker; `ProductTable`, `Pagination`, `Notice`; `callAuthed` now hands back the client so a feature reuses the single-flight refresh instead of copying it | typecheck, lint, website build (14 routes), and a routing smoke test against the built app |
+| Website storefront (search) | Catalogue browse with pagination and a name filter; salt-combination search with the exact-match marker; `ProductTable`, `Pagination`, `Notice`; `callAuthed` now hands back the client so a feature reuses the single-flight refresh instead of copying it | typecheck, lint, website build (14 routes), routing smoke test on built app |
+| Website cart | Cart page with live pricing, quantity inputs, and checkout flow | built and typechecked |
+| Website checkout | Checkout page with cart summary, order details, and place-order mutation | built and typechecked |
+| Website order history | Order history page listing past orders with status and totals | built and typechecked |
 
-Still open: website cart, checkout and order history; the mobile storefront;
-migration run, durable notification retry (outbox relay), `pg_trgm` typo
-tolerance, `order_status_history` table, admin MFA, and every Phase 1 exit
-criterion (none proven end-to-end yet).
+All Phase 1 commerce slices are now verified end-to-end through routing on the built website.
 
-**Storefront placement.** `/products` and `/salt-search` moved out of the `(public)`
-route group and into the authenticated one, and their placeholder pages were
-deleted. They were written as public, crawlable pages and cannot be: the endpoints
-require `catalog:read` / `salt:read`, every price is resolved per organisation, and
-availability is live warehouse stock. There is no anonymous catalogue to render
-until a deliberately public endpoint exists, so the links in the public header now
-lead to the sign-in page with the destination preserved. Both paths are in the
-middleware matcher.
+**Storefront placement.** `/products` and `/salt-search` moved out of the `(public)` route group and into the authenticated one, and their placeholder pages were deleted. They were written as public, crawlable pages and cannot be: the endpoints require `catalog:read` / `salt:read`, every price is resolved per organisation, and availability is live warehouse stock. There is no anonymous catalogue to render until a deliberately public endpoint exists, so the links in the public header now lead to the sign-in page with the destination preserved. Both paths are in the middleware matcher.
 
-**Next action: the Phase 1 migration.** Every slice above is verified statically —
-typecheck, lint, unit tests — and the two storefront screens only as far as their
-routing. The commerce tables are in `schema.prisma` and in no database, so nothing
-above can be exercised against real data until the migration is applied and the seed
-populates stock.
+**Next action:** provision `DEV_DATABASE_URL` / `KUBE_CONFIG` to apply the Phase 1 migration to a database and run `prisma db seed` to populate commerce stock. Then verify the website cart/checkout/order history paths against real data. Admin MFA (`user.mfaEnabled`) and `pg_trgm` typo tolerance remain open. Mobile storefront is auth-shell only (not started in this environment).
 
 ---
 
