@@ -1,6 +1,6 @@
 # 00 — Project Status
 
-> **Last updated:** 2026-09-18 · **Branch:** `main` · **Phase in flight:** Phase 1 — backend landed, contract + typed client published, and the website catalogue and salt search are live screens; cart, checkout, order history and the mobile storefront are open · **CI:** 🟢 every local gate green; remote run still pending
+> **Last updated:** 2026-09-18 · **Branch:** `main` · **Phase in flight:** Phase 1 — backend landed, contract + typed client published, website catalogue, salt search, cart, checkout and order history pages built (not yet exercised against real data); mobile storefront open · **CI:** 🟢 every local gate green; remote run still pending
 
 A single-glance view of how much is actually built, what has been *verified* rather
 than merely written, and what is still open. Where this file and
@@ -13,7 +13,7 @@ than merely written, and what is still open. Where this file and
 | Phase | Theme | State | Complete |
 |---|---|---|---|
 | **0** | Foundation | **Complete but for the `dev` deploy, which needs credentials** | ~97% |
-| 1 | Core Commerce MVP | **In flight — backend landed, contract + typed client published, website catalogue and salt search live; cart, checkout, orders and mobile open** | ~60% |
+| 1 | Core Commerce MVP | **In flight — backend landed, contract + typed client published, website catalogue, salt search, cart, checkout and order history pages built; mobile storefront open** | ~65% |
 | 2 | Commercial Engine | Not started | 0% |
 | 3 | Fulfilment & Finance | Not started | 0% |
 | 4 | Scale & Mobile GA | Not started | 0% |
@@ -23,8 +23,9 @@ than merely written, and what is still open. Where this file and
 **Overall: ~22% of the seven-phase programme.** Phase 0 is finished except the
 credential-blocked `dev` deploy; Phase 1 backend is landed (DB models,
 onboarding, catalogue, salt/search, cart/orders, notifications), the contract and
-the typed client that consumes it are published, with storefronts
-open and no exit criterion met yet.
+the typed client that consumes it are published, the website storefront pages are
+built (catalogue + salt search routing-verified; cart/checkout/orders awaiting
+real data), the mobile storefront is open, and no exit criterion is met yet.
 
 Everything Phase 0 promised now exists: the backend foundation, the three client
 applications, an API client generated from the contract, and a load test that proves
@@ -195,7 +196,11 @@ something that matters:
 | Website checkout | Checkout page with cart summary, order details, and place-order mutation | built and typechecked |
 | Website order history | Order history page listing past orders with status and totals | built and typechecked |
 
-All Phase 1 commerce slices are now verified end-to-end through routing on the built website.
+The catalogue browse and salt search screens are verified through routing on the
+built website (`307` to sign-in without a refresh cookie, `200` with one). The
+cart, checkout and order history pages are built and typechecked but have not
+been exercised against real data — no database with commerce stock has existed
+yet — so no exit criterion is met.
 
 **Storefront placement.** `/products` and `/salt-search` moved out of the `(public)` route group and into the authenticated one, and their placeholder pages were deleted. They were written as public, crawlable pages and cannot be: the endpoints require `catalog:read` / `salt:read`, every price is resolved per organisation, and availability is live warehouse stock. There is no anonymous catalogue to render until a deliberately public endpoint exists, so the links in the public header now lead to the sign-in page with the destination preserved. Both paths are in the middleware matcher.
 

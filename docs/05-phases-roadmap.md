@@ -203,7 +203,7 @@ exist and are capability-gated, not that a screen consumes them yet.
 | Orders | Placement with idempotency, state machine, list/detail, cancellation, order PDF | **Partial** — backend landed incl. cancel-with-release. Screen and order PDF open |
 | Notifications | Email + SMS templates, event-driven sending, retry with backoff | **Partial** — templates + best-effort post-commit send behind a port. No transport, no retry |
 | Admin | Buyer approval queue, catalogue CRUD, order list and manual status update | **Partial** — backend landed (capability-gated endpoints). Admin UI screens open |
-| Website | Catalogue browse, salt search, cart, checkout, order history | **Partial** — browse and salt search live (authenticated). Cart, checkout, order history open |
+| Website | Catalogue browse, salt search, cart, checkout, order history | **Partial** — all five pages built in the authenticated route group (browse + salt search routing-verified on the built app). Cart, checkout and order history not yet exercised against real data |
 | Mobile | Catalogue browse, salt search, cart, order placement (internal TestFlight / APK) | **Not started** — auth shell only |
 
 ### Exit criteria
@@ -242,9 +242,9 @@ extension requirement); commerce models classified in
 `tenant-scoping.extension.ts`; earlier slices retrofitted to
 `findFirst`/`updateMany` (Prisma rejects extension-rewritten unique `where`).
 
-**Not started:** website cart / checkout / order history, mobile storefront, the
-migration run. Durable retry (outbox relay), typo tolerance (`pg_trgm`), and
-`order_status_history` remain explicitly unclaimed.
+**Not started:** mobile storefront, the migration run. Exercising cart / checkout /
+order history against real data, durable retry (outbox relay), typo tolerance
+(`pg_trgm`), and `order_status_history` remain explicitly unclaimed.
 
 **Next up — the Phase 1 migration.** It is now the only thing blocking end-to-end
 verification of everything above: the commerce tables exist in `schema.prisma` and in
