@@ -1,6 +1,6 @@
 # 00 — Project Status
 
-> **Last updated:** 2026-09-16 · **Branch:** `main` · **Phase in flight:** Phase 1 — backend landed, contract + typed client published, and the website catalogue and salt search are live screens; cart, checkout, order history and the mobile storefront are open · **CI:** 🟢 every local gate green; remote run still pending
+> **Last updated:** 2026-09-18 · **Branch:** `main` · **Phase in flight:** Phase 1 — backend landed, contract + typed client published, and the website catalogue and salt search are live screens; cart, checkout, order history and the mobile storefront are open · **CI:** 🟢 every local gate green; remote run still pending
 
 A single-glance view of how much is actually built, what has been *verified* rather
 than merely written, and what is still open. Where this file and
@@ -179,7 +179,8 @@ something that matters:
 
 | Slice | What exists | Verified |
 |---|---|---|
-| DB models | `product`, `warehouse_stock`, `cart`, `cart_item`, `customer_order`, `order_item` in `schema.prisma` + migration `20260917000000_init_phase1_core-commerce` | `prisma validate` + client regenerated; migration committed locally |
+| DB models | `product`, `warehouse_stock`, `cart`, `cart_item`, `customer_order`, `order_item` in `schema.prisma` + migration `20260917000000_init_phase1_core-commerce` | `prisma validate` + client regenerated; migration committed locally; empty duplicate dir `20260917000000_phase1_core-commerce` removed (untracked leftover, Prisma rejects dirs without `migration.sql`) |
+| Commerce seed | `prisma/seeds/commerce.seed.ts` wired into `seed.ts`: demo buyer org + 8 products with engine-computed composition keys + `WH-MUM-01` stock; deterministic UUIDv5 ids, prod-refused | typecheck green, 250 unit tests green; not yet run (no database reachable) |
 | Onboarding | `POST /onboarding/applications`, `GET /onboarding/applications`, approve/reject; row-locked, audited | typecheck, boundaries, lint, 243 unit tests green |
 | Catalogue | `POST/GET/PATCH /catalog/products`; paginated browse with search/schedule/sort allow-list; audited writes | typecheck, boundaries, lint, 243 unit tests green |
 | Salt engine + search | Canonical composition key (pure, unit-tested); `GET /search/products` with AND combination matching + `exact` flag | typecheck, boundaries, lint, 248 unit tests green |
@@ -198,7 +199,7 @@ All Phase 1 commerce slices are now verified end-to-end through routing on the b
 
 **Storefront placement.** `/products` and `/salt-search` moved out of the `(public)` route group and into the authenticated one, and their placeholder pages were deleted. They were written as public, crawlable pages and cannot be: the endpoints require `catalog:read` / `salt:read`, every price is resolved per organisation, and availability is live warehouse stock. There is no anonymous catalogue to render until a deliberately public endpoint exists, so the links in the public header now lead to the sign-in page with the destination preserved. Both paths are in the middleware matcher.
 
-**Next action:** provision `DEV_DATABASE_URL` / `KUBE_CONFIG` to apply the Phase 1 migration to a database and run `prisma db seed` to populate commerce stock. Then verify the website cart/checkout/order history paths against real data. Admin MFA (`user.mfaEnabled`) and `pg_trgm` typo tolerance remain open. Mobile storefront is auth-shell only (not started in this environment).
+**Next action:** apply the Phase 1 migration to a database and run `prisma db seed` — the commerce seed (buyer org, 8 products, `WH-MUM-01` stock) is now wired in and waiting. Then verify the website cart/checkout/order history paths against real data. Admin MFA (`user.mfaEnabled`) and `pg_trgm` typo tolerance remain open. Mobile storefront is auth-shell only (not started in this environment).
 
 ---
 

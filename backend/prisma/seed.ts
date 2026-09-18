@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 
 import { requestContext } from '../src/common/context/request-context';
 import { seedAdminUsers } from './seeds/admin-user.seed';
+import { seedCommerce } from './seeds/commerce.seed';
 import { seedFeatureFlags } from './seeds/feature-flags.seed';
 import { seedPlatformSettings } from './seeds/platform-settings.seed';
 import { seedRoles } from './seeds/roles.seed';
@@ -48,16 +49,21 @@ async function main(): Promise<void> {
     // 1. The tenant everything else belongs to.
     const tenant = await seedTenant(prisma);
 
-    // 2. Global roles (tenantId = null) and per-tenant roles.
+    // 2. Demo commerce data (buyer org, catalogue, stock). Needs only the
+    // tenant; runs before roles so a fresh environment is browsable even if a
+    // later step fails.
+    await seedCommerce(prisma, tenant.id);
+
+    // 3. Global roles (tenantId = null) and per-tenant roles.
     await seedRoles(prisma, tenant.id);
 
-    // 3. Runtime configuration: platform-wide, encrypted where secret.
+    // 4. Runtime configuration: platform-wide, encrypted where secret.
     await seedPlatformSettings(prisma);
 
-    // 4. Feature flags: platform defaults plus any per-tenant override.
+    // 5. Feature flags: platform defaults plus any per-tenant override.
     await seedFeatureFlags(prisma, tenant.id);
 
-    // 5. Development accounts. Refuses to run in production.
+    // 6. Development accounts. Refuses to run in production.
     await seedAdminUsers(prisma, tenant.id);
   }, 'seed');
 

@@ -222,7 +222,7 @@ exist and are capability-gated, not that a screen consumes them yet.
 
 | Slice | Landed | Evidence |
 |---|---|---|
-| DB models | `product`, `warehouse_stock`, `cart`, `cart_item`, `customer_order`, `order_item` | `prisma validate` clean; **migration not run** |
+| DB models | `product`, `warehouse_stock`, `cart`, `cart_item`, `customer_order`, `order_item` | `prisma validate` clean; **migration not run**; commerce seed (`demo buyer org + 8 products + WH-MUM-01 stock`, deterministic ids, engine-computed composition keys) wired into `seed.ts` and typechecked — awaiting a database |
 | Onboarding & KYC (backend) | Submit → PENDING, reviewer queue, approve → ACTIVE, reject → BLOCKED; audited | typecheck, boundaries, lint, unit tests green |
 | Catalogue (backend) | Product create/browse/detail/update; paginated, allow-listed sort; audited writes | typecheck, boundaries, lint, unit tests green |
 | Salt engine + search (backend) | Canonical composition key; `GET /search/products` with AND combination matching + `exact` flag; no `pg_trgm` yet | typecheck, boundaries, lint, unit tests green |
@@ -248,11 +248,13 @@ migration run. Durable retry (outbox relay), typo tolerance (`pg_trgm`), and
 
 **Next up — the Phase 1 migration.** It is now the only thing blocking end-to-end
 verification of everything above: the commerce tables exist in `schema.prisma` and in
-no database, so no catalogue can be seeded and none of the storefront, cart or order
-paths can be exercised against real data. Every row in this table is verified
-statically (typecheck, boundaries, lint, unit tests), and the two storefront screens
-only as far as their routing. That gap closes as soon as the migration is applied and
-the seed populates stock.
+no database. The seed side is ready (`prisma/seeds/commerce.seed.ts`: demo buyer
+org, 8 products including a Paracetamol+Cetirizine combo, `WH-MUM-01` stock), so the
+moment the migration is applied, `prisma db seed` populates stock and the storefront,
+cart and order paths can be exercised against real data. Every row in this table is
+verified statically (typecheck, boundaries, lint, unit tests), and the two storefront
+screens only as far as their routing. That gap closes as soon as the migration is
+applied and the seed runs.
 
 ### Risks
 
