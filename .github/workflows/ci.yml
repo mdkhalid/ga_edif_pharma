@@ -130,9 +130,23 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+      # Required by the idempotency suite, which asserts the store's atomic
+      # claim against a real server rather than a stub. The application itself
+      # treats Redis as optional (ADR-014), so this is a test requirement and
+      # not an application one.
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
       NODE_ENV: test
       DATABASE_URL: postgresql://medichain:medichain@127.0.0.1:5432/medichain?schema=public
+      REDIS_URL: redis://127.0.0.1:6379
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

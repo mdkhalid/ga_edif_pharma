@@ -30,12 +30,24 @@ import {
  * because a suite that quietly passes without running is worse than no suite.
  */
 
-/** Reads `backend/.env` when the environment has no `DATABASE_URL` of its own. */
+/**
+ * Fills in anything `backend/.env` provides that the environment does not.
+ *
+ * Every key is considered, not just `DATABASE_URL`: bailing out as soon as one
+ * variable was supplied would leave the rest undefined, so a CI job that sets
+ * `DATABASE_URL` explicitly and expects `.env` to supply `REDIS_URL` would get
+ * an unset URL and a confusing failure. Real environment variables always win,
+ * and a missing file is not an error — CI has no `.env`.
+ */
 function loadEnvFile(): void {
-  if (process.env['DATABASE_URL'] !== undefined && process.env['DATABASE_URL'] !== '') return;
+  let contents: string;
+  try {
+    contents = readFileSync(join(__dirname, '..', '..', '.env'), 'utf8');
+  } catch {
+    return;
+  }
 
-  const envPath = join(__dirname, '..', '..', '.env');
-  for (const line of readFileSync(envPath, 'utf8').split(/\r?\n/)) {
+  for (const line of contents.split(/\r?\n/)) {
     const match = /^\s*([A-Za-z0-9_]+)\s*=\s*(.*?)\s*$/.exec(line);
     if (match === null) continue;
     const key = match[1] as string;
