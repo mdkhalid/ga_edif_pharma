@@ -92,6 +92,7 @@ model Tenant {
   cartItems     CartItem[]
   customerOrders CustomerOrder[]
   orderItems    OrderItem[]
+  orderStatusHistory OrderStatusHistory[]
 
   @@map("tenant")
 }
@@ -653,11 +654,11 @@ model Product {
   description    String?           @db.Text
   // OTC|H|H1|X|NARCOTIC
   schedule       String            @db.VarChar(10)
-  hsnCode        String?           @db.VarChar(16)
+  hsnCode        String?           @map("hsn_code") @db.VarChar(16)
   strength       String?           @db.VarChar(50)
   packSize       Decimal           @default(0) @map("pack_size") @db.Decimal(18, 4)
   // e.g. strip, bottle, cap
-  packUnit       String?           @db.VarChar(20)
+  packUnit       String?           @map("pack_unit") @db.VarChar(20)
   price          Decimal           @default(0) @map("price") @db.Decimal(18, 4)
   currency       String            @default("INR") @db.VarChar(3)
   status         ProductStatus     @default(ACTIVE)
@@ -689,9 +690,9 @@ model WarehouseStock {
   id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenantId    String    @map("tenant_id") @db.Uuid
   productId   String    @map("product_id") @db.Uuid
-  warehouseId String    @db.VarChar(100)
+  warehouseId String    @map("warehouse_id") @db.VarChar(100)
   quantity    Decimal   @default(0) @map("quantity") @db.Decimal(18, 4)
-  batchId     String?   @db.VarChar(64)
+  batchId     String?   @map("batch_id") @db.VarChar(64)
   expiryDate  DateTime? @map("expiry_date") @db.Timestamptz(6)
   reserved    Decimal   @default(0) @map("reserved") @db.Decimal(18, 4)
 
@@ -748,18 +749,19 @@ model CustomerOrder {
   tenantId       String   @map("tenant_id") @db.Uuid
   organisationId String   @map("organisation_id") @db.Uuid
   status         String   @default("PLACED") @db.VarChar(20)
-  paymentStatus  String   @default("PENDING") @db.VarChar(20)
+  paymentStatus  String   @default("PENDING") @map("payment_status") @db.VarChar(20)
   subtotal       Decimal  @default(0) @map("subtotal") @db.Decimal(18, 4)
   discount       Decimal  @default(0) @map("discount") @db.Decimal(18, 4)
   total          Decimal  @default(0) @map("total") @db.Decimal(18, 4)
   currency       String   @default("INR") @db.VarChar(3)
-  deliveryAddress String? @db.Text
+  deliveryAddress String? @map("delivery_address") @db.Text
   notes           String? @db.Text
   scheduledAt     DateTime? @map("scheduled_at") @db.Timestamptz(6)
   cancelledAt     DateTime? @map("cancelled_at") @db.Timestamptz(6)
   cancelledReason String?   @map("cancelled_reason") @db.VarChar(200)
 
   orderItems OrderItem[]
+  statusHistory OrderStatusHistory[]
 
   tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
@@ -789,6 +791,42 @@ model OrderItem {
   @@unique([orderId, productId])
   @@index([orderId])
   @@map("order_item")
+}
+
+/// One recorded order status change. Append-only.
+///
+/// The Phase 1 exit criterion is that *every* transition appears here with an
+/// actor, so placement writes the opening row (`fromStatus` null → `PLACED`)
+/// and each state-machine move appends one. The row is written inside the same
+/// transaction as the status change it describes: a history entry that can
+/// survive a rolled-back transition, or be lost when one commits, is not
+/// evidence that the transition happened.
+///
+/// `actorId` is non-null on purpose. A system-initiated transition must
+/// therefore decide whose identity it acts under rather than writing a row
+/// that cannot answer "who did this?".
+model OrderStatusHistory {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  orderId  String @map("order_id") @db.Uuid
+
+  /// Null only on the row written at placement — there is no previous status.
+  fromStatus String? @map("from_status") @db.VarChar(30)
+  toStatus   String  @map("to_status") @db.VarChar(30)
+
+  /// The user who caused the change. Matches the actor on the audit row for
+  /// the same action, so the two can be correlated.
+  actorId String  @map("actor_id") @db.Uuid
+  reason  String? @db.VarChar(500)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  order  CustomerOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  tenant Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  /// The read is always "this order's history, oldest first".
+  @@index([tenantId, orderId, createdAt])
+  @@map("order_status_history")
 }
 
 // ===========================================================================

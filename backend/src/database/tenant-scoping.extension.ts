@@ -57,6 +57,7 @@ export const TENANT_SCOPED_MODELS = [
   'CartItem',
   'CustomerOrder',
   'OrderItem',
+  'OrderStatusHistory',
 ] as const;
 
 /**
