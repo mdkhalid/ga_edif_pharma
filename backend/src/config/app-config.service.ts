@@ -186,11 +186,20 @@ export class AppConfigService {
   /**
    * Outbound transport configuration.
    *
-   * `smtp` is always present because the defaults (`localhost:1025`) are the
-   * local-catcher convention — Mailhog and Mailpit both listen there. Nothing
-   * here is a secret: the SMS API key is read through `platform_setting` at the
-   * point of use, so it can be rotated without a redeploy; this accessor carries
-   * the bootstrap value only.
+   * An empty `smtp.host` means "no SMTP transport": email is written to the log
+   * instead, which keeps the verification and reset flows drivable without a mail
+   * server. `.env.example` sets it to the local-catcher convention
+   * (`localhost:1025` — Mailhog and Mailpit both listen there).
+   *
+   * ## Credentials are Layer 1 here, and the design says they should be Layer 2
+   *
+   * Everything below is read from the environment, so rotating an SMS key needs a
+   * redeploy. [13-runtime-configuration.md](../../../docs/13-runtime-configuration.md)
+   * puts `notification.sms.apiKey` and friends in `platform_setting`, where an
+   * operator rotates them live — and that is the right home for a credential that
+   * a provider may force you to change at an inconvenient hour. It is not
+   * implemented: the transports read this accessor directly. Recorded here rather
+   * than left as a comment that claims the plumbing exists.
    */
   get notifications() {
     return {
