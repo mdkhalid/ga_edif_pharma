@@ -22,10 +22,22 @@ export const SILENT_NOTIFICATION_PORT: NotificationPort = {
 };
 
 export function buildOrderService(prisma: ExtendedPrismaClient): OrderService {
+  return buildOrderServiceWithPort(prisma, SILENT_NOTIFICATION_PORT);
+}
+
+/**
+ * The same service with a specific notification port, so a test can observe
+ * what an order tells the outside world. Delivery is the notification module's
+ * concern; this is how the two are checked together without booting HTTP.
+ */
+export function buildOrderServiceWithPort(
+  prisma: ExtendedPrismaClient,
+  port: NotificationPort,
+): OrderService {
   return new OrderService(
     prisma,
     new UnitOfWork(prisma),
     new AuditService(prisma),
-    new NotificationService(SILENT_NOTIFICATION_PORT),
+    new NotificationService(port),
   );
 }

@@ -4,14 +4,14 @@ import type { OtpPurpose } from '@medichain/shared-types';
  * Outbound notification port.
  *
  * The application-layer services that need to deliver a one-time code depend on
- * this interface, not on an email or SMS client. There is no transport in Phase 0
- * — `notifications/` is an empty module and no SMTP/SMS provider is wired — so the
- * only adapter is a logging one (see `LogNotificationAdapter`). Binding a port
- * now means the real transport (SMTP for email, MSG91/Twilio for SMS) drops in
- * during Phase 1 by providing a different adapter, with no change to the auth
- * flows that emit codes.
+ * this interface, not on an email or SMS client. `RoutingNotificationAdapter`
+ * implements it: it decides which channel a message takes and what happens when
+ * a channel fails, and delegates the transport itself to the SMTP and SMS
+ * adapters in `infra/notifications`. Swapping a provider therefore changes no
+ * application code, and the auth flows that emit codes never learn how a code
+ * travels.
  *
- * The port lives in `common/ports` rather than inside the `iam` module for the
+ * The port lives in `common/ports` rather than inside a feature module for the
  * same reason the other ports do: the adapter lives in `infra/`, and an
  * infrastructure file may not reach into a feature module's internals (the
  * module-boundary gate would reject it). Declaring what the application needs in

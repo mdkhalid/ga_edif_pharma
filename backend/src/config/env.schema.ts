@@ -115,13 +115,24 @@ export const envSchema = z
     CORS_ORIGINS: commaSeparated,
 
     // ------------------------------------------------------- notifications
-    SMTP_HOST: z.string().default('localhost'),
+    /**
+     * Empty means "no SMTP transport": email is written to the log instead.
+     * Deliberately empty rather than `localhost`, so a machine with no mail
+     * catcher is not quietly configured to send into a void, and so "is email
+     * actually leaving this deployment?" is answerable from configuration alone.
+     * `.env.example` sets it to the local-catcher convention.
+     */
+    SMTP_HOST: z.string().default(''),
     SMTP_PORT: z.coerce.number().int().positive().default(1025),
     SMTP_USER: z.string().default(''),
     SMTP_PASSWORD: z.string().default(''),
     SMTP_FROM: z.string().default('MediChain <no-reply@medichain.local>'),
     SMS_PROVIDER: z.enum(['console', 'msg91', 'twilio']).default('console'),
     SMS_API_KEY: z.string().default(''),
+    /** Twilio's `From` number, or the MSG91 sender ID. */
+    SMS_SENDER_ID: z.string().default(''),
+    /** Twilio only: the account SID is part of the request URL as well as the credential. */
+    TWILIO_ACCOUNT_SID: z.string().default(''),
     WHATSAPP_PROVIDER: z.enum(['none', 'cloud-api']).default('none'),
     WHATSAPP_TOKEN: z.string().default(''),
 
@@ -214,6 +225,20 @@ export const envSchema = z
             'AI_ENABLED is true but AI_API_KEY is empty. Configure a key or disable AI — do not start in a half-configured state.',
         });
       }
+    }
+
+    // A real SMS provider with no credential is not "degraded", it is broken:
+    // every message fails at the provider. Failing at boot is the difference
+    // between an operator seeing it now and a buyer never receiving an order
+    // confirmation. Checked in every environment, not just production.
+    if (env.SMS_PROVIDER !== 'console' && env.SMS_API_KEY === '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['SMS_API_KEY'],
+        message:
+          `SMS_PROVIDER is "${env.SMS_PROVIDER}" but SMS_API_KEY is empty. Set the credential, ` +
+          'or use the console provider.',
+      });
     }
 
     if (env.CORS_ORIGINS.length === 0 && env.NODE_ENV !== 'test') {

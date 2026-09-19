@@ -181,6 +181,35 @@ export class AppConfigService {
     } as const;
   }
 
+  // ------------------------------------------------------ notifications
+
+  /**
+   * Outbound transport configuration.
+   *
+   * `smtp` is always present because the defaults (`localhost:1025`) are the
+   * local-catcher convention — Mailhog and Mailpit both listen there. Nothing
+   * here is a secret: the SMS API key is read through `platform_setting` at the
+   * point of use, so it can be rotated without a redeploy; this accessor carries
+   * the bootstrap value only.
+   */
+  get notifications() {
+    return {
+      smtp: {
+        host: this.raw.SMTP_HOST,
+        port: this.raw.SMTP_PORT,
+        user: this.raw.SMTP_USER,
+        password: this.raw.SMTP_PASSWORD,
+        from: this.raw.SMTP_FROM,
+      },
+      sms: {
+        provider: this.raw.SMS_PROVIDER,
+        apiKey: this.raw.SMS_API_KEY,
+        senderId: this.raw.SMS_SENDER_ID,
+        twilioAccountSid: this.raw.TWILIO_ACCOUNT_SID,
+      },
+    } as const;
+  }
+
   // ------------------------------------------------------ observability
 
   get observability() {
