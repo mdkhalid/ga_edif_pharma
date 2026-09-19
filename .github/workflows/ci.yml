@@ -100,11 +100,39 @@ jobs:
             p/owasp-top-ten
 
   # ─────────────────────────────────────────────────────────────
-  # Stage 3 — unit tests + coverage gate.
+  # Stage 3 — every test suite, then the coverage gate.
+  #
+  # Not "unit tests" any more. The Phase 1 services are transaction-and-locking
+  # code whose behaviour is PostgreSQL's — `OrderService.place` locks rows,
+  # reserves stock and writes history — so they are exercised by the
+  # database-backed suites, and measuring the unit suite alone reported them as
+  # 0% covered. The floor had been set before those files existed, so the gate
+  # failed for a reason that had nothing to do with quality. Hence the service
+  # container.
+  #
+  # The floor is a ratchet against regression, not a quality claim: the job is
+  # here to stop the number going DOWN unnoticed.
   # ─────────────────────────────────────────────────────────────
   test-unit:
-    name: Unit tests
+    name: Tests + coverage
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: medichain
+          POSTGRES_PASSWORD: medichain
+          POSTGRES_DB: medichain
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U medichain"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://medichain:medichain@127.0.0.1:5432/medichain?schema=public
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -115,8 +143,16 @@ jobs:
       - name: Build shared packages
         run: npm run build:shared
 
-      - name: Unit tests
-        run: npm run test:unit --workspace=@medichain/backend -- --coverage
+      # The database-backed suites fail loudly rather than skipping when their
+      # fixtures are absent, so this step is what makes them run rather than a
+      # convenience.
+      - name: Migrate and seed the test database
+        run: |
+          npm run db:migrate
+          npm run db:seed
+
+      - name: Tests
+        run: npm run test:all --workspace=@medichain/backend
 
       - name: Enforce coverage floors
         run: npm run check:coverage
