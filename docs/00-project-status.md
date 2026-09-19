@@ -108,8 +108,9 @@ Everything below was executed in this environment, not assumed.
 | Dependency audit | `npm run check:audit` | pass — 3 accepted, 0 unaccepted |
 | Backend build | `npm run build --workspace=@medichain/backend` | pass |
 | OpenAPI generation | `npm run openapi:generate` | **32 paths, 15 schemas** |
-| Website build | `npm run build --workspace=@medichain/website` | pass — 13 routes |
+| Website build | `npm run build --workspace=@medichain/website` | pass — 16 routes. **It did not, before this pass**: the cart, checkout and order-history pages were server components calling client-only hooks, with the typed client used as `api.cart.get()` (there is no such namespace) and `useMutation` destructured as a tuple. Three pages, one commit |
 | Admin build | `npm run build --workspace=@medichain/admin-portal` | pass — 11 routes |
+| Full monorepo | `npm run build` / `npm run typecheck` / `npm run lint` | **7/7, 12/12 and 8/8 tasks successful** — the workspace-wide build, typecheck and lint all pass for the first time in this pass |
 | Website / admin lint | `npm run lint --workspace=@medichain/website` and `…admin-portal` | 0 problems |
 | Mobile typecheck | `npm run typecheck --workspace=@medichain/mobile` | pass |
 | Mobile lint | `npm run lint --workspace=@medichain/mobile` | pass |
