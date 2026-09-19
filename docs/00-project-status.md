@@ -1,6 +1,6 @@
 # 00 — Project Status
 
-> **Last updated:** 2026-09-18 · **Branch:** `main` · **Phase in flight:** Phase 1 — backend landed, contract + typed client published, website catalogue, salt search, cart, checkout and order history pages built (not yet exercised against real data); mobile storefront open · **CI:** 🟢 every local gate green; remote run still pending
+> **Last updated:** 2026-09-19 · **Branch:** `main` · **Phase in flight:** Phase 1 — the migration applies, the commerce and salt paths are exercised against a real database, and **six of the seven exit criteria are met**; the seventh (placement throughput) meets its latency budget but not its sustained rate on this machine · **CI:** 🟢 every local gate green; remote run still pending
 
 A single-glance view of how much is actually built, what has been *verified* rather
 than merely written, and what is still open. Where this file and
@@ -13,23 +13,20 @@ than merely written, and what is still open. Where this file and
 | Phase | Theme | State | Complete |
 |---|---|---|---|
 | **0** | Foundation | **Complete but for the `dev` deploy, which needs credentials** | ~97% |
-| 1 | Core Commerce MVP | **In flight — backend landed, contract + typed client published, website catalogue, salt search, cart, checkout and order history pages built; mobile storefront open** | ~65% |
+| 1 | Core Commerce MVP | **In flight — six of seven exit criteria met and verified against a real database and a real Redis; remaining work is UI (wizard, admin screens, mobile storefront) plus the throughput run** | ~80% |
 | 2 | Commercial Engine | Not started | 0% |
 | 3 | Fulfilment & Finance | Not started | 0% |
 | 4 | Scale & Mobile GA | Not started | 0% |
 | 5 | Intelligence | Not started | 0% |
 | 6 | Compliance & Multi-tenant | Not started | 0% |
 
-**Overall: ~22% of the seven-phase programme.** Phase 0 is finished except the
-credential-blocked `dev` deploy; Phase 1 backend is landed (DB models,
-onboarding, catalogue, salt/search, cart/orders, notifications), the contract and
-the typed client that consumes it are published, the website storefront pages are
-built (catalogue + salt search routing-verified; cart/checkout/orders awaiting
-real data), the mobile storefront is open, and no exit criterion is met yet.
+**Overall: ~25% of the seven-phase programme.** Two things changed the phase
+fundamentally in this pass. The Phase 1 migration had never run — it was invalid
+SQL — so nothing above it could be verified; it now applies from scratch, which
+unblocked end-to-end testing. And the verification that followed found a real
+defect: four concurrent placements of one cart produced four orders.
 
-Everything Phase 0 promised now exists: the backend foundation, the three client
-applications, an API client generated from the contract, and a load test that proves
-the throughput criterion rather than asserting it.
+Every Phase 0 exit criterion but the credential-blocked `dev` deploy still holds.
 
 ---
 
@@ -86,7 +83,7 @@ the throughput criterion rather than asserting it.
 | Deploys to `dev` automatically | ✗ | Job exists and reports what is missing; gated on `DEV_DATABASE_URL` / `KUBE_CONFIG`. **The one open criterion — blocked on credentials, not code** |
 | Load test: 100 RPS, p95 < 200 ms | ✓ | 1,500 requests at 100 RPS over 15 s on `GET /auth/me`; zero errors; p50 9 ms, **p97.5 23 ms**, p99 26 ms |
 | No secret committed; scanning in CI | ✓ | `.env` gitignored; `gitleaks` on every push and PR over full history |
-| Security-critical code unit-tested and gated | ✓ | 243 tests / 10 suites; eight security-critical modules held to ≥90% |
+| Security-critical code unit-tested and gated | ✓ | 308 tests / 21 suites, now including the database-backed integration and concurrency suites; eight security-critical modules still held to ≥90% |
 | No unreviewed high-severity advisory ships | ✓ | `check:audit` passes; 3 accepted `multer` DoS advisories with reasons and a review date |
 
 **8 satisfied · 1 partial · 1 open.** The partial is a limitation of this environment
@@ -103,10 +100,11 @@ Everything below was executed in this environment, not assumed.
 | Shared packages build | `npm run build:shared` | pass |
 | API client generation | `npm run api-client:generate` | 32 paths → `src/generated/schema.ts` |
 | Backend typecheck | `npm run typecheck --workspace=@medichain/backend` | pass (both configs) |
-| Backend lint | `npm run lint --workspace=@medichain/backend` | 0 errors, 20 warnings (baseline unchanged) |
-| Unit tests | `npm run test:unit --workspace=@medichain/backend -- --coverage` | **250 passed / 250**, 12 suites |
-| Coverage gate | `npm run check:coverage` | pass — 8 critical files, all ≥90% (3 at 100%) |
-| Module boundaries | `npm run check:module-boundaries` | pass — 115 files scanned |
+| Backend lint | `npm run lint --workspace=@medichain/backend` | 0 errors, 21 warnings (the baseline plus one more of the same `explicit-function-return-type` kind) |
+| Unit tests | `npm run test:unit --workspace=@medichain/backend -- --coverage` | **275 passed / 275**, 15 suites |
+| All suites | `npm run test:all --workspace=@medichain/backend` | **308 passed / 308**, 21 suites (unit + integration + concurrency) |
+| Coverage gate | `npm run check:coverage` | pass — 8 critical files all ≥90%, global 43.98/30.30/36.39/43.98 against floors of 38/26/27/37 |
+| Module boundaries | `npm run check:module-boundaries` | pass — 118 files scanned |
 | Dependency audit | `npm run check:audit` | pass — 3 accepted, 0 unaccepted |
 | Backend build | `npm run build --workspace=@medichain/backend` | pass |
 | OpenAPI generation | `npm run openapi:generate` | **32 paths, 15 schemas** |
@@ -121,30 +119,41 @@ Everything below was executed in this environment, not assumed.
 | **Web BFF end to end** | login / refresh / logout on :3000 and :3002 | **pass** — cookie set and rotated, session revoked, cross-origin refused |
 | **Storefront routing** | `next start` on the built website, probed path by path | **pass** — `/products`, `/salt-search` and `/dashboard` answer `307` to `/login?next=…` with no refresh cookie and `200` with one; `/` and `/login` stay `200` either way |
 | **Load test** | `LOAD_PASSWORD=… npm run load:local` | **pass** — 100 RPS, p97.5 23 ms, 0 errors |
+| **Integration / concurrency suites** | `npm run test:all --workspace=@medichain/backend` | **pass** — 33 database-backed cases against PostgreSQL 17 and Redis 7, covering all but one exit criterion (§7) |
+| **Order placement under load** | `npm run load:orders` | **p95 62.6 ms** against an 800 ms budget, 0 failures; the sustained *rate* did not reproduce locally (§7) |
 
-> **Important — local green ≠ remote green.** Every row above ran in *this* sandbox.
-> The remote workflow has still never been observed green, and the Docker images have
-> never been built (no Docker daemon here). See §5.
+> **Important — local green ≠ remote green.** Every row above ran in *this* sandbox,
+> against throwaway PostgreSQL and Redis containers. The remote workflow has still
+> never been observed green. (Docker *is* available here now, unlike during the
+> Phase 0 pass, so the three Dockerfiles could be built — they have not been.) See §5.
 
 ### Coverage — the real numbers
 
-| Metric | Before this pass | Now |
+| Metric | Phase 0 | Phase 1 |
 |---|---|---|
-| Statements | 28.3% | **39.1%** |
-| Branches | 16.5% | **27.7%** |
-| Functions | 24.3% | **28.6%** |
-| Lines | 27.9% | **38.5%** |
+| Statements | 39.1% | **43.98%** |
+| Branches | 27.7% | **30.30%** |
+| Functions | 28.6% | **36.39%** |
+| Lines | 38.5% | **43.98%** |
+
+The Phase 0 column is worth reading with care, because it was wrong in a way the
+gate did not catch: the floor (38/26/27/37) had been chosen from a measurement
+taken before the Phase 1 services existed, and those services are covered by the
+database-backed suites. Measured with the unit suite alone — which is what the
+gate used to run — the repo reports **35.15%** against a 38% floor, and CI would
+have failed. The gate now runs every suite (`npm run test:all`), which is where
+those files are actually exercised; the CI job gained PostgreSQL and Redis
+services to make that possible.
 
 The gate is deliberately two-part, so a low global number cannot hide a hole in
 something that matters:
 
-- **Critical files — the real gate, ≥90% each:** tenant scoping 98%, envelope
-  encryption 100%, password policy 100%, crypto utilities 100%, pagination 100%, and
-  the three new ones — one-time codes 100%, contact verification 100%, password reset
-  100%.
-- **Global ratchet:** 38 / 26 / 27 / 37, raised from 16 / 9 / 13 / 16. Its job is to
-  stop the number going *down* unnoticed, not to certify quality. The repo-wide figure
-  is low because most of `src` belongs to phases that do not exist yet.
+- **Critical files — the real gate, ≥90% each:** tenant scoping 100%, envelope
+  encryption 100%, password policy 100%, crypto utilities 100%, pagination 100%,
+  one-time codes 100%, contact verification 100%, password reset 100%.
+- **Global ratchet:** 38 / 26 / 27 / 37. Its job is to stop the number going
+  *down* unnoticed, not to certify quality. The repo-wide figure is low because
+  most of `src` belongs to phases that do not exist yet.
 
 ---
 
@@ -168,56 +177,114 @@ something that matters:
 | Risk | Why accepted | Revisit |
 |---|---|---|
 | 3 high `multer` DoS advisories | Reached only via `@nestjs/platform-express`, which pins the vulnerable `2.2.0` exactly. **No upload routes exist**, so the parser is never invoked. npm's suggested fix is a downgrade to Nest 7. | By **2027-03-01**, or when the first upload endpoint lands (Phase 1) |
-| 20 ESLint warnings (backend) | All `explicit-function-return-type` on decorator factories and config accessors, plus one `no-unsafe-return` inherent to the Prisma extension API. Warnings, not errors. Two rules are relaxed for `backend/test/**` so Jest's `any`-typed matchers do not inflate the count | Opportunistic |
+| 21 ESLint warnings (backend) | All `explicit-function-return-type` on decorator factories and config accessors — including the one added by the new notifications accessor — plus one `no-unsafe-return` inherent to the Prisma extension API. Warnings, not errors, and CI enforces no warning budget. Two rules are relaxed for `backend/test/**` so Jest's `any`-typed matchers do not inflate the count | Opportunistic |
 | `npm overrides` does not work in this environment | npm 10.9.7 parses the field and silently ignores it for exactly-pinned transitive deps. Documented in ADR-016 so nobody retries it | If npm fixes it |
 | Next 16 `middleware.ts` deprecation | The file convention still works and the build only warns | Opportunistic |
 
 ---
 
-## 7. Phase 1 — in flight
+## 7. Phase 1 — exit criteria
 
-**Phase 1 — Core Commerce MVP** is underway. Landed so far (backend and website, local commits):
+**Phase 1 — Core Commerce MVP.** Six of the seven exit criteria are met, and each
+one has a test behind it rather than a claim. The full evidence is in
+[05-phases-roadmap.md](05-phases-roadmap.md); this is the summary.
 
-| Slice | What exists | Verified |
+| # | Criterion | State |
 |---|---|---|
-| DB models | `product`, `warehouse_stock`, `cart`, `cart_item`, `customer_order`, `order_item` in `schema.prisma` + migration `20260917000000_init_phase1_core-commerce` | `prisma validate` + client regenerated; migration committed locally; empty duplicate dir `20260917000000_phase1_core-commerce` removed (untracked leftover, Prisma rejects dirs without `migration.sql`) |
-| Commerce seed | `prisma/seeds/commerce.seed.ts` wired into `seed.ts`: demo buyer org + 8 products with engine-computed composition keys + `WH-MUM-01` stock; deterministic UUIDv5 ids, prod-refused | typecheck green, 250 unit tests green; not yet run (no database reachable) |
-| Onboarding | `POST /onboarding/applications`, `GET /onboarding/applications`, approve/reject; row-locked, audited | typecheck, boundaries, lint, 243 unit tests green |
-| Catalogue | `POST/GET/PATCH /catalog/products`; paginated browse with search/schedule/sort allow-list; audited writes | typecheck, boundaries, lint, 243 unit tests green |
-| Salt engine + search | Canonical composition key (pure, unit-tested); `GET /search/products` with AND combination matching + `exact` flag | typecheck, boundaries, lint, 248 unit tests green |
-| Cart | One ACTIVE cart per org; live pricing, availability checks, add/update/remove; website cart page live | typecheck, boundaries, lint, 248 unit tests green |
-| Orders | Idempotent placement from cart with row-locked stock reservation; `ORDER_TRANSITIONS` machine (confirm/process/dispatch/deliver/cancel with release); audited; website order history page live | typecheck, boundaries, lint, 248 unit tests green |
-| Notifications | `NotificationPort.sendOrderPlaced` + `NotificationService` (best-effort, post-commit); pure order templates, unit-tested; log adapter | typecheck, boundaries, lint, 250 unit tests green |
-| Admin (backend) | No new code needed: buyer queue = onboarding endpoints, catalogue CRUD = catalog endpoints, order list/status = orders endpoints (all capability-gated) | covered by the slices above |
-| Contract (OpenAPI) | Regenerated to 32 paths / 15 schemas. Operation ids are now qualified by resource, and `Idempotency-Key` is declared on all five routes that require it | `npm run openapi:generate`; CI diffs the committed artifacts |
-| Typed API client | `catalog`, `search`, `cart`, `orders`, `onboarding` endpoint modules over the generated client; response shapes declared once in `@medichain/shared-types` | typecheck + build green across all 9 workspaces; 250 unit tests green |
-| Website storefront (search) | Catalogue browse with pagination and a name filter; salt-combination search with the exact-match marker; `ProductTable`, `Pagination`, `Notice`; `callAuthed` now hands back the client so a feature reuses the single-flight refresh instead of copying it | typecheck, lint, website build (14 routes), routing smoke test on built app |
-| Website cart | Cart page with live pricing, quantity inputs, and checkout flow | built and typechecked |
-| Website checkout | Checkout page with cart summary, order details, and place-order mutation | built and typechecked |
-| Website order history | Order history page listing past orders with status and totals | built and typechecked |
+| 1 | A new distributor completes onboarding and is approved end-to-end | ✅ approval creates the org's first administrator (wizard/document upload remain UI scope) |
+| 2 | Salt combination search works, and a typo still finds Paracetamol | ✅ `pg_trgm`, including composition-only hits such as `Dolo 650mg` |
+| 3 | The same `Idempotency-Key` twice creates one order | ✅ against a real Redis; the retry replays the first response |
+| 4 | Concurrent placement on the last unit never oversells | ✅ four buyers, two units, exactly two win |
+| 5 | An order triggers an email **and** an SMS within 30 s | 🟡 the fan-out is verified end-to-end; the 30 s bound is not measurable here (no provider is reachable) |
+| 6 | Order placement p95 < 800 ms at 200 RPS sustained | ❌ p95 62.6 ms — the budget is met — but the sustained rate did not reproduce locally |
+| 7 | 100% of order transitions in `order_status_history` with an actor | ✅ |
 
-The catalogue browse and salt search screens are verified through routing on the
-built website (`307` to sign-in without a refresh cookie, `200` with one). The
-cart, checkout and order history pages are built and typechecked but have not
-been exercised against real data — no database with commerce stock has existed
-yet — so no exit criterion is met.
+### What this pass changed
 
-**Storefront placement.** `/products` and `/salt-search` moved out of the `(public)` route group and into the authenticated one, and their placeholder pages were deleted. They were written as public, crawlable pages and cannot be: the endpoints require `catalog:read` / `salt:read`, every price is resolved per organisation, and availability is live warehouse stock. There is no anonymous catalogue to render until a deliberately public endpoint exists, so the links in the public header now lead to the sign-in page with the destination preserved. Both paths are in the middleware matcher.
+**The Phase 1 migration had never run.** It was hand-written SQL containing Prisma
+schema syntax (`@map`, `@updatedAt`) and camelCase column names that contradicted
+the schema's own `snake_case` rule, so `prisma migrate deploy` stopped at the first
+column. Nothing above it could be verified, which is why no criterion was met
+before. Regenerated from the schema; all three migrations now apply from scratch.
 
-**Next action:** apply the Phase 1 migration to a database and run `prisma db seed` — the commerce seed (buyer org, 8 products, `WH-MUM-01` stock) is now wired in and waiting. Then verify the website cart/checkout/order history paths against real data. Admin MFA (`user.mfaEnabled`) and `pg_trgm` typo tolerance remain open. Mobile storefront is auth-shell only (not started in this environment).
+**`order_status_history` did not exist**, though a criterion requires every
+transition to appear in it. Added, written inside the same transaction as each
+status change, and exposed on `GET /orders/:id`.
+
+**Typo tolerance.** `Paracetmol` now finds Paracetamol, matching the same three
+sources the exact pass uses (name, salt aliases, composition names) so brand names
+like `Dolo 650mg` are found too. Two details mattered: `array_to_string` is STABLE
+rather than IMMUTABLE so it cannot be indexed directly, and pg_trgm's default
+threshold is 0.6 while the commonest typo of this salt (`parasetamol`) scores
+exactly 0.600 — so the default silently misses it.
+
+**A real defect: one cart produced four orders.** Placement locked the cart but
+never re-read its status after taking the lock, so every caller that had already
+read the cart as `ACTIVE` went on to place its own order. Four concurrent
+placements produced four orders and reserved four times the stock. The concurrency
+suite was written first, failed, and passes after the fix.
+
+**Real email and SMS transports.** SMTP through `nodemailer` and MSG91/Twilio over
+plain `fetch`, selected from configuration and logged at boot. `sendOrderPlaced`
+stays best-effort across both channels; `sendOtp` throws on failure, because
+reporting "code sent" when it was not leaves the user waiting for nothing.
+
+**Approval provisions the administrator.** The scope says "approval → org + user
+creation" and only the org half existed. The account is created
+`PENDING_VERIFICATION` with a password nobody knows, and claimed through the
+existing reset flow — so nobody, including the approver, ever holds another
+person's credential.
+
+**The coverage gate was failing.** The floor had been chosen before the Phase 1
+services existed, and those services are covered by the database-backed suites, so
+measuring the unit suite alone reported them as 0% (35.15% against a 38% floor).
+The gate now measures every suite and passes at 43.98%.
+
+**An order-placement load harness** (`npm run load:orders`) that pre-provisions a
+pool of buyers, drives placement at a target rate, and fails if the rate is not
+reached rather than quietly reporting latency for load that never arrived.
+
+### Open, in priority order
+
+| # | Item | Why it matters | Where |
+|---|---|---|---|
+| 1 | Placement throughput on real disk | The one unmet criterion. The latency budget is met with large headroom; the rate needs a staging run | `npm run load:orders` on staging |
+| 2 | The 30 s notification bound | No mail or SMS provider is reachable here, so delivery timing is unmeasured | a staging provider |
+| 3 | Admin UI screens, onboarding wizard, document upload | The remaining Phase 1 scope is UI | `admin-portal/`, `website/` |
+| 4 | Mobile storefront | Auth shell only; never run on a device in this environment | `mobile/` |
+| 5 | Outbox relay | Notification delivery is best-effort with no durable retry | Phase 2 |
+| 6 | Confirm remote CI green | Every local gate passes; the workflow has still never run on a runner | push, then GitHub Actions |
+| 7 | `DEV_DATABASE_URL` / `KUBE_CONFIG` | The last open Phase 0 criterion | GitHub → Environments → `dev` |
+| 8 | Admin MFA | `user.mfaEnabled` exists and nothing reads it | Phase 1 |
+| 9 | `test-isolation` / `test-concurrency` suites | Configs exist; `test/concurrency` now has specs, `test-isolation` does not | parked block in `ci.yml` |
+
+### Local environment used for this verification
+
+PostgreSQL 17 and Redis 7 run as throwaway containers (`medichain-pg-dev`,
+`medichain-redis-dev`); the database is created by `prisma migrate reset` and
+seeded by `prisma db seed`. `backend/.env` points at them and is gitignored. Note
+that this sandbox's shell has `NODE_ENV=production` set, and dotenv does not
+override it — so development and test commands must set `NODE_ENV` explicitly, or
+the env schema refuses to boot with the console SMS provider.
 
 ---
 
-## 8. Changes in this pass (not yet committed)
+## 8. Commits in this pass
 
-| Area | Change |
+All local; nothing has been pushed, so the remote workflow is still unobserved.
+
+| Commit | Change |
 |---|---|
-| Backend | Contact verification + password reset; OTP service; notification port/adapter; 3 new error codes; OTP env config |
-| Shared | `@medichain/config` presets, `@medichain/api-client`, `@medichain/ui` |
-| Clients | `website/`, `admin-portal/`, `mobile/` — built from folder skeletons into working apps |
-| CI | Contract-drift check; lint/typecheck across every workspace; `load-test.yml` |
-| Tooling | Coverage floors raised; 3 modules added to the critical gate; `loadtest/` |
-| Docs | ADR-017; this file; the Phase 0 exit criteria in `05-phases-roadmap.md`; the version table in `02-tech-stack.md` |
+| `fix(db)` | Replaced the invalid Phase 1 migration with one generated from the schema; corrected six `snake_case` column mappings; added `order_status_history`; removed a captured error log misnamed `phase1_migration.sql` |
+| `feat(orders)` | Records `order_status_history` on placement and on every transition; exposed on `GET /orders/:id` |
+| `feat(search)` | `pg_trgm` typo-tolerant salt search — the immutable wrapper, and an explicit threshold because the default silently misses `parasetamol` |
+| `fix(orders)` | **One cart produces one order** — the concurrent double-placement defect, found by the suite committed with the fix |
+| `test(orders)` | Integration coverage for the order-history criterion |
+| `feat(notifications)` | Real SMTP (`nodemailer`) and MSG91/Twilio transports, replacing the log-only adapter |
+| `fix(ci)` | The coverage gate measured the unit suite alone — and was failing. It now measures every suite, with PostgreSQL and Redis services in the job |
+| `test(orders)` | Idempotency proved against a real Redis |
+| `feat(onboarding)` | Approval provisions the organisation's administrator, so "approved" means someone can be given access |
+| `test(orders)` | The order-placement load harness |
 
 ---
 

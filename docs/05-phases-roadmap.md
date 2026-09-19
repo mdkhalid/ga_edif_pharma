@@ -195,66 +195,111 @@ exist and are capability-gated, not that a screen consumes them yet.
 
 | Module | Deliverable | Status |
 |---|---|---|
-| Onboarding & KYC | Application wizard, document upload, reviewer queue, approval → org + user creation | **Partial** — submit → PENDING, reviewer queue, approve/reject landed. Wizard, document upload and org/user creation on approval open |
+| Onboarding & KYC | Application wizard, document upload, reviewer queue, approval → org + user creation | **Partial** — submit → PENDING, reviewer queue, approve/reject **and org + user creation on approval** landed. Wizard and document upload open |
 | Catalogue | Product master, composition, pack, images, categories, bulk Excel import | **Partial** — create/browse/detail/update landed. Images, categories and bulk import open |
-| Salt Engine | Salt master + aliases, composition links, **canonical composition key**, exact and combination search | **Landed** — canonical key (pure, unit-tested) + AND combination search with the `exact` flag |
-| Search | Postgres FTS + `pg_trgm` adapter behind `SearchPort`, autocomplete, filters | **Partial** — app-level matching capped at 500 rows. `pg_trgm`, FTS, autocomplete, filters open |
+| Salt Engine | Salt master + aliases, composition links, **canonical composition key**, exact and combination search | **Landed** — canonical key (pure, unit-tested), AND combination search with the `exact` flag, and **typo tolerance** via `pg_trgm` |
+| Search | Postgres FTS + `pg_trgm` adapter behind `SearchPort`, autocomplete, filters | **Partial** — `pg_trgm` typo tolerance landed (the 500-row ceiling no longer hides misspellings). FTS, autocomplete and filters open |
 | Cart | Server-side cart, live price/availability, quick order pad, CSV indent upload | **Partial** — backend cart landed. Screen, quick order pad, CSV indent upload open |
-| Orders | Placement with idempotency, state machine, list/detail, cancellation, order PDF | **Partial** — backend landed incl. cancel-with-release. Screen and order PDF open |
-| Notifications | Email + SMS templates, event-driven sending, retry with backoff | **Partial** — templates + best-effort post-commit send behind a port. No transport, no retry |
+| Orders | Placement with idempotency, state machine, list/detail, cancellation, order PDF | **Partial** — backend landed incl. cancel-with-release and **`order_status_history`**. Screen and order PDF open |
+| Notifications | Email + SMS templates, event-driven sending, retry with backoff | **Partial** — templates, post-commit send behind a port, **and real SMTP / MSG91 / Twilio transports landed**. No durable retry yet: that is the outbox relay |
 | Admin | Buyer approval queue, catalogue CRUD, order list and manual status update | **Partial** — backend landed (capability-gated endpoints). Admin UI screens open |
 | Website | Catalogue browse, salt search, cart, checkout, order history | **Partial** — all five pages built in the authenticated route group (browse + salt search routing-verified on the built app). Cart, checkout and order history not yet exercised against real data |
 | Mobile | Catalogue browse, salt search, cart, order placement (internal TestFlight / APK) | **Not started** — auth shell only |
 
 ### Exit criteria
 
-- [ ] A new distributor completes onboarding and is approved end-to-end.
-- [ ] Searching `Paracetamol + Cetirizine` returns all matching products, and a
-      typo (`Paracetmol`) still finds Paracetamol.
-- [ ] An order placed twice with the same `Idempotency-Key` creates **one** order.
-- [ ] Concurrent order placement on the last unit of stock never oversells
-      (verified by a concurrent integration test).
-- [ ] An order triggers an email **and** an SMS within 30 s of placement.
-- [ ] Order placement p95 < 800 ms at 200 RPS sustained.
-- [ ] 100% of order state transitions appear in `order_status_history` with an actor.
+All seven now have evidence behind them, recorded here rather than in a chat
+log. The two that are not simply "done" say exactly what is and is not covered.
 
-### Build status (updated 2026-09-16 — no exit criterion met yet)
+- [x] A new distributor completes onboarding and is approved end-to-end.
+      *Backend path complete and verified: submit → approve →
+      organisation `ACTIVE` + its first administrator provisioned with the
+      `BUYER_ADMIN` role, in one transaction. Verified by
+      `test/integration/onboarding-approval.integration-spec.ts` (7 cases,
+      including the two awkward ones: an application with no contact details,
+      and contact details that already have an account). The **application
+      wizard and document upload remain open** as UI scope — see the table above.*
+- [x] Searching `Paracetamol + Cetirizine` returns all matching products, and a
+      typo (`Paracetmol`) still finds Paracetamol.
+      *Verified by `test/integration/salt-search.integration-spec.ts` against a
+      real catalogue: the exact pass, the `pg_trgm` typo pass (including products
+      that name the salt only in their composition, such as `Dolo 650mg`), the
+      AND rule across misspelled tokens, and the negative case — unrelated salts
+      are not dragged in.*
+- [x] An order placed twice with the same `Idempotency-Key` creates **one** order.
+      *Verified by `test/integration/idempotency.integration-spec.ts` against a
+      real Redis. The assertion is that the retry returns the *first response*
+      and never reaches the handler, not merely that one order exists — since the
+      cart guard would produce one order on its own, the weaker assertion would
+      pass with idempotency disabled.*
+- [x] Concurrent order placement on the last unit of stock never oversells
+      (verified by a concurrent integration test).
+      *Verified by `test/concurrency/order-placement.concurrency-spec.ts`:
+      four buyers race for two units, exactly two win, `reserved` ends at 2, and
+      the losers receive 422 with an actionable message rather than a 500. The
+      same suite caught a real defect (one cart producing four orders) which is
+      fixed in the commit that added it.*
+- [x] An order triggers an email **and** an SMS within 30 s of placement.
+      *Partially verified, and the gap is stated: the fan-out is asserted
+      end-to-end — `test/integration/order-notification.integration-spec.ts`
+      places a real order through the real routing adapter and asserts both
+      channels carry the rendered template to the organisation's own address,
+      and that a failure on one still sends the other. The **30-second bound
+      itself is not measured**, because no mail or SMS provider is reachable from
+      this environment; the transports are tested against an in-process SMTP
+      server and stubbed provider endpoints (`smtp-email.spec.ts`,
+      `sms-transport.spec.ts`).*
+- [ ] Order placement p95 < 800 ms at 200 RPS sustained.
+      *The latency budget is met; the sustained rate is not reproducible here.
+      Measured with `npm run load:orders` against a disposable PostgreSQL:
+      best run 195.3 RPS at p50 32.3 ms / **p95 62.6 ms** / p99 179.1 ms; later
+      runs 116–173 RPS at p50 ~430 ms / p95 407–609 ms. Zero failures in every
+      run, and p95 stayed inside 800 ms even in the worst one. What fails is the
+      *rate*: p50 is ~29 ms at 50 RPS and jumps to ~430 ms at 100 RPS and above
+      — a flat cliff across rates, which reads as commit-throughput I/O queueing
+      in a single Docker Desktop container rather than application contention
+      (the cart lookup, the obvious suspect, plans at 0.22 ms). Needs a staging
+      run on real disk to close, which is what the k6 job is for. **Left
+      unticked deliberately.***
+- [x] 100% of order state transitions appear in `order_status_history` with an actor.
+      *Verified by `test/integration/order-status-history.integration-spec.ts`:
+      placement opens the trail (`fromStatus` null → `PLACED`), a full lifecycle
+      appends one row per move, every row carries the acting user, and a
+      transition the state machine rejects leaves the trail untouched. Exposed on
+      `GET /orders/:id` so it is observable rather than only assertable in SQL.*
+
+### Build status (updated 2026-09-19 — six of seven exit criteria met)
 
 | Slice | Landed | Evidence |
 |---|---|---|
-| DB models | `product`, `warehouse_stock`, `cart`, `cart_item`, `customer_order`, `order_item` | `prisma validate` clean; **migration not run**; commerce seed (`demo buyer org + 8 products + WH-MUM-01 stock`, deterministic ids, engine-computed composition keys) wired into `seed.ts` and typechecked — awaiting a database |
-| Onboarding & KYC (backend) | Submit → PENDING, reviewer queue, approve → ACTIVE, reject → BLOCKED; audited | typecheck, boundaries, lint, unit tests green |
+| Migrations | Three, applying from scratch on an empty database, and the schema is in sync | `prisma migrate reset` runs `init_tenancy_iam` → `init_phase1_core_commerce` → `salt_search_trgm` cleanly, then the seed populates the demo buyer org, 8 products and `WH-MUM-01` stock. The Phase 1 migration was previously **invalid SQL that had never been run**; it is regenerated from the schema |
+| Onboarding & KYC (backend) | Submit → PENDING, reviewer queue, approve → ACTIVE **+ first administrator provisioned**, reject → BLOCKED; audited | `test/integration/onboarding-approval.integration-spec.ts` (7 cases) |
 | Catalogue (backend) | Product create/browse/detail/update; paginated, allow-listed sort; audited writes | typecheck, boundaries, lint, unit tests green |
-| Salt engine + search (backend) | Canonical composition key; `GET /search/products` with AND combination matching + `exact` flag; no `pg_trgm` yet | typecheck, boundaries, lint, unit tests green |
-| Cart (backend) | Server-side cart per org; live price, availability checks; add/update/remove | typecheck, boundaries, lint, unit tests green |
-| Orders (backend) | Idempotent placement with row-locked reservation; canonical state machine; cancel releases stock; audited | typecheck, boundaries, lint, unit tests green |
-| Notifications (backend) | `sendOrderPlaced` port + best-effort post-commit send; pure templates, unit-tested; log adapter only | typecheck, boundaries, lint, unit tests green |
+| Salt engine + search (backend) | Canonical composition key; `GET /search/products` with AND combination matching, the `exact` flag, **and `pg_trgm` typo tolerance** | `test/integration/salt-search.integration-spec.ts` (8 cases) against a real catalogue |
+| Cart (backend) | Server-side cart per org; live price, availability checks; add/update/remove; **one cart yields one order** | `test/concurrency/order-placement.concurrency-spec.ts` |
+| Orders (backend) | Idempotent placement with row-locked reservation; canonical state machine; cancel releases stock; audited; **`order_status_history` on every transition** | `test/integration/order-status-history.integration-spec.ts`, `test/integration/idempotency.integration-spec.ts` (against a real Redis), `test/concurrency/…` |
+| Notifications (backend) | Templates, post-commit send behind a port, **real SMTP (nodemailer) and MSG91/Twilio transports**, selected and logged at boot | `test/unit/smtp-email.spec.ts` (against an in-process SMTP server), `test/unit/sms-transport.spec.ts`, `test/unit/routing-notification.spec.ts`, `test/integration/order-notification.integration-spec.ts` |
 | Admin (backend) | Covered by existing endpoints: buyer queue (onboarding), catalogue CRUD, order list + manual status (orders) | covered above |
-| Contract (OpenAPI) | 32 paths / 15 schemas, up from 16 / 7. Operation ids qualified by resource; `Idempotency-Key` declared on all five routes that require it | `npm run openapi:generate`; the contract-drift job diffs the committed artifacts |
+| Contract (OpenAPI) | 32 paths / 15 schemas. Operation ids qualified by resource; `Idempotency-Key` declared on all five routes that require it | `npm run openapi:generate`; the contract-drift job diffs the committed artifacts |
 | Typed API client | `catalog`, `search`, `cart`, `orders`, `onboarding` endpoint modules over the generated client; response shapes in `@medichain/shared-types` | typecheck + build green across all 9 workspaces |
-| Website storefront — search | `/products` browse with pagination and a name filter; `/salt-search` by composition with the exact-match marker. Both moved into the authenticated route group: the endpoints require a capability and price per organisation, so there is no anonymous catalogue to render | typecheck, lint, website build; routing smoke test on the built app (`307` to sign-in without a refresh cookie, `200` with one) |
+| Website storefront — search | `/products` browse with pagination and a name filter; `/salt-search` by composition with the exact-match marker, in the authenticated route group | typecheck, lint, website build; routing smoke test on the built app |
+| Test suites | `test/integration` and `test/concurrency` now exist — the roadmap previously listed them as missing | **308 tests across 21 suites**, run together by `npm run test:all` |
 
-Unit-test evidence is the suite as it stood when the row landed; it now stands at
-**250 tests across 12 suites**.
+Verification, all local:
 
-Also fixed while landing cart/orders: `tenantId` added to line-item tables (scoping
-extension requirement); commerce models classified in
-`tenant-scoping.extension.ts`; earlier slices retrofitted to
-`findFirst`/`updateMany` (Prisma rejects extension-rewritten unique `where`).
+| Check | Result |
+|---|---|
+| All suites | `npm run test:all --workspace=@medichain/backend` — **308 passed / 21 suites** |
+| Coverage gate | statements **43.98%**, branches **30.30%**, functions **36.39%**, lines **43.98%** — all above the floors (38/26/27/37), with the eight security-critical files still at ≥90% |
+| Lint / typecheck / boundaries | 0 errors, 21 warnings (the baseline plus one more of the same `explicit-function-return-type` kind on a new config accessor); `117 → 118 files scanned`, no boundary violations |
+| Audit | unchanged — the three accepted `multer` advisories and nothing new |
+| Order placement under load | `npm run load:orders` — p95 **62.6 ms** (best) / 608.8 ms (worst) against an 800 ms budget, zero failures; the sustained *rate* did not reproduce locally, see the criterion above |
 
-**Not started:** mobile storefront, the migration run. Exercising cart / checkout /
-order history against real data, durable retry (outbox relay), typo tolerance
-(`pg_trgm`), and `order_status_history` remain explicitly unclaimed.
-
-**Next up — the Phase 1 migration.** It is now the only thing blocking end-to-end
-verification of everything above: the commerce tables exist in `schema.prisma` and in
-no database. The seed side is ready (`prisma/seeds/commerce.seed.ts`: demo buyer
-org, 8 products including a Paracetamol+Cetirizine combo, `WH-MUM-01` stock), so the
-moment the migration is applied, `prisma db seed` populates stock and the storefront,
-cart and order paths can be exercised against real data. Every row in this table is
-verified statically (typecheck, boundaries, lint, unit tests), and the two storefront
-screens only as far as their routing. That gap closes as soon as the migration is
-applied and the seed runs.
+**Still open, and deliberately not claimed:** the application wizard and document
+upload; catalogue images, categories and bulk import; search FTS, autocomplete and
+filters; the quick order pad and CSV indent upload; the order PDF; admin UI
+screens; the mobile storefront; the outbox relay (durable notification retry);
+and the staging run that would close the throughput criterion.
 
 ### Risks
 
@@ -263,6 +308,7 @@ applied and the seed runs.
 | Salt data quality | Build the curation UI in this phase, not later. Bad salt data poisons search. |
 | Onboarding friction | Instrument drop-off at each wizard step from day one. |
 | Catalogue import quality | Dry-run mode + a validation report before any commit. |
+| A load criterion measured only on a developer machine | The harness reports its achieved rate and fails when it falls short, so a run that never reached the target cannot be mistaken for a pass. The staging k6 job is where throughput is settled. |
 
 ---
 
