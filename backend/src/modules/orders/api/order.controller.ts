@@ -62,7 +62,7 @@ export class OrderController {
 
   @Get(':id')
   @RequireCapability(Capability.ORDER_READ)
-  @ApiOperation({ summary: 'Get an order with its lines' })
+  @ApiOperation({ summary: 'Get an order with its lines and status history' })
   @ApiResponse({ status: 200, description: 'The order.' })
   async getById(
     @CurrentTenant() tenantId: string,
@@ -75,6 +75,13 @@ export class OrderController {
       paymentStatus: string;
       total: string;
       items: Array<{ productId: string; productName: string; quantity: string; price: string }>;
+      statusHistory: Array<{
+        fromStatus: string | null;
+        toStatus: string;
+        actorId: string;
+        reason: string | null;
+        createdAt: Date;
+      }>;
     };
   }> {
     const row = await this.orders.getById(

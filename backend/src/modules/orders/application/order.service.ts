@@ -124,6 +124,20 @@ export class OrderService {
         data: { status: 'CONVERTED' },
       });
 
+      // The opening row of the order's history. Placement is a transition out
+      // of nothing, so `fromStatus` is null. Recorded here rather than inferred
+      // later, so the trail starts at the order's creation and the "every
+      // transition has a history row" guarantee holds from the first one.
+      await tx.orderStatusHistory.create({
+        data: {
+          tenantId,
+          orderId: order.id,
+          fromStatus: null,
+          toStatus: 'PLACED',
+          actorId,
+        },
+      });
+
       await this.audit.recordInTransaction(tx, {
         tenantId,
         action: 'order.placed',
@@ -210,12 +224,20 @@ export class OrderService {
     paymentStatus: string;
     total: string;
     items: Array<{ productId: string; productName: string; quantity: string; price: string }>;
+    statusHistory: Array<{
+      fromStatus: string | null;
+      toStatus: string;
+      actorId: string;
+      reason: string | null;
+      createdAt: Date;
+    }>;
   } | null> {
     // The tenant filter is injected by the scoping extension.
     const row = await this.prisma.customerOrder.findFirst({
       where: { id },
       include: {
         orderItems: { include: { product: { select: { name: true } } } },
+        statusHistory: { orderBy: { createdAt: 'asc' } },
       },
     });
     if (!row) return null;
@@ -233,6 +255,13 @@ export class OrderService {
         productName: item.product.name,
         quantity: item.quantity.toString(),
         price: item.price.toString(),
+      })),
+      statusHistory: row.statusHistory.map((entry) => ({
+        fromStatus: entry.fromStatus,
+        toStatus: entry.toStatus,
+        actorId: entry.actorId,
+        reason: entry.reason,
+        createdAt: entry.createdAt,
       })),
     };
   }
@@ -276,6 +305,21 @@ export class OrderService {
       if (to === 'CANCELLED') {
         await this.releaseAll(tx, tenantId, id);
       }
+
+      // The exit criterion is that *every* transition lands here with an
+      // actor, so this write sits inside the same transaction as the status
+      // change: a history row that could outlive a rolled-back transition
+      // would be worse than no row at all.
+      await tx.orderStatusHistory.create({
+        data: {
+          tenantId,
+          orderId: id,
+          fromStatus: from,
+          toStatus: to,
+          actorId,
+          reason: reason ?? null,
+        },
+      });
 
       await this.audit.recordInTransaction(tx, {
         tenantId,

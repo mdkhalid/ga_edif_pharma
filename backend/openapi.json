@@ -1022,7 +1022,7 @@
             "bearer": []
           }
         ],
-        "summary": "Get an order with its lines",
+        "summary": "Get an order with its lines and status history",
         "tags": [
           "orders"
         ]
