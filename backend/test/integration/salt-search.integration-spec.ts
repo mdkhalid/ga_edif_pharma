@@ -1,6 +1,6 @@
 import { SaltEngineService } from '../../src/modules/salt-engine';
 import type { ExtendedPrismaClient } from '../../src/database/prisma.service';
-import { asTenantUser, createTestPrisma, seededTenant } from './support/database';
+import { asTenantUser, createTestPrisma, seededTenant } from '../support/database';
 
 /**
  * The salt-search half of the Phase 1 exit criteria, against a real catalogue:

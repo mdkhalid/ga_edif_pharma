@@ -75,8 +75,25 @@ export class OrderService {
         throw new BusinessRuleViolationError('The cart is empty. Add items before placing an order.');
       }
 
-      const lockedCart = await this.uow.lockById<{ id: string }>(tx, 'cart', cart.id, tenantId);
+      // The lock alone is not enough. `FOR UPDATE` serialises the callers, but
+      // the row it hands back is the *current* one — and under READ COMMITTED a
+      // waiting `SELECT … FOR UPDATE` re-reads the row after the blocking
+      // transaction commits, so it sees the `CONVERTED` status written below.
+      // Without this check every caller that had already read the cart as
+      // ACTIVE would go on to place its own order from it: four concurrent
+      // placements produced four orders before this line existed.
+      const lockedCart = await this.uow.lockById<{ id: string; status: string }>(
+        tx,
+        'cart',
+        cart.id,
+        tenantId,
+      );
       if (!lockedCart) throw new NotFoundError('The cart is no longer available.');
+      if (lockedCart.status !== 'ACTIVE') {
+        throw new BusinessRuleViolationError(
+          'This cart has already been ordered. Start a new cart to order again.',
+        );
+      }
 
       let total = new Prisma.Decimal(0);
       const lines: Array<{ productId: string; quantity: Prisma.Decimal; price: Prisma.Decimal }> = [];

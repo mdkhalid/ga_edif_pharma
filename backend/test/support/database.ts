@@ -3,30 +3,30 @@ import { join } from 'node:path';
 
 import { PrismaClient } from '@prisma/client';
 
-import { createRequestContext, requestContext } from '../../../src/common/context/request-context';
+import { createRequestContext, requestContext } from '../../src/common/context/request-context';
 import {
   extendPrismaClient,
   type ExtendedPrismaClient,
-} from '../../../src/database/prisma.service';
+} from '../../src/database/prisma.service';
 
 /**
- * Integration-suite support: a real PostgreSQL connection and a real request
- * context.
+ * Shared support for the database-backed suites (integration and concurrency):
+ * a real PostgreSQL connection and a real request context.
  *
  * ## Why these tests talk to a real database
  *
- * The behaviour under test here is PostgreSQL's: row locking, trigram
- * similarity, followed by a migration that must apply. `pg-mem` and SQLite
+ * The behaviour under test is PostgreSQL's: row locking, `FOR UPDATE` blocking,
+ * trigram similarity, plus a migration that must apply. `pg-mem` and SQLite
  * implement none of it faithfully, and a test that passes against a fake proves
  * nothing about the thing being tested.
  *
  * ## The database
  *
- * The suite uses the `DATABASE_URL` it is given, which is the same contract the
- * application uses. Locally that comes from `backend/.env` (read below when jest
- * has not been handed the variable); in CI it is a service container. The
+ * The suites use the `DATABASE_URL` they are given, which is the same contract
+ * the application uses. Locally that comes from `backend/.env` (read below when
+ * jest has not been handed the variable); in CI it is a service container. The
  * database must be migrated and seeded — `npm run db:migrate && npm run db:seed`
- * — and the suite fails loudly rather than silently skipping when it is not,
+ * — and the suites fail loudly rather than silently skipping when it is not,
  * because a suite that quietly passes without running is worse than no suite.
  */
 
@@ -34,7 +34,7 @@ import {
 function loadEnvFile(): void {
   if (process.env['DATABASE_URL'] !== undefined && process.env['DATABASE_URL'] !== '') return;
 
-  const envPath = join(__dirname, '..', '..', '..', '.env');
+  const envPath = join(__dirname, '..', '..', '.env');
   for (const line of readFileSync(envPath, 'utf8').split(/\r?\n/)) {
     const match = /^\s*([A-Za-z0-9_]+)\s*=\s*(.*?)\s*$/.exec(line);
     if (match === null) continue;
@@ -51,7 +51,7 @@ export function createTestPrisma(): ExtendedPrismaClient {
   const url = process.env['DATABASE_URL'];
   if (url === undefined || url === '') {
     throw new Error(
-      'These integration tests need DATABASE_URL. Set it, or provide backend/.env, ' +
+      'These database-backed tests need DATABASE_URL. Set it, or provide backend/.env, ' +
         'pointing at a migrated and seeded PostgreSQL database.',
     );
   }
@@ -66,7 +66,7 @@ export function createTestPrisma(): ExtendedPrismaClient {
  * outside one throws by design. This is the same context an HTTP request builds.
  */
 export async function asTenantUser<T>(tenantId: string, fn: () => Promise<T>): Promise<T> {
-  const context = createRequestContext({ requestId: 'integration-test' });
+  const context = createRequestContext({ requestId: 'db-test' });
   context.tenantId = tenantId;
   return requestContext.run(context, fn);
 }
@@ -74,22 +74,44 @@ export async function asTenantUser<T>(tenantId: string, fn: () => Promise<T>): P
 /**
  * The tenant the seed created, or a failure explaining what is missing.
  *
- * `Tenant` is a global (unscoped) model, so this read is deliberately wrapped
- * in `runUnscoped` — the seed and this helper are the only places allowed to
- * look at the tenant registry without already having a tenant.
+ * `Tenant` is a global (unscoped) model, so this read is deliberately wrapped in
+ * `runUnscoped` — the seed and this helper are the only places allowed to look
+ * at the tenant registry without already holding a tenant.
  */
 export async function seededTenant(prisma: ExtendedPrismaClient): Promise<{ id: string }> {
   const tenant = await requestContext.runUnscoped(
     async () => prisma.tenant.findFirst({ select: { id: true }, orderBy: { createdAt: 'asc' } }),
-    'integration-test',
+    'db-test',
   );
 
   if (tenant === null) {
     throw new Error(
       'No tenant in the database. Run `npm run db:migrate` and `npm run db:seed` against ' +
-        'DATABASE_URL before the integration suite.',
+        'DATABASE_URL before the database-backed suites.',
     );
   }
 
   return tenant;
+}
+
+/**
+ * An organisation to act as the buyer for, or a failure explaining what is not
+ * seeded. Order placement needs a real one: `customer_order.organisation_id` is
+ * a foreign key.
+ */
+export async function seededBuyerOrganisation(
+  prisma: ExtendedPrismaClient,
+  tenantId: string,
+): Promise<{ id: string }> {
+  const organisation = await asTenantUser(tenantId, async () =>
+    prisma.organisation.findFirst({ select: { id: true }, orderBy: { createdAt: 'asc' } }),
+  );
+
+  if (organisation === null) {
+    throw new Error(
+      'No organisation in the database. The commerce seed creates one; run `npm run db:seed`.',
+    );
+  }
+
+  return organisation;
 }
