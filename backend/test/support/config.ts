@@ -13,6 +13,13 @@ import type { Env } from '../../src/config/env.schema';
 export function testConfig(overrides: Partial<Env> = {}): AppConfigService {
   return new AppConfigService({
     APP_NAME: 'MediChain',
+    // The accessors a service under test may read have to be present: an
+    // undefined value here reaches argon2 as `memoryCost: undefined` and fails
+    // as "Invalid memoryCost", which reads like a library problem rather than a
+    // missing fixture.
+    ARGON2_MEMORY_COST: 19_456,
+    ARGON2_TIME_COST: 2,
+    ARGON2_PARALLELISM: 1,
     SMTP_HOST: '',
     SMTP_PORT: 1025,
     SMTP_USER: '',
