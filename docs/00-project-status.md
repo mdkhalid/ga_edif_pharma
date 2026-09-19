@@ -103,7 +103,7 @@ Everything below was executed in this environment, not assumed.
 | Backend lint | `npm run lint --workspace=@medichain/backend` | 0 errors, 21 warnings (the baseline plus one more of the same `explicit-function-return-type` kind) |
 | Unit tests | `npm run test:unit --workspace=@medichain/backend -- --coverage` | **275 passed / 275**, 15 suites |
 | All suites | `npm run test:all --workspace=@medichain/backend` | **308 passed / 308**, 21 suites (unit + integration + concurrency) |
-| Coverage gate | `npm run check:coverage` | pass — 8 critical files all ≥90%, global 43.98/30.30/36.39/43.98 against floors of 38/26/27/37 |
+| Coverage gate | `npm run check:coverage` | pass — 8 critical files all ≥90%, global 41.56/29.55/34.77/41.53 against floors of 38/26/27/37 |
 | Module boundaries | `npm run check:module-boundaries` | pass — 118 files scanned |
 | Dependency audit | `npm run check:audit` | pass — 3 accepted, 0 unaccepted |
 | Backend build | `npm run build --workspace=@medichain/backend` | pass |
@@ -132,10 +132,10 @@ Everything below was executed in this environment, not assumed.
 
 | Metric | Phase 0 | Phase 1 |
 |---|---|---|
-| Statements | 39.1% | **43.98%** |
-| Branches | 27.7% | **30.30%** |
-| Functions | 28.6% | **36.39%** |
-| Lines | 38.5% | **43.98%** |
+| Statements | 39.1% | **41.56%** |
+| Branches | 27.7% | **29.55%** |
+| Functions | 28.6% | **34.77%** |
+| Lines | 38.5% | **41.53%** |
 
 The Phase 0 column is worth reading with care, because it was wrong in a way the
 gate did not catch: the floor (38/26/27/37) had been chosen from a measurement
@@ -239,7 +239,12 @@ person's credential.
 **The coverage gate was failing.** The floor had been chosen before the Phase 1
 services existed, and those services are covered by the database-backed suites, so
 measuring the unit suite alone reported them as 0% (35.15% against a 38% floor).
-The gate now measures every suite and passes at 43.98%.
+The gate now measures every suite, and passes at 41.56%. The figure is a little
+lower than the 43.98% an earlier run of this pass reported, and the reason is
+worth keeping: the order-placement load harness lives in `src/scripts/` and is
+counted, so it dilutes the total without being exercised. That is left alone
+rather than excluded — widening the coverage exclusions to lift a number is the
+wrong direction, and the gate passes either way.
 
 **An order-placement load harness** (`npm run load:orders`) that pre-provisions a
 pool of buyers, drives placement at a target rate, and fails if the rate is not

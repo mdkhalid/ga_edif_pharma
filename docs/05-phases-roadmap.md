@@ -290,9 +290,10 @@ Verification, all local:
 | Check | Result |
 |---|---|
 | All suites | `npm run test:all --workspace=@medichain/backend` — **308 passed / 21 suites** |
-| Coverage gate | statements **43.98%**, branches **30.30%**, functions **36.39%**, lines **43.98%** — all above the floors (38/26/27/37), with the eight security-critical files still at ≥90% |
+| Coverage gate | statements **41.56%**, branches **29.55%**, functions **34.77%**, lines **41.53%** — all above the floors (38/26/27/37), with the eight security-critical files still at ≥90% |
 | Lint / typecheck / boundaries | 0 errors, 21 warnings (the baseline plus one more of the same `explicit-function-return-type` kind on a new config accessor); `117 → 118 files scanned`, no boundary violations |
 | Audit | unchanged — the three accepted `multer` advisories and nothing new |
+| Workspace build / typecheck / lint | `npm run build` **7/7**, `npm run typecheck` **12/12**, `npm run lint` **8/8** tasks. The storefront's cart, checkout and order-history pages **did not build** before this pass — server components calling client-only hooks, and the typed client used as `api.cart.get()`, which is not its shape |
 | Order placement under load | `npm run load:orders` — p95 **62.6 ms** (best) / 608.8 ms (worst) against an 800 ms budget, zero failures; the sustained *rate* did not reproduce locally, see the criterion above |
 
 **Still open, and deliberately not claimed:** the application wizard and document
