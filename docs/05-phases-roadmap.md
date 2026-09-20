@@ -1,6 +1,6 @@
 # 05 — Phased Roadmap
 
-> **Status:** Approved · **Owner:** Product + Architecture · **Last updated:** 2026-09-15
+> **Status:** Approved · **Owner:** Product + Architecture · **Last updated:** 2026-09-20
 
 Seven phases. Each phase is **independently deployable and commercially useful** —
 no phase exists purely to set up the next one. A phase is done when its exit
@@ -84,7 +84,7 @@ Nothing here is throwaway.
       *Verified: `auth.login.succeeded` and `auth.refresh.reuse_detected` both
       carry `actor_id`, `tenant_id`, `correlation_id` and `request_id`. The table
       is append-only via triggers — `UPDATE`, `DELETE` and `TRUNCATE` all raise.*
-- [ ] CI is green on `main` — the workflow now matches what the repository can
+- [x] CI is green on `main` — the workflow now matches what the repository can
       actually run.
       *The workflow itself was corrected in the previous pass: it assumed pnpm
       (`pnpm install --frozen-lockfile`, `pnpm test:unit`), but the repo has
@@ -96,17 +96,17 @@ Nothing here is throwaway.
       **every** workspace — backend, website, admin, mobile and the shared packages —
       and the `build` job regenerates the OpenAPI document *and* the API client and
       fails on contract drift.*
-      ***Unticked, because it is false.*** *This criterion was ticked on the strength
-      of "every local gate is green", with the remote run recorded as "not yet
-      observed". It has since been observed. The repository is public and the workflow
-      has run 21 times; the last five runs against `main` all failed. The failure was
-      not a test: the run died at "Migrate and seed the test database" because the job
-      environment declared no `ENCRYPTION_KEY`, which `seedPlatformSettings` requires
-      in order to encrypt the `platform_setting` secrets at rest. GitHub skips the
-      steps after a failed one, so the Tests and coverage steps and the whole Build
-      job have never executed on a runner. Fixed, and reproduced green locally under
-      the same conditions — see [00-project-status.md](00-project-status.md) §5. It is
-      unproven until the next push.*
+      ***Verified — run 24 (`0586fe3`), the first green run in 24 attempts.*** *This
+      criterion had been ticked on the strength of "every local gate is green", with the
+      remote run recorded as "not yet observed". It was not unobserved; it was red, in
+      every one of its 23 runs. Four separate defects had to be fixed, and not one of them
+      was a failing test: the test job died at the seed for want of an `ENCRYPTION_KEY`,
+      so Tests, the coverage gate and the entire Build job never executed; supplying that
+      key as a literal then tripped the secret scan; the Build job, running for the first
+      time, found the committed API client one line stale; and the container scan was
+      quietly ignoring its own `severity: CRITICAL`, because `format: sarif` makes
+      `trivy-action` unset it. Each was reproduced locally before being fixed — see
+      [00-project-status.md](00-project-status.md) §5.*
 - [ ] Deploys to `dev` automatically.
       *The deploy-to-`dev` job exists, runs on push to `main` after every other job
       passes, and reports exactly what is missing rather than failing. It is gated on

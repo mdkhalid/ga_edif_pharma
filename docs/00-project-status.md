@@ -1,6 +1,6 @@
 # 00 — Project Status
 
-> **Last updated:** 2026-09-20 · **Branch:** `main` · **Phase in flight:** Phase 1 — the migration applies, the commerce and salt paths are exercised against a real database, and **six of the seven exit criteria are met**; the seventh (placement throughput) meets its latency budget but not its sustained rate on this machine · **CI:** 🔴 **red on `main`, and it always has been** — the last five runs failed in the seed step, before a single test executed. The cause is found and fixed locally; it is not confirmed until a runner says so (§5)
+> **Last updated:** 2026-09-20 · **Branch:** `main` · **Phase in flight:** Phase 1 — the migration applies, the commerce and salt paths are exercised against a real database, and **six of the seven exit criteria are met**; the seventh (placement throughput) meets its latency budget but not its sustained rate on this machine · **CI:** 🟢 **green on `main`** — run 24 is the first successful run in the repository's history, after 23 failures. Four separate defects had to be fixed to get there, and not one of them was a failing test (§5)
 
 A single-glance view of how much is actually built, what has been *verified* rather
 than merely written, and what is still open. Where this file and
@@ -79,17 +79,16 @@ Every Phase 0 exit criterion but the credential-blocked `dev` deploy still holds
 | Register / verify / login / refresh / logout from all three clients | ◐ | Website and admin verified end-to-end against a live API (cookie set and rotated, session revoked on sign-out, cross-origin refused). **Mobile is verified by typecheck and `expo config` only — this environment has no device or simulator** |
 | `/health/ready` returns 503 when Postgres is stopped | ✓ | Verified empirically |
 | A mutation writes an audit row with actor + correlation id | ✓ | `auth.login.succeeded`, `auth.refresh.reuse_detected`, `auth.verify.succeeded`, `auth.password.reset` |
-| CI is green on `main` | 🔴 | **Observed, and red.** Every run against `main` has failed. The last five (runs 17–21) failed at "Migrate and seed the test database", before the Tests step ran at all, so the 331-test suite and the coverage gate have never executed on a runner. The cause is a missing `ENCRYPTION_KEY` in the job environment (§5); fixed and reproduced green locally, **not yet confirmed remotely** |
+| CI is green on `main` | ✓ | **Run 24 (`0586fe3`) — the first green run in 24 attempts.** Every job passed: lint and typecheck across every workspace, module boundaries, secret scan, dependency audit, Semgrep, 331 tests plus the coverage gate against real PostgreSQL and Redis, the monorepo build, OpenAPI generation, the contract-drift check, the backend image build and the Trivy scan. Reaching it needed four separate fixes and none of them was a failing test (§5) |
 | Deploys to `dev` automatically | ✗ | Job exists and reports what is missing; gated on `DEV_DATABASE_URL` / `KUBE_CONFIG`. **The one open criterion — blocked on credentials, not code** |
 | Load test: 100 RPS, p95 < 200 ms | ✓ | 1,500 requests at 100 RPS over 15 s on `GET /auth/me`; zero errors; p50 9 ms, **p97.5 23 ms**, p99 26 ms |
 | No secret committed; scanning in CI | ✓ | `.env` gitignored; `gitleaks` on every push and PR over full history |
 | Security-critical code unit-tested and gated | ✓ | 331 tests / 22 suites, including the database-backed integration, concurrency and tenant-isolation suites; eight security-critical modules still held to ≥90% |
 | No unreviewed high-severity advisory ships | ✓ | `check:audit` passes; 3 accepted `multer` DoS advisories with reasons and a review date |
 
-**7 satisfied · 1 failing · 1 partial · 1 open.** CI itself is the failing one, and that
-matters more than the count suggests: while the pipeline is red, the suite and the
-coverage gate run nowhere except a developer's machine. The partial is a limitation of this environment
-(no device for the mobile app), not unfinished work. The open one needs GitHub secrets.
+**8 satisfied · 1 partial · 1 open.** The partial is a limitation of this environment
+(no device for the mobile app), not unfinished work. The open one needs a `dev` estate
+to exist before it can be satisfied.
 
 ---
 
@@ -125,12 +124,12 @@ Everything below was executed in this environment, not assumed.
 | **Integration / concurrency suites** | `npm run test:all --workspace=@medichain/backend` | **pass** — 33 database-backed cases against PostgreSQL 17 and Redis 7, covering all but one exit criterion (§7) |
 | **Order placement under load** | `npm run load:orders` | **p95 62.6 ms** against an 800 ms budget, 0 failures; the sustained *rate* did not reproduce locally (§7) |
 
-> **Important — local green ≠ remote green, and here it was not even close.** Every row
-> above ran in *this* sandbox, against throwaway PostgreSQL and Redis containers. The
-> remote workflow *has* been observed — it is public, and it is red: every run against
-> `main` failed at "Migrate and seed", before the test step. So the 331 tests and the
-> coverage gate in this table have still never run anywhere but a local machine, which
-> is exactly why they were passing. See §5 for the cause and the fix.
+> **These rows are local — and as of run 24, no longer only local.** Every one ran in
+> *this* sandbox, against throwaway PostgreSQL and Redis containers. The same suite and
+> the same coverage gate now run on a GitHub runner as well, which is what turns them from
+> a claim into a check. It took four fixes to get there (§5): before them the pipeline had
+> failed all 23 of its runs, so none of this had been verified anywhere but a developer's
+> machine.
 
 ### Coverage — the real numbers
 
@@ -166,18 +165,28 @@ something that matters:
 
 | # | Item | Why it matters | Where |
 |---|---|---|---|
-| 1 | **Push the CI fix, and confirm the run** | The pipeline is red and always has been — it never once reached the test step. The cause is fixed and reproduced green locally, but nothing is proved until a runner says so | push, then GitHub Actions |
-| 2 | **Provision `DEV_DATABASE_URL` / `KUBE_CONFIG`** | Without them the deploy-to-`dev` job reports that it is skipped — the last open Phase 0 criterion. Confirmed as of this pass: there is no `dev` estate yet, so these are not *missing* credentials so much as *uncreated* ones. A dev Postgres and cluster have to exist before any secret can point at them | GitHub → Environments → `dev` |
-| 3 | **Set `LOAD_TEST_BASE_URL` / `LOAD_TEST_PASSWORD`** | Without them the weekly k6 job reports that it is skipped | GitHub → Secrets |
-| 4 | **Run the mobile app on a device** | The one exit criterion verified indirectly | `npm run dev:mobile` |
-| 5 | **Admin MFA** | The admin security model calls for mandatory TOTP; the backend has `user.mfaEnabled` but nothing reads it | Phase 1 |
-| 6 | **The remaining `test-concurrency` money-path cases** | The oversell case is covered. Credit limits, the stock-ledger invariant and duplicate-webhook credit are not | `backend/test/concurrency/` |
-| 7 | **The `contract` and `test-e2e` jobs** | The OpenAPI diff and regenerated client are enforced inside the Build job; breaking-change detection and consumer-driven tests are still owed, and `test/e2e` has no specs | parked block in `ci.yml` |
+| 1 | **Provision `DEV_DATABASE_URL` / `KUBE_CONFIG`** | Without them the deploy-to-`dev` job reports that it is skipped — the last open Phase 0 criterion. Confirmed as of this pass: there is no `dev` estate yet, so these are not *missing* credentials so much as *uncreated* ones. A dev Postgres and cluster have to exist before any secret can point at them | GitHub → Environments → `dev` |
+| 2 | **Set `LOAD_TEST_BASE_URL` / `LOAD_TEST_PASSWORD`** | Without them the weekly k6 job reports that it is skipped | GitHub → Secrets |
+| 3 | **Run the mobile app on a device** | The one exit criterion verified indirectly | `npm run dev:mobile` |
+| 4 | **Admin MFA** | The admin security model calls for mandatory TOTP; the backend has `user.mfaEnabled` but nothing reads it | Phase 1 |
+| 5 | **The remaining `test-concurrency` money-path cases** | The oversell case is covered. Credit limits, the stock-ledger invariant and duplicate-webhook credit are not | `backend/test/concurrency/` |
+| 6 | **The `contract` and `test-e2e` jobs** | The OpenAPI diff and regenerated client are enforced inside the Build job; breaking-change detection and consumer-driven tests are still owed, and `test/e2e` has no specs | parked block in `ci.yml` |
 
-### Why CI was red — and what was actually wrong
+One known-debt note that does not appear as an open item because it breaks nothing today:
+a full-history `gitleaks` scan reports **six** `generic-api-key` hits beyond the one this
+pass fixed — the seed catalogue's `key: 'azithromycin-500'`-style product slugs, three
+`Authorization: Bearer eyJ...` examples in `docs/07`, and the `openapi:generate` key in
+the Build job. All are false positives, and none fails the build, because
+`gitleaks-action` scans the commits in a push rather than the whole history. They will
+need an allowlist with reasons recorded before that scan is ever widened.
 
-The workflow had **never passed a single run**. Every run against `main` failed, and the
-failure was not in a test. It failed at:
+### How CI was fixed — four defects, and not one of them a test
+
+The workflow had **never passed a single run** in 23 attempts. Four separate defects had
+to be cleared, and fixing each one only revealed the next, because the steps and jobs it
+had been blocking finally ran. In order:
+
+**1. The test job died at the seed, before running a single test.** It failed at:
 
 ```
 - name: Migrate and seed the test database
@@ -209,11 +218,39 @@ ConfigurationError: ENCRYPTION_KEY is not set.
     at seedPlatformSettings (prisma/seeds/platform-settings.seed.ts:197:56)
 ```
 
-The fix is one variable in the job environment, using the same test-only value the Build
-job already used for `openapi:generate`. With it, both commands exit 0 under the same
-conditions. The lesson worth keeping is the one the last commit in this file made about
-a stale comment: *a document that asserts a check is green is worse than no document,
-because it is the thing a reader trusts instead of running.*
+Fixed by giving the job a key — first as a literal, which was itself a mistake, and then
+by generating one per run, for the reason in defect 2.
+
+**2. The Security job failed on a secret that was not one.** Supplying the key as a
+literal put a `generic-api-key` finding in `ci.yml`, and gitleaks failed the scan that
+had been passing. The value is a test fixture, but secret scanning cannot know that, and
+adding the workflow to an allowlist would be the wrong repair — it is the one file where
+a real credential would do the most damage. The key is now generated per run and exported
+through `$GITHUB_ENV`; nothing needs it to persist, because the database it protects is
+created from empty every time.
+
+**3. The Build job failed on contract drift that had never been checked.** Build `needs`
+the test job, so it had been skipped on every previous push — meaning the drift check had
+never once executed on a runner. `packages/api-client/src/generated/schema.ts` was stale
+in exactly one line: the summary for `GET /orders/:id` still read "Get an order with its
+lines", while `backend/openapi.json` and the controller had said "…and status history"
+since the commit that added `order_status_history`. Regenerated from the document, which
+the generation leaves unchanged.
+
+**4. The container scan failed because it was not scanning what it said it scanned.**
+`severity: CRITICAL` was being discarded: with `format: sarif`, `trivy-action`'s
+`entrypoint.sh` runs `unset TRIVY_SEVERITY` unless `limit-severities-for-sarif` is true.
+So the scan ran at every severity and exited 1 on the three accepted `multer` HIGHs that
+the comment directly above it assigns to the audit gate. The image is clean at CRITICAL —
+0 criticals, confirmed by scanning the built image locally — and
+`limit-severities-for-sarif: true` makes the step do what its own comment has claimed
+since it was written. It also narrows what reaches code scanning, which had been
+receiving every severity.
+
+Run 24 (`0586fe3`) then passed every job. The lesson worth keeping is the one the previous
+commit in this file drew about a stale comment: *a document that asserts a check is green
+is worse than no document, because it is the thing a reader trusts instead of running.*
+This document asserted it about a check that was failing.
 
 ### Closed since the last pass
 
