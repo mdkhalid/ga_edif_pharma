@@ -260,6 +260,13 @@ jobs:
           # advisories; the container scan's job is to catch critical issues in
           # the built image (incl. OS packages) that npm audit cannot see.
           severity: CRITICAL
+          # Required, not optional, and the reason this step failed the first
+          # time it ever ran. With `format: sarif` the action *unsets* the
+          # severity input — `entrypoint.sh` runs `unset TRIVY_SEVERITY` unless
+          # this flag is true — so the scan silently ran at every severity and
+          # exited 1 on the three accepted multer HIGHs that the audit gate
+          # already vets by name. `severity: CRITICAL` above was being discarded.
+          limit-severities-for-sarif: true
           ignore-unfixed: true
           # Accepted-risk list mirrors .trivyignore: the only CRITICAL is a
           # base-image npm-CLI `tar` DoS (CVE-2026-59873) that is unreachable
