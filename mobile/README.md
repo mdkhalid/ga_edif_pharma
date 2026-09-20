@@ -3,8 +3,8 @@
 The MediChain mobile application for **Android and iOS**, built with React Native and
 Expo.
 
-**Stack:** React Native 0.76 (New Architecture) · Expo SDK 52 · TypeScript ·
-React Navigation 7 · TanStack Query v5 · Zustand · MMKV · EAS Build
+**Stack:** React Native 0.86.3 (New Architecture) · Expo SDK 57 · React 19.2 ·
+TypeScript · React Navigation 7 · TanStack Query v5 · Zustand · MMKV · EAS Build
 
 ---
 

@@ -2,7 +2,7 @@
 
 The customer-facing application for distributors, wholesalers and retail pharmacies.
 
-**Stack:** Next.js 15 (App Router) · React 19 · TypeScript · TailwindCSS 4 ·
+**Stack:** Next.js 16 (App Router) · React 19 · TypeScript · TailwindCSS 4 ·
 shadcn/ui · TanStack Query v5 · Zustand · React Hook Form + Zod
 
 ---
@@ -80,7 +80,7 @@ around. A client-side price is a display convenience, never a fact.
 | CSRF | `SameSite=Strict` + an origin check on state-changing BFF routes |
 | File uploads | Pre-signed S3 URLs — files never pass through our API |
 | Secrets | None in the browser bundle; the app only ever holds a public API base URL |
-| Route protection | `middleware.ts` redirects unauthenticated users, but **the server enforces everything** |
+| Route protection | `proxy.ts` redirects unauthenticated users, but **the server enforces everything** |
 
 **Client-side route guards are UX, not security.** The backend re-authorises every
 request. A user who manipulates client state sees a broken UI, not unauthorised data.

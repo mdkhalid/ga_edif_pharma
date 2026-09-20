@@ -3,7 +3,7 @@
 The back-office application for pharma staff: onboarding review, catalogue, pricing,
 inventory, credit, invoicing, logistics, reports and platform configuration.
 
-**Stack:** Next.js 15 (App Router) · React 19 · TypeScript · TailwindCSS 4 ·
+**Stack:** Next.js 16 (App Router) · React 19 · TypeScript · TailwindCSS 4 ·
 shadcn/ui · TanStack Query v5 · TanStack Table · Recharts
 
 ---

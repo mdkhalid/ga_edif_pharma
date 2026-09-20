@@ -185,6 +185,8 @@ key, payment gateway, SMS provider, business thresholds — lives in the
   with the previous version so a rollback stays possible.
 - A startup guard asserts core tables exist, so a missing migration fails loudly
   instead of serving an empty database.
-- The Docker image is multi-stage and distroless — no shell, no package manager.
+- The Docker image is multi-stage and runs as a non-root user. The package manager is
+  stripped from the runtime stage; the Alpine shell and `tini` remain, because the
+  entrypoint and the health check need them.
 - Graceful shutdown drains for up to 30 s, matching the load balancer's
   deregistration delay.

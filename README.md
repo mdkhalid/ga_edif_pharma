@@ -15,8 +15,8 @@ over the backend HTTP/event API:
 | App | Folder | Stack | Consumers |
 |---|---|---|---|
 | Backend API + workers | `backend/` | NestJS 11 · TypeScript · PostgreSQL · Redis | all clients |
-| Customer website | `website/` | Next.js 15 · React 19 · TypeScript | distributors, wholesalers, pharmacies |
-| Admin / back-office portal | `admin-portal/` | Next.js 15 · React 19 · TypeScript | pharma staff |
+| Customer website | `website/` | Next.js 16 · React 19 · TypeScript | distributors, wholesalers, pharmacies |
+| Admin / back-office portal | `admin-portal/` | Next.js 16 · React 19 · TypeScript | pharma staff |
 | Mobile app (Android + iOS) | `mobile/` | React Native · Expo · TypeScript | field sales, buyers on the move |
 | Shared packages | `packages/` | TypeScript libraries | all of the above |
 | Infrastructure as code | `infra/` | Docker · Terraform · K8s | platform team |
@@ -105,9 +105,11 @@ npm run dev:mobile
 
 **What runs today:** all four applications. `npm run dev` brings up the backend API
 (:3001), the customer website (:3000) and the admin portal (:3002) concurrently;
-`npm run dev:mobile` starts the Expo dev server on its own. The catalogue, cart and
-order screens are Phase 1 — what exists now is the application shell and the full
-authentication flow, which is what Phase 0 promised.
+`npm run dev:mobile` starts the Expo dev server on its own. The backend foundation and
+the three clients are built. The website additionally has catalogue browse, salt search,
+cart, checkout and order-history screens — built and route-verified, but **not yet
+exercised against real data**. The remaining client screens are Phase 1 scope; see
+[§5](#5-status).
 
 Run `npm run build:shared` before any command that typechecks or tests a consumer of
 the shared packages, and `npm run api-client:generate` after a backend contract
@@ -127,21 +129,27 @@ change (CI fails on drift between the two).
 
 ## 5. Status
 
-🟢 **Phase 0 complete** — every exit criterion is met except the automatic deploy to
-`dev`, which is blocked on GitHub secrets rather than on code. The backend foundation,
-the three client applications, the generated API client and the load test are all
-built and verified; see [Project Status](docs/00-project-status.md) for what was
-actually executed rather than merely written.
+🟢 **CI is green on `main`** — run 26 passes every job. Worth stating because it is new:
+the pipeline had failed all 23 of its runs and had never reached the test step. Four
+defects had to be fixed, none of them a failing test; the sequence is in
+[§5 of the status file](docs/00-project-status.md).
 
-What the clients implement today is the **application shell and the full auth flow** —
-sign in, register, verify a contact, reset a password, silent token refresh, and the
-RBAC-aware admin navigation. Catalogue, salt search, cart and orders are **Phase 1**;
-see [the roadmap](docs/05-phases-roadmap.md).
+**Phase 0: 8 of 10 criteria verified, 1 partial, 1 open.**
 
-Two caveats, stated rather than buried:
+Outstanding, stated rather than buried:
 
-- The **mobile app** is verified by typecheck and `expo config` only — it has not been
-  run on a device or simulator.
-- The **Docker images** are written but have never been built: this environment has no
-  Docker daemon. CI's `build` job is the first thing that will execute the backend
-  image.
+- **The automatic deploy to `dev`** — the one open criterion. The job exists and reports
+  what it is missing; there is no `dev` estate yet, so its two credentials are uncreated
+  rather than merely unset.
+- **The mobile app** is verified by typecheck and `expo config` only — never run on a
+  device or simulator.
+- **The Docker images** were built for the first time in this pass, which is how both web
+  images turned out to be unbuildable and both web containers permanently unhealthy. All
+  three build now, and both web images report `healthy`.
+
+What the clients implement today: the **application shell and the full auth flow** (sign
+in, register, verify a contact, reset a password, silent token refresh, RBAC-aware admin
+navigation), plus catalogue browse, salt search, cart, checkout and order history on the
+website. Everything else is **Phase 1** — see [the roadmap](docs/05-phases-roadmap.md),
+and [Project Status](docs/00-project-status.md) for what was executed rather than merely
+written.
