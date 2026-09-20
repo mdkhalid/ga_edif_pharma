@@ -503,7 +503,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get an order with its lines */
+        /** Get an order with its lines and status history */
         get: operations["orderGetById"];
         put?: never;
         post?: never;
