@@ -147,20 +147,6 @@ jobs:
       NODE_ENV: test
       DATABASE_URL: postgresql://medichain:medichain@127.0.0.1:5432/medichain?schema=public
       REDIS_URL: redis://127.0.0.1:6379
-      # Required by the seed, which encrypts the SECRET rows of `platform_setting`
-      # at rest and therefore needs the keyring key. This job had never got past
-      # "Migrate and seed" because of it: `prisma db seed` exited 1 in
-      # `buildKeyring`, so the Tests and coverage steps were skipped on every
-      # push and the pipeline was red for a reason that looked like a test
-      # failure and was not.
-      #
-      # It is invisible locally, which is why it survived: `backend/.env` supplies
-      # this, and Prisma Client loads that file itself. CI has no `.env` by design
-      # — `ignoreEnvFile` in `src/config/app-config.module.ts` — so the seed's
-      # environment here is exactly what is declared above.
-      #
-      # A test-only value, the same one the build job uses for `openapi:generate`.
-      ENCRYPTION_KEY: MGGQIhXCkPTloJSVzwX1xcEmjSRZpDSlA08FH1f4RVs=
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -170,6 +156,27 @@ jobs:
       - run: npm ci
       - name: Build shared packages
         run: npm run build:shared
+
+      # `seedPlatformSettings` encrypts the SECRET rows of `platform_setting` at
+      # rest, so the seed needs a keyring key. This job had never got past
+      # "Migrate and seed" without one: `prisma db seed` exited 1 inside
+      # `buildKeyring`, and because GitHub skips the steps after a failed one,
+      # Tests, the coverage gate and the entire Build job never ran either. The
+      # pipeline was red for a reason that looked like a test failure and was not.
+      #
+      # It stayed hidden because it is invisible locally: `backend/.env` supplies
+      # the key and Prisma Client loads that file itself. CI has no `.env` by
+      # design — `ignoreEnvFile` in `src/config/app-config.module.ts`.
+      #
+      # Generated, not committed. A literal here is a test fixture rather than a
+      # secret, but secret scanning cannot tell the difference — `generic-api-key`
+      # flags it — and teaching the scanner to ignore this file is the wrong
+      # repair. Nothing needs the value to persist: the database it protects is
+      # created from empty on every run.
+      - name: Provide a throwaway encryption key
+        run: |
+          KEY=$(node -p "require('crypto').randomBytes(32).toString('base64')")
+          echo "ENCRYPTION_KEY=$KEY" >> "$GITHUB_ENV"
 
       # The database-backed suites fail loudly rather than skipping when their
       # fixtures are absent, so this step is what makes them run rather than a
