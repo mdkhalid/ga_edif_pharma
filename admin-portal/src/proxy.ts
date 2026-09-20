@@ -10,7 +10,7 @@ import { REFRESH_COOKIE } from '@/lib/auth/cookies';
  * *valid* is decided by the API on every request — a forged cookie gets past this and
  * then sees nothing but refused requests, which is the correct failure mode.
  */
-export function middleware(request: NextRequest): NextResponse {
+export function proxy(request: NextRequest): NextResponse {
   if (request.cookies.has(REFRESH_COOKIE)) {
     return NextResponse.next();
   }

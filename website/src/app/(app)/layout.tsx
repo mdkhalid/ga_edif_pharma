@@ -13,9 +13,9 @@ import { useAuth } from '@/features/auth/use-auth';
  *
  * ## Two layers of protection, one of which matters
  *
- * `middleware.ts` redirects when the refresh cookie is missing, and this component
+ * `proxy.ts` redirects when the refresh cookie is missing, and this component
  * redirects again when the session has resolved to `anonymous` — which is the case
- * the middleware cannot see, because a cookie can be present and its session dead.
+ * the proxy cannot see, because a cookie can be present and its session dead.
  *
  * Neither is access control. The API refuses every protected request on its own, and
  * that is what actually protects the data; this is here so a signed-out user gets a

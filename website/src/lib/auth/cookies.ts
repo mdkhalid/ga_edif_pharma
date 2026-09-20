@@ -1,11 +1,11 @@
 /**
- * Refresh-cookie constants, shared by the middleware and the BFF route handlers.
+ * Refresh-cookie constants, shared by the proxy and the BFF route handlers.
  *
- * Kept in a dependency-free module on purpose: `middleware.ts` runs on the edge
- * runtime, and importing a file that pulls in `next/headers` or a server-only
- * dependency would break the build. A duplicated string constant would be worse —
- * the cookie name drifting between the writer and the reader is a silent,
- * total sign-out.
+ * Kept in a dependency-free module on purpose: `proxy.ts` runs ahead of every
+ * matched request, so importing a file that pulls in `next/headers` or a
+ * server-only dependency would put the application's module graph in front of
+ * every one of them. A duplicated string constant would be worse — the cookie
+ * name drifting between the writer and the reader is a silent, total sign-out.
  */
 
 /** Name of the refresh-token cookie. HttpOnly; never readable from the browser. */

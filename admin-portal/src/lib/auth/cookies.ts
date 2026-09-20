@@ -7,8 +7,8 @@
  * constant would force them to move together. The *names* must still match what the
  * backend and the BFF routes use, so this is pinned by the same test in both apps.
  *
- * Kept dependency-free: `middleware.ts` runs on the edge runtime and must not pull
- * in `next/headers`.
+ * Kept dependency-free: `proxy.ts` runs ahead of every matched request and must
+ * not pull in `next/headers`.
  */
 
 /** Name of the refresh-token cookie. HttpOnly; never readable from the browser. */

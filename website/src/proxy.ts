@@ -12,13 +12,13 @@ import { REFRESH_COOKIE } from '@/lib/auth/cookies';
  * land where they were headed.
  *
  * It is **not** access control. The cookie's presence says nothing about whether
- * the session is still valid, and the middleware cannot verify it anyway — the
+ * the session is still valid, and the proxy cannot verify it anyway — the
  * access token lives in memory and the refresh token is opaque. Every byte of
  * protected data is authorised by the API on the strength of a bearer token. A
  * visitor who forges a cookie gets past this redirect and then sees an empty,
  * broken shell, which is the correct failure mode.
  */
-export function middleware(request: NextRequest): NextResponse {
+export function proxy(request: NextRequest): NextResponse {
   if (request.cookies.has(REFRESH_COOKIE)) {
     return NextResponse.next();
   }
