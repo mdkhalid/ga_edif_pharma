@@ -31,11 +31,12 @@ module.exports = {
     '<rootDir>/test/unit',
     '<rootDir>/test/integration',
     '<rootDir>/test/concurrency',
+    '<rootDir>/test/isolation',
   ],
   // `\.spec\.ts$` does not match `foo.integration-spec.ts` (the separator is a
-  // hyphen, and the pattern requires a dot), so the three variants are listed
+  // hyphen, and the pattern requires a dot), so the four variants are listed
   // explicitly rather than joined by a looser pattern.
-  testRegex: '\\.(spec|integration-spec|concurrency-spec)\\.ts$',
+  testRegex: '\\.(spec|integration-spec|concurrency-spec|isolation-spec)\\.ts$',
   testTimeout: 60_000,
   maxWorkers: 1,
   collectCoverage: true,
