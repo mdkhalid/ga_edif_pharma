@@ -15,6 +15,13 @@ FROM node:${NODE_VERSION}-alpine AS deps
 WORKDIR /repo
 COPY package.json package-lock.json ./
 COPY backend/package.json ./backend/package.json
+# The `backend` workspace carries a `postinstall` that runs `prisma generate`, and
+# npm runs a workspace's lifecycle scripts with that workspace as the working
+# directory. The manifest alone is therefore not enough — `prisma generate`
+# resolves `./prisma/schema.prisma`, and without it `npm ci` fails outright and
+# this image cannot be built at all. The website never imports the Prisma client;
+# this exists only because one root `npm ci` installs every workspace.
+COPY backend/prisma ./backend/prisma
 COPY website/package.json ./website/package.json
 COPY packages/config/package.json ./packages/config/package.json
 COPY packages/shared-types/package.json ./packages/shared-types/package.json
@@ -27,6 +34,11 @@ RUN npm ci
 FROM deps AS build
 COPY packages ./packages
 COPY website ./website
+# Created rather than assumed. The runtime stage copies `public/` unconditionally, and
+# a Next app is allowed to have no static assets — the admin portal is exactly that
+# case, and its image failed to build until this directory was made to exist.
+RUN mkdir -p website/public
+
 RUN npm run build:shared \
   && npm run build --workspace=@medichain/api-client \
   && npm run build --workspace=@medichain/ui \
@@ -39,13 +51,19 @@ FROM node:${NODE_VERSION}-alpine AS runtime
 WORKDIR /repo
 ENV NODE_ENV=production
 ENV PORT=3000
+# Next's standalone server binds to `process.env.HOSTNAME`, and Docker sets HOSTNAME
+# to the container id. Left alone, the server listens on the container's own address
+# and never on 127.0.0.1 — published ports still work, so this is invisible from
+# outside, but the HEALTHCHECK below fails on every attempt and the container is
+# reported unhealthy forever.
+ENV HOSTNAME=0.0.0.0
 
 RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
 
 COPY --from=build --chown=nextjs:nodejs /repo/website/.next/standalone ./
 COPY --from=build --chown=nextjs:nodejs /repo/website/.next/static ./website/.next/static
-# `public/` is optional; creating it keeps the COPY valid when the app has no
-# static assets yet.
+# `public/` may legitimately be empty. The build stage creates it when the app has no
+# static assets, so this COPY always has a source to copy.
 COPY --from=build --chown=nextjs:nodejs /repo/website/public ./website/public
 
 USER nextjs
