@@ -635,9 +635,14 @@ to the implementation in one place rather than leave the drift implicit.
   7, so the mobile app pins 7.29.7.
 - **Next 16 removed `next lint` and the `eslint` key in `next.config.ts`.** The web
   apps lint with ESLint 9 and a flat `eslint.config.mjs` instead.
-- `middleware.ts` is deprecated in favour of `proxy.ts` in Next 16. It still works
-  and is still used; the rename is a follow-up rather than a build failure, and the
-  redirect it performs is a convenience, not an access control.
+- **Next 16 renamed `middleware.ts` to `proxy.ts`, and `middleware.ts` is deprecated.**
+  Both apps now use `proxy.ts` with the handler exported as `proxy` — Next resolves
+  `mod.proxy` for that filename and throws `ProxyMissingExportError` if it is absent.
+  Worth knowing for anyone editing these files: **a Proxy always runs on the Node.js
+  runtime**, not the edge. Next rejects a route-segment `runtime` export in a Proxy file
+  outright ("Route segment config is not allowed in Proxy file"), so the dependency-free
+  reasoning in `lib/auth/cookies.ts` still holds but no longer for the edge reason it
+  originally gave. The redirect it performs remains a convenience, not access control.
 - [02-tech-stack.md](02-tech-stack.md) carries a pointer to this ADR; its version
   column is illustrative rather than authoritative.
 

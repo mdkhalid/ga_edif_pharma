@@ -1,6 +1,6 @@
 # 00 — Project Status
 
-> **Last updated:** 2026-09-19 · **Branch:** `main` · **Phase in flight:** Phase 1 — the migration applies, the commerce and salt paths are exercised against a real database, and **six of the seven exit criteria are met**; the seventh (placement throughput) meets its latency budget but not its sustained rate on this machine · **CI:** 🟢 every local gate green; remote run still pending
+> **Last updated:** 2026-09-20 · **Branch:** `main` · **Phase in flight:** Phase 1 — the migration applies, the commerce and salt paths are exercised against a real database, and **six of the seven exit criteria are met**; the seventh (placement throughput) meets its latency budget but not its sustained rate on this machine · **CI:** 🔴 **red on `main`, and it always has been** — the last five runs failed in the seed step, before a single test executed. The cause is found and fixed locally; it is not confirmed until a runner says so (§5)
 
 A single-glance view of how much is actually built, what has been *verified* rather
 than merely written, and what is still open. Where this file and
@@ -79,14 +79,16 @@ Every Phase 0 exit criterion but the credential-blocked `dev` deploy still holds
 | Register / verify / login / refresh / logout from all three clients | ◐ | Website and admin verified end-to-end against a live API (cookie set and rotated, session revoked on sign-out, cross-origin refused). **Mobile is verified by typecheck and `expo config` only — this environment has no device or simulator** |
 | `/health/ready` returns 503 when Postgres is stopped | ✓ | Verified empirically |
 | A mutation writes an audit row with actor + correlation id | ✓ | `auth.login.succeeded`, `auth.refresh.reuse_detected`, `auth.verify.succeeded`, `auth.password.reset` |
-| CI is green on `main` | 🟡 | Every local gate green; the workflow now covers every workspace and checks contract drift. **Still not observed on a remote run** |
+| CI is green on `main` | 🔴 | **Observed, and red.** Every run against `main` has failed. The last five (runs 17–21) failed at "Migrate and seed the test database", before the Tests step ran at all, so the 331-test suite and the coverage gate have never executed on a runner. The cause is a missing `ENCRYPTION_KEY` in the job environment (§5); fixed and reproduced green locally, **not yet confirmed remotely** |
 | Deploys to `dev` automatically | ✗ | Job exists and reports what is missing; gated on `DEV_DATABASE_URL` / `KUBE_CONFIG`. **The one open criterion — blocked on credentials, not code** |
 | Load test: 100 RPS, p95 < 200 ms | ✓ | 1,500 requests at 100 RPS over 15 s on `GET /auth/me`; zero errors; p50 9 ms, **p97.5 23 ms**, p99 26 ms |
 | No secret committed; scanning in CI | ✓ | `.env` gitignored; `gitleaks` on every push and PR over full history |
-| Security-critical code unit-tested and gated | ✓ | 308 tests / 21 suites, now including the database-backed integration and concurrency suites; eight security-critical modules still held to ≥90% |
+| Security-critical code unit-tested and gated | ✓ | 331 tests / 22 suites, including the database-backed integration, concurrency and tenant-isolation suites; eight security-critical modules still held to ≥90% |
 | No unreviewed high-severity advisory ships | ✓ | `check:audit` passes; 3 accepted `multer` DoS advisories with reasons and a review date |
 
-**8 satisfied · 1 partial · 1 open.** The partial is a limitation of this environment
+**7 satisfied · 1 failing · 1 partial · 1 open.** CI itself is the failing one, and that
+matters more than the count suggests: while the pipeline is red, the suite and the
+coverage gate run nowhere except a developer's machine. The partial is a limitation of this environment
 (no device for the mobile app), not unfinished work. The open one needs GitHub secrets.
 
 ---
@@ -102,8 +104,8 @@ Everything below was executed in this environment, not assumed.
 | Backend typecheck | `npm run typecheck --workspace=@medichain/backend` | pass (both configs) |
 | Backend lint | `npm run lint --workspace=@medichain/backend` | 0 errors, 21 warnings (the baseline plus one more of the same `explicit-function-return-type` kind) |
 | Unit tests | `npm run test:unit --workspace=@medichain/backend -- --coverage` | **275 passed / 275**, 15 suites |
-| All suites | `npm run test:all --workspace=@medichain/backend` | **308 passed / 308**, 21 suites (unit + integration + concurrency) |
-| Coverage gate | `npm run check:coverage` | pass — 8 critical files all ≥90%, global 41.56/29.55/34.77/41.53 against floors of 38/26/27/37 |
+| All suites | `npm run test:all --workspace=@medichain/backend` | **331 passed / 331**, 22 suites (unit + integration + concurrency + isolation) |
+| Coverage gate | `npm run check:coverage` | pass — 8 critical files all ≥90%, global 41.60/29.62/34.95/41.58 against floors of 38/26/27/37 |
 | Module boundaries | `npm run check:module-boundaries` | pass — 118 files scanned |
 | Dependency audit | `npm run check:audit` | pass — 3 accepted, 0 unaccepted |
 | Backend build | `npm run build --workspace=@medichain/backend` | pass |
@@ -123,19 +125,21 @@ Everything below was executed in this environment, not assumed.
 | **Integration / concurrency suites** | `npm run test:all --workspace=@medichain/backend` | **pass** — 33 database-backed cases against PostgreSQL 17 and Redis 7, covering all but one exit criterion (§7) |
 | **Order placement under load** | `npm run load:orders` | **p95 62.6 ms** against an 800 ms budget, 0 failures; the sustained *rate* did not reproduce locally (§7) |
 
-> **Important — local green ≠ remote green.** Every row above ran in *this* sandbox,
-> against throwaway PostgreSQL and Redis containers. The remote workflow has still
-> never been observed green. (Docker *is* available here now, unlike during the
-> Phase 0 pass, so the three Dockerfiles could be built — they have not been.) See §5.
+> **Important — local green ≠ remote green, and here it was not even close.** Every row
+> above ran in *this* sandbox, against throwaway PostgreSQL and Redis containers. The
+> remote workflow *has* been observed — it is public, and it is red: every run against
+> `main` failed at "Migrate and seed", before the test step. So the 331 tests and the
+> coverage gate in this table have still never run anywhere but a local machine, which
+> is exactly why they were passing. See §5 for the cause and the fix.
 
 ### Coverage — the real numbers
 
 | Metric | Phase 0 | Phase 1 |
 |---|---|---|
-| Statements | 39.1% | **41.56%** |
-| Branches | 27.7% | **29.55%** |
-| Functions | 28.6% | **34.77%** |
-| Lines | 38.5% | **41.53%** |
+| Statements | 39.1% | **41.60%** |
+| Branches | 27.7% | **29.62%** |
+| Functions | 28.6% | **34.95%** |
+| Lines | 38.5% | **41.58%** |
 
 The Phase 0 column is worth reading with care, because it was wrong in a way the
 gate did not catch: the floor (38/26/27/37) had been chosen from a measurement
@@ -162,14 +166,101 @@ something that matters:
 
 | # | Item | Why it matters | Where |
 |---|---|---|---|
-| 1 | **Confirm remote CI green** | Every local gate passes, but the workflow has never been observed on a runner | push, then GitHub Actions |
-| 2 | **Provision `DEV_DATABASE_URL` / `KUBE_CONFIG`** | Without them the deploy-to-`dev` job reports that it is skipped — the last open Phase 0 criterion | GitHub → Environments → `dev` |
+| 1 | **Push the CI fix, and confirm the run** | The pipeline is red and always has been — it never once reached the test step. The cause is fixed and reproduced green locally, but nothing is proved until a runner says so | push, then GitHub Actions |
+| 2 | **Provision `DEV_DATABASE_URL` / `KUBE_CONFIG`** | Without them the deploy-to-`dev` job reports that it is skipped — the last open Phase 0 criterion. Confirmed as of this pass: there is no `dev` estate yet, so these are not *missing* credentials so much as *uncreated* ones. A dev Postgres and cluster have to exist before any secret can point at them | GitHub → Environments → `dev` |
 | 3 | **Set `LOAD_TEST_BASE_URL` / `LOAD_TEST_PASSWORD`** | Without them the weekly k6 job reports that it is skipped | GitHub → Secrets |
-| 4 | **Build the Docker images once** | Three Dockerfiles are written but have never been executed — no Docker daemon in this sandbox | `docker build -f infra/docker/*.Dockerfile .` |
-| 5 | **Run the mobile app on a device** | The one exit criterion verified indirectly | `npm run dev:mobile` |
-| 6 | **Migrate `middleware.ts` → `proxy.ts`** | Next 16 deprecates the old filename; it still works, so this is hygiene rather than a fix | both web apps |
-| 7 | **Admin MFA** | The admin security model calls for mandatory TOTP; the backend has `user.mfaEnabled` but nothing reads it | Phase 1 |
-| 8 | **`test-isolation` / `test-concurrency` suites** | Their Jest configs exist and the specs do not; both are Phase 2 blockers | parked block in `ci.yml` |
+| 4 | **Run the mobile app on a device** | The one exit criterion verified indirectly | `npm run dev:mobile` |
+| 5 | **Admin MFA** | The admin security model calls for mandatory TOTP; the backend has `user.mfaEnabled` but nothing reads it | Phase 1 |
+| 6 | **The remaining `test-concurrency` money-path cases** | The oversell case is covered. Credit limits, the stock-ledger invariant and duplicate-webhook credit are not | `backend/test/concurrency/` |
+| 7 | **The `contract` and `test-e2e` jobs** | The OpenAPI diff and regenerated client are enforced inside the Build job; breaking-change detection and consumer-driven tests are still owed, and `test/e2e` has no specs | parked block in `ci.yml` |
+
+### Why CI was red — and what was actually wrong
+
+The workflow had **never passed a single run**. Every run against `main` failed, and the
+failure was not in a test. It failed at:
+
+```
+- name: Migrate and seed the test database
+  run: |
+    npm run db:migrate
+    npm run db:seed
+```
+
+`seedPlatformSettings` encrypts the `SECRET` rows of `platform_setting` at rest, so it
+calls `buildKeyring(process.env)` — and the `test-unit` job declared only `NODE_ENV`,
+`DATABASE_URL` and `REDIS_URL`. With no `ENCRYPTION_KEY`, the seed threw
+`ConfigurationError: ENCRYPTION_KEY is not set` and exited 1. GitHub skips the steps
+after a failed one, so **Tests**, **Enforce coverage floors** and the whole **Build**
+job were skipped on every push. The suite that this document describes at length had
+never run in CI.
+
+It survived because it is invisible locally in the most convincing way: `backend/.env`
+supplies `ENCRYPTION_KEY`, and Prisma Client loads that file itself. So the seed passes
+on every developer machine and on the machine the Phase 0 verification ran on. CI has no
+`.env` *by design* — `ignoreEnvFile: NODE_ENV === 'test'` in `app-config.module.ts` —
+which is exactly the difference that mattered.
+
+Reproduced by running the two commands with `backend/.env` moved aside, against an empty
+PostgreSQL 17 container and declaring only the three variables the job declared:
+
+```
+ConfigurationError: ENCRYPTION_KEY is not set.
+    at buildKeyring (src/common/utils/encryption.service.ts:72:11)
+    at seedPlatformSettings (prisma/seeds/platform-settings.seed.ts:197:56)
+```
+
+The fix is one variable in the job environment, using the same test-only value the Build
+job already used for `openapi:generate`. With it, both commands exit 0 under the same
+conditions. The lesson worth keeping is the one the last commit in this file made about
+a stale comment: *a document that asserts a check is green is worse than no document,
+because it is the thing a reader trusts instead of running.*
+
+### Closed since the last pass
+
+| Item | What was done |
+|---|---|
+| **`middleware.ts` → `proxy.ts`** | Renamed in both web apps, and the exported handler renamed to `proxy` — Next 16 resolves `mod.proxy` for a `proxy.ts` file and throws `ProxyMissingExportError` otherwise. Both apps build with `ƒ Proxy (Middleware)` and no deprecation warning, and the redirects were re-probed on the built app: `/products`, `/salt-search`, `/dashboard` → 307, `/` and `/login` → 200 |
+| **The `test-isolation` suite** | Written — 23 cases in `backend/test/isolation/cross-tenant-access.isolation-spec.ts`, against a real database, covering the read, write, aggregate and count shapes plus `findUnique` returning null (404, not 403). It now also runs in CI, because `jest.all.config.js` includes `test/isolation` |
+| **The Docker images** | All three built for the first time — `backend`, `website` and `admin`. Building them exposed three real defects in the two web images that no amount of reading the Dockerfiles would have found; see below |
+| **The stale "runs on the edge" comments** | Both `lib/auth/cookies.ts` files and the storefront layout justified being dependency-free by claiming the file runs on the edge runtime. Next 16 states the opposite — "Proxy always runs on Node.js runtime" — so the reasoning was corrected rather than carried across the rename |
+
+### What building the Docker images found
+
+The Phase 0 item was "build the Docker images once", carried because no Docker daemon
+was available during that pass. It turned out to be the highest-yield item here: **both
+web images were unbuildable**, and neither defect is visible by reading the files.
+
+**1. `npm ci` failed in both web images.** A root workspace install runs every
+workspace's lifecycle scripts, and `backend` has `postinstall: prisma generate`. npm runs
+a workspace's scripts with *that workspace* as the working directory, so Prisma resolved
+`./prisma/schema.prisma` — and the web Dockerfiles copied `backend/package.json` but
+never `backend/prisma`:
+
+```
+npm error Error: Could not find Prisma Schema that is required for this command.
+npm error   prisma/schema.prisma: file not found
+```
+
+`backend.Dockerfile` had this right, with a comment explaining exactly why. The two web
+Dockerfiles omitted the line.
+
+**2. The admin image died at its last step.** `COPY /repo/admin-portal/public` has no
+source, because that directory does not exist in the repository — the admin portal has no
+static assets. The website's Dockerfile carried a comment claiming "creating it keeps the
+COPY valid when the app has no static assets yet", in a file that created nothing; it
+worked only because `website/public` happens to exist.
+
+**3. Both web containers were permanently unhealthy.** Once built and running, the health
+check exited 1 on *every* attempt while the app served `/` → 200 and `/products` → 307
+through the published port. Next's standalone server binds to `process.env.HOSTNAME`, and
+Docker sets `HOSTNAME` to the container id — so `127.0.0.1` is never bound.
+`ENV HOSTNAME=0.0.0.0` is the fix, and it is the one that matters most in production: an
+orchestrator would have seen a permanently unhealthy container and either restarted it in
+a loop or withheld traffic from a working one.
+
+All three are fixed. Both web images build and report `healthy`; the website image was
+verified by running it, probing `/`, `/login` and `/products`, and confirming it serves
+as the non-root `nextjs` user (uid 1001).
 
 ---
 
@@ -180,7 +271,10 @@ something that matters:
 | 3 high `multer` DoS advisories | Reached only via `@nestjs/platform-express`, which pins the vulnerable `2.2.0` exactly. **No upload routes exist**, so the parser is never invoked. npm's suggested fix is a downgrade to Nest 7. | By **2027-03-01**, or when the first upload endpoint lands (Phase 1) |
 | 21 ESLint warnings (backend) | All `explicit-function-return-type` on decorator factories and config accessors — including the one added by the new notifications accessor — plus one `no-unsafe-return` inherent to the Prisma extension API. Warnings, not errors, and CI enforces no warning budget. Two rules are relaxed for `backend/test/**` so Jest's `any`-typed matchers do not inflate the count | Opportunistic |
 | `npm overrides` does not work in this environment | npm 10.9.7 parses the field and silently ignores it for exactly-pinned transitive deps. Documented in ADR-016 so nobody retries it | If npm fixes it |
-| Next 16 `middleware.ts` deprecation | The file convention still works and the build only warns | Opportunistic |
+
+Resolved and removed from this table: the Next 16 `middleware.ts` deprecation. The file
+convention still worked and only warned, so it was carried as accepted risk — it is now
+renamed to `proxy.ts` in both apps (§5).
 
 ---
 
@@ -277,7 +371,13 @@ the env schema refuses to boot with the console SMS provider.
 
 ## 8. Commits in this pass
 
-All local; nothing has been pushed, so the remote workflow is still unobserved.
+The table above describes the *previous* pass. It was wrong about one thing, and the
+correction is the most important entry in this document: it said "all local; nothing has
+been pushed, so the remote workflow is still unobserved". Both halves were false. The
+repository is public, `main` is at `6087ca9` on the remote, and the workflow had run
+**21 times** — the last five against `main` all failing at the seed step (§5). "Not yet
+observed" and "observed, and red every time" need very different responses, and the
+document chose the wrong one.
 
 | Commit | Change |
 |---|---|

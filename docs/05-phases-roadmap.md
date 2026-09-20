@@ -84,9 +84,9 @@ Nothing here is throwaway.
       *Verified: `auth.login.succeeded` and `auth.refresh.reuse_detected` both
       carry `actor_id`, `tenant_id`, `correlation_id` and `request_id`. The table
       is append-only via triggers — `UPDATE`, `DELETE` and `TRUNCATE` all raise.*
-- [x] CI is green on `main` — the workflow now matches what the repository can
+- [ ] CI is green on `main` — the workflow now matches what the repository can
       actually run.
-      *Was not true before this pass: the workflow assumed pnpm
+      *The workflow itself was corrected in the previous pass: it assumed pnpm
       (`pnpm install --frozen-lockfile`, `pnpm test:unit`), but the repo has
       `package-lock.json` and npm workspaces, no `pnpm-lock.yaml` exists, and
       pnpm is not installed — so every job failed before running a check. It also
@@ -95,8 +95,18 @@ Nothing here is throwaway.
       and `scripts/check-coverage.mjs`. The `static` job now lint- and typechecks
       **every** workspace — backend, website, admin, mobile and the shared packages —
       and the `build` job regenerates the OpenAPI document *and* the API client and
-      fails on contract drift. **Not yet observed on a remote run** —
-      the first push is what proves it.*
+      fails on contract drift.*
+      ***Unticked, because it is false.*** *This criterion was ticked on the strength
+      of "every local gate is green", with the remote run recorded as "not yet
+      observed". It has since been observed. The repository is public and the workflow
+      has run 21 times; the last five runs against `main` all failed. The failure was
+      not a test: the run died at "Migrate and seed the test database" because the job
+      environment declared no `ENCRYPTION_KEY`, which `seedPlatformSettings` requires
+      in order to encrypt the `platform_setting` secrets at rest. GitHub skips the
+      steps after a failed one, so the Tests and coverage steps and the whole Build
+      job have never executed on a runner. Fixed, and reproduced green locally under
+      the same conditions — see [00-project-status.md](00-project-status.md) §5. It is
+      unproven until the next push.*
 - [ ] Deploys to `dev` automatically.
       *The deploy-to-`dev` job exists, runs on push to `main` after every other job
       passes, and reports exactly what is missing rather than failing. It is gated on
@@ -162,10 +172,10 @@ Built and verified (backend). Everything below typechecks (`tsc --noEmit`), buil
 | Idempotency | Done — `IdempotencyInterceptor` + Redis-backed store behind a port; `POST /auth/register` requires an `Idempotency-Key` and replays on retry |
 | Health | Done — liveness vs readiness, 503 on required-dependency failure |
 | Observability | Done — structured Pino logs; Prometheus `/metrics`; OpenTelemetry traces started from a preload; Sentry error reporting wired through the exception filter via an `ErrorReporter` port |
-| Infra | `docker-compose`, `backend.Dockerfile` (multi-stage, non-root, tini, healthcheck) and `.dockerignore` written; CI builds and scans the image. Terraform and k8s are placeholders |
-| CI/CD | Workflow rewritten for npm; runs lint and typecheck across every workspace, module boundaries, unit tests, coverage gate, dependency audit, secret scan, build, container scan, OpenAPI generation and a contract-drift check, and has a deploy-to-`dev` job gated on `DEV_DATABASE_URL` / `KUBE_CONFIG`. Not yet run against a remote |
+| Infra | `docker-compose`, `backend.Dockerfile` (multi-stage, non-root, tini, healthcheck), `website.Dockerfile`, `admin.Dockerfile` and `.dockerignore`. All three images were **built for the first time** in this pass — which is how both web images turned out to be unbuildable (no `backend/prisma` for the backend workspace's `postinstall`, and a `COPY` of a `public/` directory that does not exist) and both web containers permanently unhealthy (Next binds to Docker's `HOSTNAME`). Fixed — see [00-project-status.md](00-project-status.md) §5. Terraform and k8s are placeholders |
+| CI/CD | Workflow rewritten for npm; runs lint and typecheck across every workspace, module boundaries, every test suite, coverage gate, dependency audit, secret scan, build, container scan, OpenAPI generation and a contract-drift check, and has a deploy-to-`dev` job gated on `DEV_DATABASE_URL` / `KUBE_CONFIG`. **Observed on a remote runner, and red at the seed step — see the criterion above** |
 | Docs / OpenAPI | Done — `src/scripts/generate-openapi.ts` writes `backend/openapi.json` from the same document definition the server serves; CI generates and uploads it |
-| Testing | 243 unit tests, 10 suites. `test:integration` / `test:concurrency` / `test:isolation` configs exist but the suites are unwritten — see the parked block in `ci.yml` |
+| Testing | 331 tests across 22 suites — unit, integration, concurrency and isolation — run together by `npm run test:all`. The `test/e2e` config exists and no specs do |
 | Load testing | `loadtest/run-local.mjs` (autocannon, proven locally) and `loadtest/k6/auth-baseline.js` (k6, for CI and staging), with the `load-test` workflow |
 | Architecture gates | `check:module-boundaries` enforces the barrel rule across `src/modules/**`; `check:coverage` holds security-critical modules to ≥90% |
 | Website | Built — Next 16 App Router, shared design tokens, route groups, and a BFF auth flow (HttpOnly refresh cookie, in-memory access token) wired to the API |
@@ -173,11 +183,15 @@ Built and verified (backend). Everything below typechecks (`tsc --noEmit`), buil
 | Mobile | Built — Expo SDK 57, React Navigation 7, Keychain-backed refresh token, silent refresh on 401. Typechecked and `expo config` validated; not run on a device here |
 | Shared packages | `@medichain/config` presets (tsconfig/eslint/tailwind), `@medichain/api-client` generated from OpenAPI, `@medichain/ui` primitives |
 
-Not yet started: the `test-isolation` / `test-concurrency` suites (their Jest configs
-exist, the tests that assert the tenant extension applies inside a transaction do
-not). The three client applications and the load testing are now built and verified
-as recorded above; the only Phase 0 item still open is the deploy-to-`dev` job, which
-is blocked on credentials rather than on code.
+Four Jest configs, and their state is now: `test/e2e` exists with no specs;
+`test/integration`, `test/concurrency` and `test/isolation` all have specs and run in
+CI through `npm run test:all`. The isolation suite is the one that asserts the tenant
+extension applies *inside a transaction* — Prisma builds a separate client for
+`$transaction(async (tx) => …)`, so that property is unreachable from the unit suite,
+which is why it needed a database. The three client applications and the load testing
+are built and verified as recorded above. Two Phase 0 outcomes are outstanding: the
+deploy-to-`dev` job, blocked on credentials rather than on code, and the CI criterion
+above — which is red, and now has a fix waiting on a push.
 
 ---
 
@@ -283,14 +297,14 @@ log. The two that are not simply "done" say exactly what is and is not covered.
 | Contract (OpenAPI) | 32 paths / 15 schemas. Operation ids qualified by resource; `Idempotency-Key` declared on all five routes that require it | `npm run openapi:generate`; the contract-drift job diffs the committed artifacts |
 | Typed API client | `catalog`, `search`, `cart`, `orders`, `onboarding` endpoint modules over the generated client; response shapes in `@medichain/shared-types` | typecheck + build green across all 9 workspaces |
 | Website storefront — search | `/products` browse with pagination and a name filter; `/salt-search` by composition with the exact-match marker, in the authenticated route group | typecheck, lint, website build; routing smoke test on the built app |
-| Test suites | `test/integration` and `test/concurrency` now exist — the roadmap previously listed them as missing | **308 tests across 21 suites**, run together by `npm run test:all` |
+| Test suites | `test/integration`, `test/concurrency` and `test/isolation` now exist — the roadmap previously listed them as missing | **331 tests across 22 suites**, run together by `npm run test:all` |
 
 Verification, all local:
 
 | Check | Result |
 |---|---|
-| All suites | `npm run test:all --workspace=@medichain/backend` — **308 passed / 21 suites** |
-| Coverage gate | statements **41.56%**, branches **29.55%**, functions **34.77%**, lines **41.53%** — all above the floors (38/26/27/37), with the eight security-critical files still at ≥90% |
+| All suites | `npm run test:all --workspace=@medichain/backend` — **331 passed / 22 suites** |
+| Coverage gate | statements **41.60%**, branches **29.62%**, functions **34.95%**, lines **41.58%** — all above the floors (38/26/27/37), with the eight security-critical files still at ≥90% |
 | Lint / typecheck / boundaries | 0 errors, 21 warnings (the baseline plus one more of the same `explicit-function-return-type` kind on a new config accessor); `117 → 118 files scanned`, no boundary violations |
 | Audit | unchanged — the three accepted `multer` advisories and nothing new |
 | Workspace build / typecheck / lint | `npm run build` **7/7**, `npm run typecheck` **12/12**, `npm run lint` **8/8** tasks. The storefront's cart, checkout and order-history pages **did not build** before this pass — server components calling client-only hooks, and the typed client used as `api.cart.get()`, which is not its shape |

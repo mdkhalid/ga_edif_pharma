@@ -413,7 +413,7 @@ website/
 │   │
 │   ├── styles/
 │   ├── types/
-│   └── middleware.ts                    # route protection, redirects
+│   └── proxy.ts                         # route protection, redirects
 │
 ├── public/
 │   ├── images/
@@ -518,7 +518,7 @@ admin-portal/
 │   │       │   └── security/page.tsx
 │   │       └── support/tickets/page.tsx
 │   ├── components/  features/  hooks/  lib/  styles/  types/
-│   └── middleware.ts                    #   staff-only + optional IP allow-list
+│   └── proxy.ts                         #   staff-only + optional IP allow-list
 ├── e2e/
 ├── Dockerfile
 ├── next.config.ts
