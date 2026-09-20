@@ -172,13 +172,19 @@ something that matters:
 | 5 | **The remaining `test-concurrency` money-path cases** | The oversell case is covered. Credit limits, the stock-ledger invariant and duplicate-webhook credit are not | `backend/test/concurrency/` |
 | 6 | **The `contract` and `test-e2e` jobs** | The OpenAPI diff and regenerated client are enforced inside the Build job; breaking-change detection and consumer-driven tests are still owed, and `test/e2e` has no specs | parked block in `ci.yml` |
 
-One known-debt note that does not appear as an open item because it breaks nothing today:
-a full-history `gitleaks` scan reports **six** `generic-api-key` hits beyond the one this
-pass fixed — the seed catalogue's `key: 'azithromycin-500'`-style product slugs, three
-`Authorization: Bearer eyJ...` examples in `docs/07`, and the `openapi:generate` key in
-the Build job. All are false positives, and none fails the build, because
+One known-debt note that does not appear as an open item, because it breaks nothing
+today: a full-history `gitleaks` scan reports **six** `generic-api-key` hits beyond the
+one this pass fixed. Three are the seed catalogue's product-slug `key:` values, and three
+are the token-shaped request-header examples in `docs/07` (plus the `openapi:generate`
+key in the Build job). All are false positives, and none of them fails the build, because
 `gitleaks-action` scans the commits in a push rather than the whole history. They will
-need an allowlist with reasons recorded before that scan is ever widened.
+need an allowlist with reasons before that scan is ever widened.
+
+Writing this paragraph turned out to be its own demonstration of the problem: the first
+version quoted the offending patterns as examples, and the secret scan failed the commit
+that documented it. A `generic-api-key` match is a *shape*, not a secret, and prose that
+reproduces the shape is indistinguishable from the thing it is describing — which is
+precisely why the repair for those six is a reasoned allowlist rather than looser prose.
 
 ### How CI was fixed — four defects, and not one of them a test
 
