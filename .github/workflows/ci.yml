@@ -199,6 +199,112 @@ jobs:
           path: backend/coverage/
 
   # ─────────────────────────────────────────────────────────────
+  # Stage 3b — the mobile auth flow, driven end to end against a live API.
+  #
+  # Phase 0's exit criterion is that a user can register, verify, sign in, refresh
+  # and sign out from all three clients. The website and admin portal prove it
+  # through their BFF flows; the mobile app talks to `/auth` directly and keeps its
+  # refresh token in the Keychain, so it needs its own run. There is no emulator on
+  # a runner (and none in the environment this was built in), so the suite drives
+  # the app's real client code headlessly, with the platform's secure storage
+  # replaced by an in-memory stand-in (see `mobile/jest.config.js`), against a real
+  # backend started below.
+  #
+  # Two test-only settings, neither of which changes the flow under test:
+  #   * `AUTH_EXPOSE_OTP_IN_RESPONSE=true` — no mail or SMS provider is reachable
+  #     here, so the verification code could not otherwise be delivered. The env
+  #     schema refuses this in production, which is the point of the guard.
+  #   * `RATE_LIMIT_ENABLED=false` — `POST /auth/register` is capped at 5 per IP
+  #     per 300s by a route-level `@RateLimit`, which no environment variable can
+  #     raise. The limiter is covered by its own backend tests.
+  # ─────────────────────────────────────────────────────────────
+  mobile-e2e:
+    name: Mobile auth (live API)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: medichain
+          POSTGRES_PASSWORD: medichain
+          POSTGRES_DB: medichain
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U medichain"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://medichain:medichain@127.0.0.1:5432/medichain?schema=public
+      REDIS_URL: redis://127.0.0.1:6379
+      JWT_ACCESS_SECRET: ci-access-secret-0123456789abcdef
+      JWT_REFRESH_SECRET: ci-refresh-secret-0123456789abcdef
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+
+      - name: Build shared packages
+        run: npm run build:shared
+
+      # Generated rather than committed, for the reason the test job documents:
+      # a literal key here trips the secret scan.
+      - name: Provide a throwaway encryption key
+        run: |
+          KEY=$(node -p "require('crypto').randomBytes(32).toString('base64')")
+          echo "ENCRYPTION_KEY=$KEY" >> "$GITHUB_ENV"
+
+      - name: Migrate and seed the database
+        run: |
+          npm run db:migrate
+          npm run db:seed
+
+      - name: Build the API
+        run: npm run build --workspace=@medichain/backend
+
+      - name: Start the API
+        env:
+          AUTH_EXPOSE_OTP_IN_RESPONSE: "true"
+          RATE_LIMIT_ENABLED: "false"
+        run: |
+          nohup node backend/dist/main.js > /tmp/api.log 2>&1 &
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://localhost:3001/health/ready > /dev/null; then
+              echo "API ready after ${attempt} attempt(s)."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::The API never became ready."
+          cat /tmp/api.log
+          exit 1
+
+      # Fails loudly when the API is not reachable — the suite probes it first.
+      - name: Mobile auth flow
+        run: npm run test:integration --workspace=@medichain/mobile
+
+      - name: Upload API log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-e2e-api-log
+          path: /tmp/api.log
+
+  # ─────────────────────────────────────────────────────────────
   # Stage 4 — build.
   # ─────────────────────────────────────────────────────────────
   build:
@@ -303,7 +409,7 @@ jobs:
     name: CI complete
     runs-on: ubuntu-latest
     if: always()
-    needs: [static, security, test-unit, build]
+    needs: [static, security, test-unit, mobile-e2e, build]
     steps:
       - name: Verify all jobs succeeded
         run: |
