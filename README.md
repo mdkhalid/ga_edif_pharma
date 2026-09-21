@@ -134,15 +134,18 @@ the pipeline had failed all 23 of its runs and had never reached the test step. 
 defects had to be fixed, none of them a failing test; the sequence is in
 [§5 of the status file](docs/00-project-status.md).
 
-**Phase 0: 8 of 10 criteria verified, 1 partial, 1 open.**
+**Phase 0: 9 of 10 criteria verified, 1 open.**
 
 Outstanding, stated rather than buried:
 
 - **The automatic deploy to `dev`** — the one open criterion. The job exists and reports
   what it is missing; there is no `dev` estate yet, so its two credentials are uncreated
   rather than merely unset.
-- **The mobile app** is verified by typecheck and `expo config` only — never run on a
-  device or simulator.
+- **The mobile app's UI** has never been rendered on a device or simulator — none exists
+  in this environment. The auth flow itself is now exercised at runtime against a live
+  API (`mobile/test/auth.integration-spec.ts`, 7 cases, headless, with the Keychain
+  replaced by an in-memory stand-in); the screens around it are covered by typecheck and
+  `expo config` only.
 - **The Docker images** were built for the first time in this pass, which is how both web
   images turned out to be unbuildable and both web containers permanently unhealthy. All
   three build now, and both web images report `healthy`.

@@ -1,6 +1,6 @@
 # 05 — Phased Roadmap
 
-> **Status:** Approved · **Owner:** Product + Architecture · **Last updated:** 2026-09-20
+> **Status:** Approved · **Owner:** Product + Architecture · **Last updated:** 2026-09-21
 
 Seven phases. Each phase is **independently deployable and commercially useful** —
 no phase exists purely to set up the next one. A phase is done when its exit
@@ -73,9 +73,14 @@ Nothing here is throwaway.
       cookie on refresh, revokes the session on sign-out, and refuses a cross-origin
       sign-in. The full journey — register → verify (single-use code, wrong code
       rejected) → log in → reset password → old password refused and every session
-      revoked — was exercised against the API. The mobile app implements the same
-      flow against the same endpoints and is verified by typecheck and `expo config`,
-      but has **not** been run on a device or simulator: this environment has none.*
+      revoked — was exercised against the API. The mobile app talks to `/auth`
+      directly with the refresh token in the Keychain, and is verified at runtime
+      against a live API by `mobile/test/auth.integration-spec.ts` (7 cases): register
+      → verify → sign in → cold-start rotation → sign out, plus the mobile-specific
+      single-flight refresh and the replay detection that revokes a token family. The
+      run is headless, with the platform's secure storage replaced by an in-memory
+      stand-in, because **no device or simulator exists in this environment** — so the
+      screens themselves remain covered by typecheck and `expo config` only.*
 - [x] `/health/ready` returns **503** when Postgres is stopped.
       *Verified: 200 → stop Postgres → 503 → restart Postgres → 200, with the API
       process never restarting (`uptimeSeconds` confirms it). `/health/live` stayed
@@ -173,14 +178,14 @@ Built and verified (backend). Everything below typechecks (`tsc --noEmit`), buil
 | Health | Done — liveness vs readiness, 503 on required-dependency failure |
 | Observability | Done — structured Pino logs; Prometheus `/metrics`; OpenTelemetry traces started from a preload; Sentry error reporting wired through the exception filter via an `ErrorReporter` port |
 | Infra | `docker-compose`, `backend.Dockerfile` (multi-stage, non-root, tini, healthcheck), `website.Dockerfile`, `admin.Dockerfile` and `.dockerignore`. All three images were **built for the first time** in this pass — which is how both web images turned out to be unbuildable (no `backend/prisma` for the backend workspace's `postinstall`, and a `COPY` of a `public/` directory that does not exist) and both web containers permanently unhealthy (Next binds to Docker's `HOSTNAME`). Fixed — see [00-project-status.md](00-project-status.md) §5. Terraform and k8s are placeholders |
-| CI/CD | Workflow rewritten for npm; runs lint and typecheck across every workspace, module boundaries, every test suite, coverage gate, dependency audit, secret scan, build, container scan, OpenAPI generation and a contract-drift check, and has a deploy-to-`dev` job gated on `DEV_DATABASE_URL` / `KUBE_CONFIG`. **Observed on a remote runner, and red at the seed step — see the criterion above** |
+| CI/CD | Workflow rewritten for npm; runs lint and typecheck across every workspace, module boundaries, every test suite, coverage gate, dependency audit, secret scan, build, container scan, OpenAPI generation and a contract-drift check, and has a deploy-to-`dev` job gated on `DEV_DATABASE_URL` / `KUBE_CONFIG`. **Green on `main`** — see the criterion above. A `mobile-e2e` job added alongside it starts the API and runs the mobile auth suite; it has not yet run on a runner |
 | Docs / OpenAPI | Done — `src/scripts/generate-openapi.ts` writes `backend/openapi.json` from the same document definition the server serves; CI generates and uploads it |
-| Testing | 331 tests across 22 suites — unit, integration, concurrency and isolation — run together by `npm run test:all`. The `test/e2e` config exists and no specs do |
+| Testing | 331 tests across 22 suites — unit, integration, concurrency and isolation — run together by `npm run test:all`. The `test/e2e` config exists and no specs do. The mobile app adds its own 7-case auth suite (`mobile/`), run against a live API |
 | Load testing | `loadtest/run-local.mjs` (autocannon, proven locally) and `loadtest/k6/auth-baseline.js` (k6, for CI and staging), with the `load-test` workflow |
 | Architecture gates | `check:module-boundaries` enforces the barrel rule across `src/modules/**`; `check:coverage` holds security-critical modules to ≥90% |
 | Website | Built — Next 16 App Router, shared design tokens, route groups, and a BFF auth flow (HttpOnly refresh cookie, in-memory access token) wired to the API |
 | Admin portal | Built — Next 16, RBAC-aware navigation shell filtered by the capabilities the API reports for the signed-in user |
-| Mobile | Built — Expo SDK 57, React Navigation 7, Keychain-backed refresh token, silent refresh on 401. Typechecked and `expo config` validated; not run on a device here |
+| Mobile | Built — Expo SDK 57, React Navigation 7, Keychain-backed refresh token, silent refresh on 401. The auth flow is exercised at runtime against a live API by `mobile/test/auth.integration-spec.ts` (7 cases); the screens are typechecked and `expo config` validated, but still not rendered on a device here |
 | Shared packages | `@medichain/config` presets (tsconfig/eslint/tailwind), `@medichain/api-client` generated from OpenAPI, `@medichain/ui` primitives |
 
 Four Jest configs, and their state is now: `test/e2e` exists with no specs;
@@ -188,10 +193,11 @@ Four Jest configs, and their state is now: `test/e2e` exists with no specs;
 CI through `npm run test:all`. The isolation suite is the one that asserts the tenant
 extension applies *inside a transaction* — Prisma builds a separate client for
 `$transaction(async (tx) => …)`, so that property is unreachable from the unit suite,
-which is why it needed a database. The three client applications and the load testing
-are built and verified as recorded above. Two Phase 0 outcomes are outstanding: the
-deploy-to-`dev` job, blocked on credentials rather than on code, and the CI criterion
-above — which is red, and now has a fix waiting on a push.
+which is why it needed a database. All three client applications are built and verified
+as recorded above, and the load testing is built. **One** Phase 0 outcome is
+outstanding: the deploy-to-`dev` job, blocked on credentials rather than on code. The CI
+criterion above is green, and the `mobile-e2e` job added alongside this pass has not yet
+run on a runner.
 
 ---
 

@@ -1,6 +1,6 @@
 # 00 — Project Status
 
-> **Last updated:** 2026-09-20 · **Branch:** `main` · **Phase in flight:** Phase 1 — the migration applies, the commerce and salt paths are exercised against a real database, and **six of the seven exit criteria are met**; the seventh (placement throughput) meets its latency budget but not its sustained rate on this machine · **CI:** 🟢 **green on `main`** — run 24 is the first successful run in the repository's history, after 23 failures. Four separate defects had to be fixed to get there, and not one of them was a failing test (§5)
+> **Last updated:** 2026-09-21 · **Branch:** `main` · **Phase in flight:** Phase 1 — the migration applies, the commerce and salt paths are exercised against a real database, and **six of the seven exit criteria are met**; the seventh (placement throughput) meets its latency budget but not its sustained rate on this machine · **CI:** 🟢 **green on `main`** — run 24 is the first successful run in the repository's history, after 23 failures. Four separate defects had to be fixed to get there, and not one of them was a failing test (§5)
 
 A single-glance view of how much is actually built, what has been *verified* rather
 than merely written, and what is still open. Where this file and
@@ -12,7 +12,7 @@ than merely written, and what is still open. Where this file and
 
 | Phase | Theme | State | Complete |
 |---|---|---|---|
-| **0** | Foundation | **Complete but for the `dev` deploy, which needs credentials** | ~97% |
+| **0** | Foundation | **Complete but for the `dev` deploy, which needs credentials** | ~98% |
 | 1 | Core Commerce MVP | **In flight — six of seven exit criteria met and verified against a real database and a real Redis; remaining work is UI (wizard, admin screens, mobile storefront) plus the throughput run** | ~80% |
 | 2 | Commercial Engine | Not started | 0% |
 | 3 | Fulfilment & Finance | Not started | 0% |
@@ -26,7 +26,9 @@ SQL — so nothing above it could be verified; it now applies from scratch, whic
 unblocked end-to-end testing. And the verification that followed found a real
 defect: four concurrent placements of one cart produced four orders.
 
-Every Phase 0 exit criterion but the credential-blocked `dev` deploy still holds.
+Every Phase 0 exit criterion but the credential-blocked `dev` deploy is now satisfied —
+including the mobile one, which this pass moved from "typecheck only" to a runtime run
+against a live API.
 
 ---
 
@@ -64,6 +66,7 @@ Every Phase 0 exit criterion but the credential-blocked `dev` deploy still holds
 |---|---|
 | **Contact verification** | `POST /auth/verify/request` and `POST /auth/verify`. A registered account can finally reach `ACTIVE` — before this, `register()` set `PENDING_VERIFICATION` and **nothing in the codebase ever changed it**. Uses the existing `otp_challenge` table, so no migration was needed |
 | **Password reset** | `POST /auth/password/forgot` and `POST /auth/password/reset`. No account enumeration, policy checked before the code is consumed, argon2 spent only after the code is accepted, and every session revoked |
+| **Mobile auth verified at runtime** | `mobile/test/auth.integration-spec.ts` — jest + ts-jest in the mobile workspace, driving the app's real client code against a live API, with the platform's Keychain replaced by an in-memory stand-in. Wired into CI as the `mobile-e2e` job |
 | **Shared packages** | `@medichain/config` (nextjs + react-native tsconfig, shared ESLint flat config, Tailwind 4 theme), `@medichain/api-client` (generated from OpenAPI), `@medichain/ui` |
 | **Client applications** | website, admin portal, mobile — each with a working auth flow, not a stub |
 | **Load test** | autocannon runner + k6 script + `load-test` workflow |
@@ -76,7 +79,7 @@ Every Phase 0 exit criterion but the credential-blocked `dev` deploy still holds
 | Criterion | State | Evidence |
 |---|---|---|
 | One command brings up backend + website + admin | ✓ | `npm run dev`; :3000, :3001 and :3002 all answered |
-| Register / verify / login / refresh / logout from all three clients | ◐ | Website and admin verified end-to-end against a live API (cookie set and rotated, session revoked on sign-out, cross-origin refused). **Mobile is verified by typecheck and `expo config` only — this environment has no device or simulator** |
+| Register / verify / login / refresh / logout from all three clients | ✓ | Website and admin verified end-to-end against a live API (cookie set and rotated, session revoked on sign-out, cross-origin refused). **Mobile is now verified at runtime too** — `mobile/test/auth.integration-spec.ts` (7 cases) drives register → verify → sign in → cold-start token rotation → sign out against a live API, plus the single-flight refresh and the replay detection that revokes a token family. The run is headless: the app's real client code and HTTP calls, with the platform's Keychain replaced by an in-memory stand-in. **The screens have still not been rendered on a device or simulator — none exists in this environment** |
 | `/health/ready` returns 503 when Postgres is stopped | ✓ | Verified empirically |
 | A mutation writes an audit row with actor + correlation id | ✓ | `auth.login.succeeded`, `auth.refresh.reuse_detected`, `auth.verify.succeeded`, `auth.password.reset` |
 | CI is green on `main` | ✓ | **Run 24 (`0586fe3`) — the first green run in 24 attempts.** Every job passed: lint and typecheck across every workspace, module boundaries, secret scan, dependency audit, Semgrep, 331 tests plus the coverage gate against real PostgreSQL and Redis, the monorepo build, OpenAPI generation, the contract-drift check, the backend image build and the Trivy scan. Reaching it needed four separate fixes and none of them was a failing test (§5) |
@@ -86,9 +89,9 @@ Every Phase 0 exit criterion but the credential-blocked `dev` deploy still holds
 | Security-critical code unit-tested and gated | ✓ | 331 tests / 22 suites, including the database-backed integration, concurrency and tenant-isolation suites; eight security-critical modules still held to ≥90% |
 | No unreviewed high-severity advisory ships | ✓ | `check:audit` passes; 3 accepted `multer` DoS advisories with reasons and a review date |
 
-**8 satisfied · 1 partial · 1 open.** The partial is a limitation of this environment
-(no device for the mobile app), not unfinished work. The open one needs a `dev` estate
-to exist before it can be satisfied.
+**9 satisfied · 1 open.** The open one needs a `dev` estate to exist before it can be
+satisfied. What the mobile criterion does **not** cover is stated with it: the app's UI
+has never been rendered on a device, only its auth flow executed headlessly.
 
 ---
 
@@ -123,6 +126,7 @@ Everything below was executed in this environment, not assumed.
 | **Load test** | `LOAD_PASSWORD=… npm run load:local` | **pass** — 100 RPS, p97.5 23 ms, 0 errors |
 | **Integration / concurrency suites** | `npm run test:all --workspace=@medichain/backend` | **pass** — 33 database-backed cases against PostgreSQL 17 and Redis 7, covering all but one exit criterion (§7) |
 | **Order placement under load** | `npm run load:orders` | **p95 62.6 ms** against an 800 ms budget, 0 failures; the sustained *rate* did not reproduce locally (§7) |
+| **Mobile auth flow** | `npm run test:integration --workspace=@medichain/mobile` against a live API | **pass** — 7 cases: register → verify (a wrong code rejected first) → sign in → cold-start token rotation → sign out, plus the concurrent-401 single-flight guard and replay detection revoking a token family |
 
 > **These rows are local — and as of run 24, no longer only local.** Every one ran in
 > *this* sandbox, against throwaway PostgreSQL and Redis containers. The same suite and
@@ -130,6 +134,10 @@ Everything below was executed in this environment, not assumed.
 > a claim into a check. It took four fixes to get there (§5): before them the pipeline had
 > failed all 23 of its runs, so none of this had been verified anywhere but a developer's
 > machine.
+>
+> The mobile row is the exception: it has a CI job (`mobile-e2e`) that starts the API and
+> runs the suite, but that job has not yet run on a runner — so the mobile result is, for
+> now, this sandbox only.
 
 ### Coverage — the real numbers
 
@@ -167,7 +175,7 @@ something that matters:
 |---|---|---|---|
 | 1 | **Provision `DEV_DATABASE_URL` / `KUBE_CONFIG`** | Without them the deploy-to-`dev` job reports that it is skipped — the last open Phase 0 criterion. Confirmed as of this pass: there is no `dev` estate yet, so these are not *missing* credentials so much as *uncreated* ones. A dev Postgres and cluster have to exist before any secret can point at them | GitHub → Environments → `dev` |
 | 2 | **Set `LOAD_TEST_BASE_URL` / `LOAD_TEST_PASSWORD`** | Without them the weekly k6 job reports that it is skipped | GitHub → Secrets |
-| 3 | **Run the mobile app on a device** | The one exit criterion verified indirectly | `npm run dev:mobile` |
+| 3 | **Render the mobile app on a device** | The auth flow is now verified at runtime headlessly; only the UI layer has never been rendered, and a device is the only way to exercise the real Keychain | `npm run dev:mobile` |
 | 4 | **Admin MFA** | The admin security model calls for mandatory TOTP; the backend has `user.mfaEnabled` but nothing reads it | Phase 1 |
 | 5 | **The remaining `test-concurrency` money-path cases** | The oversell case is covered. Credit limits, the stock-ledger invariant and duplicate-webhook credit are not | `backend/test/concurrency/` |
 | 6 | **The `contract` and `test-e2e` jobs** | The OpenAPI diff and regenerated client are enforced inside the Build job; breaking-change detection and consumer-driven tests are still owed, and `test/e2e` has no specs | parked block in `ci.yml` |
