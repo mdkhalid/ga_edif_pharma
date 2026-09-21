@@ -9,7 +9,8 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "lint": "eslint .",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json",
+    "test:integration": "jest",
     "clean": "node -e \"require('fs').rmSync('.expo',{recursive:true,force:true})\""
   },
   "dependencies": {
@@ -33,9 +34,12 @@
   "devDependencies": {
     "@babel/core": "7.29.7",
     "@medichain/config": "*",
+    "@types/jest": "29.5.14",
     "@types/react": "19.2.18",
     "babel-preset-expo": "57.0.11",
     "eslint": "9.39.5",
+    "jest": "29.7.0",
+    "ts-jest": "29.2.5",
     "typescript": "5.7.2"
   }
 }
