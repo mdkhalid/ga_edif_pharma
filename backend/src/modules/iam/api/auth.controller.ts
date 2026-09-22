@@ -1,24 +1,38 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 
-import { SessionRevokedReason } from '@medichain/shared-types';
+import {
+  SessionRevokedReason,
+  type MfaEnabledResult,
+  type MfaEnrollmentResult,
+  type MfaSetupResult,
+  type SignInResult,
+  type SignInSuccess,
+} from '@medichain/shared-types';
 
 import {
   CurrentUser,
   Idempotent,
+  OptionalUser,
   Public,
   RateLimit,
   SkipTenantScope,
 } from '../../../common/decorators';
 import { HEADERS, RATE_LIMIT_BUCKET } from '../../../common/constants/metadata';
+import { UnauthenticatedError } from '../../../common/exceptions/domain.exception';
 import { uuidParam } from '../../../common/pipes/parse-uuid.pipe';
 import { AuthService } from '../application/services/auth.service';
 import { ContactVerificationService } from '../application/services/contact-verification.service';
+import { MfaService, type MfaActor } from '../application/services/mfa.service';
 import { PasswordResetService } from '../application/services/password-reset.service';
 import { SessionService } from '../application/services/session.service';
 import {
   ForgotPasswordDto,
   LoginDto,
+  MfaConfirmDto,
+  MfaDisableDto,
+  MfaLoginDto,
+  MfaSetupDto,
   RefreshTokenDto,
   RegisterDto,
   ResetPasswordDto,
@@ -56,6 +70,7 @@ export class AuthController {
     private readonly sessions: SessionService,
     private readonly verification: ContactVerificationService,
     private readonly passwordReset: PasswordResetService,
+    private readonly mfa: MfaService,
   ) {}
 
   @Post('register')
@@ -146,15 +161,17 @@ export class AuthController {
   @ApiOperation({
     summary: 'Sign in',
     description:
-      'Exchanges credentials for an access token (15 minutes) and a refresh token (30 days). ' +
-      'The refresh token is rotated on every use; reuse of a rotated token revokes the entire ' +
-      'token family.',
+      'Exchanges credentials for an access token (15 minutes) and a refresh token (30 days), ' +
+      'or — when the account has TOTP enabled, or a staff role that requires it — for a ' +
+      'short-lived MFA challenge that must be redeemed at `/auth/mfa/login` (enrolment at ' +
+      '`/auth/mfa/setup` + `/auth/mfa/confirm`). The refresh token is rotated on every use; ' +
+      'reuse of a rotated token revokes the entire token family.',
   })
-  @ApiResponse({ status: 200, description: 'Signed in.' })
+  @ApiResponse({ status: 200, description: 'Signed in, or an MFA challenge is required.' })
   @ApiResponse({ status: 401, description: 'Credentials are incorrect.' })
   @ApiResponse({ status: 423, description: 'Account temporarily locked.' })
   @ApiResponse({ status: 429, description: 'Too many attempts.' })
-  async login(@Body() dto: LoginDto): Promise<{ data: Awaited<ReturnType<AuthService['login']>> }> {
+  async login(@Body() dto: LoginDto): Promise<{ data: SignInResult }> {
     const result = await this.auth.login({
       identifier: dto.identifier,
       password: dto.password,
@@ -163,6 +180,111 @@ export class AuthController {
     });
 
     return { data: result };
+  }
+
+  // ------------------------------------------------------------------- MFA
+
+  @Post('mfa/setup')
+  @Public()
+  @SkipTenantScope()
+  @HttpCode(HttpStatus.OK)
+  @RateLimit({ bucket: RATE_LIMIT_BUCKET.AUTH, keyBy: 'ip', max: 10, windowSeconds: 300 })
+  @ApiOperation({
+    summary: 'Start TOTP enrolment',
+    description:
+      'Generates a pending shared secret and the `otpauth://` URI to scan. The account is ' +
+      'not protected until `/auth/mfa/confirm` proves the app produces matching codes. ' +
+      'Pass the MFA challenge from sign-in during staff enrolment, or call with a bearer ' +
+      'token to set up from a signed-in session.',
+  })
+  @ApiResponse({ status: 200, description: 'A pending secret and otpauth URI.' })
+  @ApiResponse({ status: 401, description: 'No valid session or MFA challenge.' })
+  @ApiResponse({ status: 409, description: 'MFA is already on; disable it first.' })
+  async mfaSetup(
+    @Body() dto: MfaSetupDto,
+    @OptionalUser() principal: { userId: string } | null,
+  ): Promise<{ data: MfaSetupResult }> {
+    return { data: await this.mfa.setup(await this.resolveMfaActor(dto.mfaToken, principal)) };
+  }
+
+  @Post('mfa/confirm')
+  @Public()
+  @SkipTenantScope()
+  @HttpCode(HttpStatus.OK)
+  @RateLimit({ bucket: RATE_LIMIT_BUCKET.OTP, keyBy: 'ip', max: 10, windowSeconds: 300 })
+  @ApiOperation({
+    summary: 'Confirm TOTP enrolment',
+    description:
+      'Verifies a code from the app against the pending secret, enables MFA, issues a ' +
+      'single display of recovery codes, and — when called with the sign-in challenge — ' +
+      'returns the session the password step withheld.',
+  })
+  @ApiResponse({ status: 200, description: 'MFA enabled; recovery codes shown exactly once.' })
+  @ApiResponse({ status: 400, description: 'The code did not match.' })
+  @ApiResponse({ status: 409, description: 'No enrolment in progress, or MFA is already on.' })
+  async mfaConfirm(
+    @Body() dto: MfaConfirmDto,
+    @OptionalUser() principal: { userId: string } | null,
+  ): Promise<{ data: MfaEnrollmentResult | MfaEnabledResult }> {
+    const actor = await this.resolveMfaActor(dto.mfaToken, principal);
+    const result = await this.mfa.confirm(actor, dto.code);
+
+    if (result.session !== undefined) {
+      return {
+        data: {
+          ...result.session,
+          recoveryCodes: result.recoveryCodes,
+        },
+      };
+    }
+
+    return { data: { enabled: true, recoveryCodes: result.recoveryCodes } };
+  }
+
+  @Post('mfa/login')
+  @Public()
+  @SkipTenantScope()
+  @HttpCode(HttpStatus.OK)
+  @RateLimit({ bucket: RATE_LIMIT_BUCKET.AUTH, keyBy: 'ip', max: 10, windowSeconds: 60 })
+  @ApiOperation({
+    summary: 'Complete sign-in with a second factor',
+    description:
+      'Redeems the MFA challenge with a TOTP code or a single-use recovery code and issues ' +
+      'the session. Ten wrong codes per minute per IP end the attempt; the challenge itself ' +
+      'expires after five minutes.',
+  })
+  @ApiResponse({ status: 200, description: 'Signed in.' })
+  @ApiResponse({ status: 400, description: 'The code is not valid.' })
+  @ApiResponse({ status: 401, description: 'The challenge is invalid or has expired.' })
+  @ApiResponse({ status: 429, description: 'Too many attempts.' })
+  async mfaLogin(@Body() dto: MfaLoginDto): Promise<{ data: SignInSuccess }> {
+    const session = await this.mfa.completeLogin({
+      mfaToken: dto.mfaToken,
+      code: dto.code,
+      deviceId: dto.deviceId ?? null,
+      deviceLabel: dto.deviceLabel ?? null,
+    });
+    return { data: session };
+  }
+
+  @Post('mfa/disable')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @RateLimit({ bucket: RATE_LIMIT_BUCKET.OTP, keyBy: 'ip', max: 10, windowSeconds: 300 })
+  @ApiOperation({
+    summary: 'Turn off TOTP',
+    description:
+      'Requires a live code even though the caller is signed in: a stolen session disabling ' +
+      'the second factor is the exact attack MFA exists to stop.',
+  })
+  @ApiResponse({ status: 200, description: 'MFA is off; the secret and recovery codes are gone.' })
+  @ApiResponse({ status: 400, description: 'The code is not valid.' })
+  @ApiResponse({ status: 409, description: 'MFA is not enabled on this account.' })
+  async mfaDisable(
+    @Body() dto: MfaDisableDto,
+    @CurrentUser() principal: { userId: string },
+  ): Promise<{ data: { enabled: false } }> {
+    return { data: await this.mfa.disable(principal.userId, dto.code) };
   }
 
   @Post('refresh')
@@ -332,6 +454,31 @@ export class AuthController {
   ): Promise<void> {
     await this.sessions.assertSessionOwnership(sessionId, principal.userId);
     await this.sessions.revokeSession(sessionId, SessionRevokedReason.LOGOUT);
+  }
+
+  /**
+   * Resolves who an MFA enrolment call is for.
+   *
+   * Two legitimate shapes: the pre-session challenge from sign-in (staff
+   * enrolment, no bearer token exists yet) or an already-signed-in principal
+   * setting MFA up voluntarily. Neither present is a fail-closed
+   * `UnauthenticatedError` — the routes are `@Public()` only so the challenge
+   * path can reach them without a token that does not exist yet.
+   */
+  private async resolveMfaActor(
+    mfaToken: string | undefined,
+    principal: { userId: string } | null,
+  ): Promise<MfaActor> {
+    if (mfaToken !== undefined && mfaToken !== '') {
+      const { userId } = await this.mfa.verifyChallenge(mfaToken);
+      return { userId, challenge: { mfaToken } };
+    }
+
+    if (principal !== null) {
+      return { userId: principal.userId };
+    }
+
+    throw new UnauthenticatedError('Sign in, or complete the sign-in challenge, to continue.');
   }
 }
 

@@ -7,6 +7,8 @@ import {
   UserStatus,
   type AuthenticatedUserProfile,
   type LoginResponse,
+  type SignInResult,
+  type SignInSuccess,
   type TokenPair,
 } from '@medichain/shared-types';
 
@@ -24,6 +26,7 @@ import { ExtendedPrismaClient, PRISMA_EXTENDED } from '../../../../database/pris
 import { UnitOfWork } from '../../../../database/unit-of-work';
 import { AuditService } from '../../../audit';
 import { normaliseEmail, normalisePhone } from '../../domain/identifier';
+import { requiresMfaEnrollment } from '../../domain/mfa-policy';
 import { Password } from '../../domain/value-objects/password.vo';
 import { PasswordService } from './password.service';
 import { RoleResolver } from './role-resolver.service';
@@ -185,7 +188,8 @@ export class AuthService {
   // -------------------------------------------------------------------------
 
   /**
-   * Verifies credentials and starts a session.
+   * Verifies credentials and either issues a session or withholds one behind
+   * an MFA challenge.
    *
    * ## The order of checks is deliberate
    *
@@ -194,6 +198,7 @@ export class AuthService {
    *   3. Reject a locked account.
    *   4. Verify the password.
    *   5. Check the account status.
+   *   6. Load roles; decide whether MFA is owed before any session exists.
    *
    * Step 2 is what makes account enumeration infeasible: without it, "no such
    * account" returns in microseconds while "wrong password" takes ~50 ms, and the
@@ -204,13 +209,15 @@ export class AuthService {
    * anyone who guesses an address — so the status is only revealed to someone
    * who already proved they hold the credentials.
    *
-   * ## Why the failure response is identical in every case
-   *
-   * Unknown account, wrong password, suspended account: all return the same
-   * `InvalidCredentialsError`. Distinguishing them is convenient for a legitimate
-   * user and invaluable to an attacker building a target list.
+   * Step 6 is why roles are loaded *before* a session is created rather than
+   * after: staff accounts must not receive tokens until the second factor is
+   * satisfied, and the role list is what decides whether that applies. The
+   * failure response is identical in every credential failure — unknown
+   * account, wrong password, suspended account all raise
+   * `InvalidCredentialsError`, because distinguishing them is invaluable to an
+   * attacker building a target list.
    */
-  async login(input: LoginInput): Promise<LoginResponse> {
+  async login(input: LoginInput): Promise<SignInResult> {
     const identifier = input.identifier.trim();
     const email = normaliseEmail(identifier);
     const phone = normalisePhone(identifier);
@@ -309,10 +316,74 @@ export class AuthService {
       );
     }
 
+    // Roles before session. See the method note: the MFA decision needs them,
+    // and a staff account must not receive tokens before the second factor.
+    const roleRows = await requestContext.withoutTenantScope(() =>
+      this.prisma.userRole.findMany({
+        where: { userId: user.id },
+        select: { roleId: true, role: { select: { code: true } } },
+      }),
+    );
+    const roleCodes = roleRows.map((row) => row.role.code);
+
+    if (user.mfaEnabled || requiresMfaEnrollment(roleCodes)) {
+      // Password accepted; no session exists yet. The challenge is the only
+      // thing the caller receives, and it is useless as a bearer token.
+      const challenge = await this.tokens.signMfaChallenge(user.id);
+      return {
+        mfaRequired: true,
+        mfaToken: challenge.token,
+        mfaEnrollment: !user.mfaEnabled,
+        expiresAt: challenge.expiresAt.toISOString(),
+      };
+    }
+
+    return this.issueLoginSession({
+      userId: user.id,
+      auditTenantId,
+      roleRows,
+      deviceId: input.deviceId ?? null,
+      deviceLabel: input.deviceLabel ?? null,
+    });
+  }
+
+  /**
+   * Creates the session, signs the access token and audits the sign-in.
+   *
+   * Shared by the password-only path, the MFA-completion path and the staff
+   * enrolment path, so "what a session is" exists in exactly one place. The
+   * counters (failed attempts, `lastLoginAt`) are stamped here — at the moment
+   * sign-in *actually* succeeds — not when the password alone was verified.
+   */
+  async issueLoginSession(input: {
+    userId: string;
+    auditTenantId: string;
+    roleRows: readonly { roleId: string; role: { code: string } }[];
+    deviceId?: string | null;
+    deviceLabel?: string | null;
+  }): Promise<SignInSuccess> {
+    const user = await requestContext.withoutTenantScope(() =>
+      this.prisma.user.findUnique({
+        where: { id: input.userId },
+        select: {
+          id: true,
+          email: true,
+          phone: true,
+          fullName: true,
+          status: true,
+          tenantId: true,
+          organisationId: true,
+          mfaEnabled: true,
+        },
+      }),
+    );
+
+    if (user === null) throw new UnauthenticatedError('This account no longer exists.');
+
     const context = requestContext.get();
     const session = await this.sessions.createSession({
       userId: user.id,
-      tenantId: auditTenantId,
+      tenantId: input.auditTenantId,
       organisationId: user.organisationId,
       deviceId: input.deviceId ?? null,
       deviceLabel: input.deviceLabel ?? null,
@@ -336,21 +407,10 @@ export class AuthService {
         ),
     );
 
-    // `UserRole` is classified as a global model (see tenant-scoping.extension.ts),
-    // so this read is not filtered even without the wrapper. The wrapper is kept
-    // deliberately: signing in must be able to read role grants before the tenant
-    // is known, and stating that here means the requirement survives any future
-    // reclassification of the model.
-    const roleIds = await requestContext.withoutTenantScope(async () => {
-      const rows = await this.prisma.userRole.findMany({
-        where: { userId: user.id },
-        select: { roleId: true, role: { select: { code: true } } },
-      });
-      return rows;
-    });
-
-    const capabilities = await this.roles.effectiveCapabilities(roleIds.map((row) => row.roleId));
-    const roleCodes = roleIds.map((row) => row.role.code);
+    const capabilities = await this.roles.effectiveCapabilities(
+      input.roleRows.map((row) => row.roleId),
+    );
+    const roleCodes = input.roleRows.map((row) => row.role.code);
 
     const accessToken = await this.tokens.signAccessToken({
       userId: user.id,
@@ -363,7 +423,7 @@ export class AuthService {
     });
 
     await this.audit.record({
-      tenantId: auditTenantId,
+      tenantId: input.auditTenantId,
       action: 'auth.login.succeeded',
       entity: 'User',
       entityId: user.id,
@@ -382,6 +442,7 @@ export class AuthService {
     };
 
     return {
+      mfaRequired: false,
       tokens,
       user: {
         id: user.id,

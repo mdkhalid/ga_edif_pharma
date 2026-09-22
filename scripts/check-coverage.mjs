@@ -79,6 +79,16 @@ const CRITICAL_FILES = [
     min: 90,
     why: 'replaces a credential and revokes sessions — a gap here is account takeover',
   },
+  {
+    path: 'src/modules/iam/domain/totp.ts',
+    min: 90,
+    why: 'RFC 6238 TOTP — a bug here either locks every user out or widens the accept window',
+  },
+  {
+    path: 'src/modules/iam/application/services/mfa.service.ts',
+    min: 90,
+    why: 'second-factor enrol/verify/disable — a gap here is an authentication bypass',
+  },
 ];
 
 /**

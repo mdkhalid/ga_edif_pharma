@@ -172,7 +172,7 @@
     },
     "/auth/login": {
       "post": {
-        "description": "Exchanges credentials for an access token (15 minutes) and a refresh token (30 days). The refresh token is rotated on every use; reuse of a rotated token revokes the entire token family.",
+        "description": "Exchanges credentials for an access token (15 minutes) and a refresh token (30 days), or — when the account has TOTP enabled, or a staff role that requires it — for a short-lived MFA challenge that must be redeemed at `/auth/mfa/login` (enrolment at `/auth/mfa/setup` + `/auth/mfa/confirm`). The refresh token is rotated on every use; reuse of a rotated token revokes the entire token family.",
         "operationId": "authLogin",
         "parameters": [],
         "requestBody": {
@@ -187,7 +187,7 @@
         },
         "responses": {
           "200": {
-            "description": "Signed in."
+            "description": "Signed in, or an MFA challenge is required."
           },
           "401": {
             "description": "Credentials are incorrect."
@@ -200,6 +200,142 @@
           }
         },
         "summary": "Sign in",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/mfa/setup": {
+      "post": {
+        "description": "Generates a pending shared secret and the `otpauth://` URI to scan. The account is not protected until `/auth/mfa/confirm` proves the app produces matching codes. Pass the MFA challenge from sign-in during staff enrolment, or call with a bearer token to set up from a signed-in session.",
+        "operationId": "authMfaSetup",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaSetupDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "A pending secret and otpauth URI."
+          },
+          "401": {
+            "description": "No valid session or MFA challenge."
+          },
+          "409": {
+            "description": "MFA is already on; disable it first."
+          }
+        },
+        "summary": "Start TOTP enrolment",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/mfa/confirm": {
+      "post": {
+        "description": "Verifies a code from the app against the pending secret, enables MFA, issues a single display of recovery codes, and — when called with the sign-in challenge — returns the session the password step withheld.",
+        "operationId": "authMfaConfirm",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaConfirmDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "MFA enabled; recovery codes shown exactly once."
+          },
+          "400": {
+            "description": "The code did not match."
+          },
+          "409": {
+            "description": "No enrolment in progress, or MFA is already on."
+          }
+        },
+        "summary": "Confirm TOTP enrolment",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/mfa/login": {
+      "post": {
+        "description": "Redeems the MFA challenge with a TOTP code or a single-use recovery code and issues the session. Ten wrong codes per minute per IP end the attempt; the challenge itself expires after five minutes.",
+        "operationId": "authMfaLogin",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaLoginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Signed in."
+          },
+          "400": {
+            "description": "The code is not valid."
+          },
+          "401": {
+            "description": "The challenge is invalid or has expired."
+          },
+          "429": {
+            "description": "Too many attempts."
+          }
+        },
+        "summary": "Complete sign-in with a second factor",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/mfa/disable": {
+      "post": {
+        "description": "Requires a live code even though the caller is signed in: a stolen session disabling the second factor is the exact attack MFA exists to stop.",
+        "operationId": "authMfaDisable",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaDisableDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "MFA is off; the secret and recovery codes are gone."
+          },
+          "400": {
+            "description": "The code is not valid."
+          },
+          "409": {
+            "description": "MFA is not enabled on this account."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Turn off TOTP",
         "tags": [
           "auth"
         ]
@@ -1351,6 +1487,79 @@
         "required": [
           "identifier",
           "password"
+        ]
+      },
+      "MfaSetupDto": {
+        "type": "object",
+        "properties": {
+          "mfaToken": {
+            "type": "string",
+            "description": "The MFA challenge from sign-in. Required during enrolment; omit it when setting up from an authenticated session."
+          }
+        }
+      },
+      "MfaConfirmDto": {
+        "type": "object",
+        "properties": {
+          "mfaToken": {
+            "type": "string",
+            "description": "The MFA challenge from sign-in, during enrolment."
+          },
+          "code": {
+            "type": "string",
+            "example": "048392",
+            "minLength": 6,
+            "maxLength": 11,
+            "description": "The six-digit code from your authenticator app, or one of the recovery codes issued when you set it up."
+          }
+        },
+        "required": [
+          "code"
+        ]
+      },
+      "MfaLoginDto": {
+        "type": "object",
+        "properties": {
+          "mfaToken": {
+            "type": "string",
+            "description": "The MFA challenge returned when the password was accepted."
+          },
+          "code": {
+            "type": "string",
+            "example": "048392",
+            "minLength": 6,
+            "maxLength": 11,
+            "description": "The six-digit code from your authenticator app, or one of the recovery codes issued when you set it up."
+          },
+          "deviceId": {
+            "type": "string",
+            "example": "a1b2c3d4-e5f6-...",
+            "maxLength": 128
+          },
+          "deviceLabel": {
+            "type": "string",
+            "example": "Chrome on Windows",
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "mfaToken",
+          "code"
+        ]
+      },
+      "MfaDisableDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "example": "048392",
+            "minLength": 6,
+            "maxLength": 11,
+            "description": "A current code from the authenticator app. A code is required even though you are already signed in — turning the second factor off is exactly what a stolen session would try to do."
+          }
+        },
+        "required": [
+          "code"
         ]
       },
       "RefreshTokenDto": {

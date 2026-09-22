@@ -111,6 +111,31 @@ export class TokenExpiredError extends DomainException {
   }
 }
 
+/**
+ * A TOTP code or recovery code that does not match.
+ *
+ * One error for "wrong code", "no enrolment in progress" at the code check, and
+ * "secret missing": distinguishing them tells an attacker which accounts have
+ * MFA and how far along an enrolment is. The enrolment-not-started case is a
+ * `ConflictError` instead — it is a client sequencing bug, not a guess.
+ */
+export class MfaCodeInvalidError extends DomainException {
+  constructor(message = 'That code is not valid. Check your authenticator app and try again.') {
+    super(message, ErrorCode.MFA_CODE_INVALID, 400);
+  }
+}
+
+/**
+ * The MFA challenge token is missing, expired, or was not an MFA challenge.
+ *
+ * Deliberately one error: a caller cannot learn whether a token was ever valid.
+ */
+export class MfaChallengeInvalidError extends DomainException {
+  constructor(message = 'This sign-in attempt has expired. Sign in again.') {
+    super(message, ErrorCode.MFA_CHALLENGE_INVALID, 401);
+  }
+}
+
 export class TokenInvalidError extends DomainException {
   constructor(message = 'Token is invalid.') {
     super(message, ErrorCode.TOKEN_INVALID, 401);

@@ -224,3 +224,84 @@ export class ResetPasswordDto {
   @MaxLength(PASSWORD_MAX_LENGTH)
   newPassword!: string;
 }
+
+// ---------------------------------------------------------------------- MFA
+
+/**
+ * A TOTP code or a recovery code.
+ *
+ * One field for both factors: they are mutually exclusive shapes — six digits
+ * versus `XXXXX-XXXXX` — so the server can tell them apart without asking the
+ * client to, and a client that guessed wrong about which the user has would
+ * otherwise present a dead end.
+ */
+const MFA_CODE_DESCRIPTION =
+  'The six-digit code from your authenticator app, or one of the recovery codes ' +
+  'issued when you set it up.';
+
+export class MfaSetupDto {
+  @ApiPropertyOptional({
+    description:
+      'The MFA challenge from sign-in. Required during enrolment; omit it when ' +
+      'setting up from an authenticated session.',
+  })
+  @IsOptional()
+  @IsString()
+  @MinLength(16)
+  @MaxLength(2048)
+  mfaToken?: string;
+}
+
+export class MfaConfirmDto {
+  @ApiPropertyOptional({ description: 'The MFA challenge from sign-in, during enrolment.' })
+  @IsOptional()
+  @IsString()
+  @MinLength(16)
+  @MaxLength(2048)
+  mfaToken?: string;
+
+  @ApiProperty({ example: '048392', minLength: 6, maxLength: 11, description: MFA_CODE_DESCRIPTION })
+  @IsString()
+  @Length(6, 11)
+  code!: string;
+}
+
+export class MfaLoginDto {
+  @ApiProperty({ description: 'The MFA challenge returned when the password was accepted.' })
+  @IsString()
+  @MinLength(16)
+  @MaxLength(2048)
+  mfaToken!: string;
+
+  @ApiProperty({ example: '048392', minLength: 6, maxLength: 11, description: MFA_CODE_DESCRIPTION })
+  @IsString()
+  @Length(6, 11)
+  code!: string;
+
+  @ApiPropertyOptional({ example: 'a1b2c3d4-e5f6-...', maxLength: 128 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  deviceId?: string;
+
+  @ApiPropertyOptional({ example: 'Chrome on Windows', maxLength: 200 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  deviceLabel?: string;
+}
+
+export class MfaDisableDto {
+  @ApiProperty({
+    example: '048392',
+    minLength: 6,
+    maxLength: 11,
+    description:
+      'A current code from the authenticator app. A code is required even though ' +
+      'you are already signed in — turning the second factor off is exactly what ' +
+      'a stolen session would try to do.',
+  })
+  @IsString()
+  @Length(6, 11)
+  code!: string;
+}

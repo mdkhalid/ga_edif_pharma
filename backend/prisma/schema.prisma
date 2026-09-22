@@ -218,6 +218,12 @@ model User {
   /// Forces every session to be re-established after a password change.
   passwordChangedAt DateTime? @map("password_changed_at") @db.Timestamptz(6)
   mfaEnabled        Boolean   @default(false) @map("mfa_enabled")
+  /// AES-256-GCM envelope of the TOTP shared secret (AAD `user:<id>`).
+  /// Null until enrolment starts; cleared when MFA is disabled.
+  mfaSecret         String?   @map("mfa_secret") @db.VarChar(512)
+  /// SHA-256 digests of unused recovery codes, canonical `XXXXX-XXXXX` form.
+  /// Displayed exactly once at enrolment; consumed one at a time at sign-in.
+  mfaRecoveryCodes  String[]  @default([]) @map("mfa_recovery_codes")
 
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)

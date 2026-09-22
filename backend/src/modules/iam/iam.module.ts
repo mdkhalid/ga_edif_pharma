@@ -3,11 +3,17 @@ import { JwtModule } from '@nestjs/jwt';
 
 import { AppConfigService } from '../../config/app-config.service';
 import { SESSION_AUTHORITY, TOKEN_VERIFIER } from '../../common/ports/auth.port';
+import {
+  ENCRYPTION_KEYS,
+  EncryptionService,
+  buildKeyring,
+} from '../../common/utils/encryption.service';
 import { AuditModule } from '../audit';
 import { NotificationsModule } from '../notifications';
 import { AuthController } from './api/auth.controller';
 import { AuthService } from './application/services/auth.service';
 import { ContactVerificationService } from './application/services/contact-verification.service';
+import { MfaService } from './application/services/mfa.service';
 import { OtpService } from './application/services/otp.service';
 import { PasswordResetService } from './application/services/password-reset.service';
 import { PasswordService } from './application/services/password.service';
@@ -80,6 +86,16 @@ import { TokenService } from './application/services/token.service';
     OtpService,
     ContactVerificationService,
     PasswordResetService,
+    MfaService,
+    // The TOTP secret is envelope-encrypted at rest with the same keyring that
+    // protects `platform_setting`. Provided here rather than globally: only
+    // this module needs it today, and a global provider would put a decryption
+    // capability in every injector for the convenience of one consumer.
+    {
+      provide: ENCRYPTION_KEYS,
+      useFactory: () => buildKeyring(process.env),
+    },
+    EncryptionService,
     { provide: TOKEN_VERIFIER, useExisting: TokenService },
     { provide: SESSION_AUTHORITY, useExisting: SessionService },
   ],
@@ -91,6 +107,7 @@ import { TokenService } from './application/services/token.service';
     OtpService,
     ContactVerificationService,
     PasswordResetService,
+    MfaService,
     // Exported so the guards' dependencies resolve for any module that needs
     // them, and so an integration test can drive the token lifecycle directly.
     TOKEN_VERIFIER,

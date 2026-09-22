@@ -73,6 +73,64 @@ export interface LoginResponse {
   readonly user: AuthenticatedUserProfile;
 }
 
+/**
+ * Result of `POST /auth/login`.
+ *
+ * A discriminated union rather than a nullable `tokens` field: every existing
+ * caller that does not know about MFA must fail to compile when the shape
+ * changes, not discover at runtime that `tokens` is undefined. The tag is
+ * always present, so a caller branches on `mfaRequired` exactly once.
+ */
+export type SignInResult = SignInSuccess | MfaChallenge;
+
+/** Password accepted; a session was issued. */
+export interface SignInSuccess {
+  readonly mfaRequired: false;
+  readonly tokens: TokenPair;
+  readonly user: AuthenticatedUserProfile;
+}
+
+/**
+ * Password accepted, but a second factor is owed before any session exists.
+ *
+ * `mfaEnrollment` distinguishes the two cases the client handles differently:
+ * `false` — the account already has TOTP, ask for a code; `true` — the account
+ * must enrol first (staff accounts are required to), so the client shows the
+ * setup screen. `mfaToken` is a short-lived, purpose-bound JWT: it is not an
+ * access token (no session id, rejected by the access-token verifier) and can
+ * only be redeemed at the MFA endpoints.
+ */
+export interface MfaChallenge {
+  readonly mfaRequired: true;
+  readonly mfaToken: string;
+  readonly mfaEnrollment: boolean;
+  /** When the challenge expires. After this, sign in again. */
+  readonly expiresAt: string;
+}
+
+/** The secret returned once by `POST /auth/mfa/setup`, before confirmation. */
+export interface MfaSetupResult {
+  /** Base32 shared secret — what an authenticator app scans or is pasted. */
+  readonly secret: string;
+  /** `otpauth://totp/…` URI for QR encoding on the client. */
+  readonly otpauthUri: string;
+}
+
+/** `POST /auth/mfa/confirm` when the caller completed enrolment via a challenge. */
+export interface MfaEnrollmentResult extends SignInSuccess {
+  /**
+   * Shown exactly once. Each may be used in place of a TOTP code at sign-in;
+   * only their SHA-256 digests are stored.
+   */
+  readonly recoveryCodes: readonly string[];
+}
+
+/** `POST /auth/mfa/confirm` when the caller is already signed in (self-service). */
+export interface MfaEnabledResult {
+  readonly enabled: true;
+  readonly recoveryCodes: readonly string[];
+}
+
 export interface AuthenticatedUserProfile {
   readonly id: string;
   readonly email: string | null;

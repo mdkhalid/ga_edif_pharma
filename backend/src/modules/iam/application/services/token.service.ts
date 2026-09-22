@@ -4,9 +4,18 @@ import { JwtService } from '@nestjs/jwt';
 import type { JwtPayload, ScopeClaims } from '@medichain/shared-types';
 
 import { AppConfigService } from '../../../../config/app-config.service';
-import { TokenExpiredError, TokenInvalidError } from '../../../../common/exceptions/domain.exception';
+import {
+  MfaChallengeInvalidError,
+  TokenExpiredError,
+  TokenInvalidError,
+} from '../../../../common/exceptions/domain.exception';
 import { randomToken, sha256Base64, timingSafeEqualString } from '../../../../common/utils/crypto.util';
 import type { TokenVerifier } from '../../../../common/ports/auth.port';
+
+/** Claim value that marks a JWT as an MFA challenge, never an access token. */
+export const MFA_CHALLENGE_PURPOSE = 'mfa';
+/** Five minutes: long enough to type a code, short enough to be useless later. */
+export const MFA_CHALLENGE_TTL_MS = 5 * 60_000;
 
 /**
  * Issues and verifies tokens.
@@ -143,6 +152,74 @@ export class TokenService implements TokenVerifier {
         `Access token rejected: ${error instanceof Error ? error.message : 'unknown error'}`,
       );
       throw new TokenInvalidError();
+    }
+  }
+
+  /**
+   * Signs a short-lived MFA challenge.
+   *
+   * A different payload shape from the access token on purpose: no `sid`, and a
+   * `purpose: 'mfa'` claim. The access-token verifier requires a string `sid`
+   * and therefore rejects this token outright — so a challenge, which by
+   * definition has no session yet, cannot be replayed as a bearer token. The
+   * mirror holds too: `verifyMfaChallenge` requires `purpose === 'mfa'`, so an
+   * access token cannot stand in for a challenge.
+   */
+  async signMfaChallenge(userId: string): Promise<{ token: string; expiresAt: Date }> {
+    const { issuer, audience } = this.config.jwt;
+    const ttlMs = MFA_CHALLENGE_TTL_MS;
+    const expiresAt = new Date(Date.now() + ttlMs);
+
+    const token = await this.jwt.signAsync(
+      { sub: userId, purpose: MFA_CHALLENGE_PURPOSE },
+      {
+        algorithm: 'HS256',
+        expiresIn: Math.floor(ttlMs / 1_000),
+        issuer,
+        audience,
+      },
+    );
+
+    return { token, expiresAt };
+  }
+
+  /**
+   * Verifies an MFA challenge and returns its subject.
+   *
+   * Throws rather than returning null, for the same reason `verifyAccessToken`
+   * does: a caller that can forget to check for null has an authentication
+   * bypass waiting in it.
+   */
+  async verifyMfaChallenge(token: string): Promise<{ userId: string }> {
+    if (typeof token !== 'string' || token.trim() === '') {
+      throw new MfaChallengeInvalidError();
+    }
+
+    try {
+      const payload = await this.jwt.verifyAsync<{ sub?: unknown; purpose?: unknown }>(token, {
+        algorithms: ['HS256'],
+        issuer: this.config.jwt.issuer,
+        audience: this.config.jwt.audience,
+        clockTolerance: 5,
+      });
+
+      if (payload.purpose !== MFA_CHALLENGE_PURPOSE || typeof payload.sub !== 'string') {
+        throw new MfaChallengeInvalidError();
+      }
+
+      return { userId: payload.sub };
+    } catch (error) {
+      if (error instanceof MfaChallengeInvalidError) throw error;
+
+      const name = error instanceof Error ? error.name : '';
+      if (name === 'TokenExpiredError') {
+        throw new MfaChallengeInvalidError('This sign-in attempt has expired. Sign in again.');
+      }
+
+      this.logger.debug(
+        `MFA challenge rejected: ${error instanceof Error ? error.message : 'unknown error'}`,
+      );
+      throw new MfaChallengeInvalidError();
     }
   }
 

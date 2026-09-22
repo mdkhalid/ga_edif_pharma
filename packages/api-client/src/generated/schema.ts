@@ -152,9 +152,89 @@ export interface paths {
         put?: never;
         /**
          * Sign in
-         * @description Exchanges credentials for an access token (15 minutes) and a refresh token (30 days). The refresh token is rotated on every use; reuse of a rotated token revokes the entire token family.
+         * @description Exchanges credentials for an access token (15 minutes) and a refresh token (30 days), or — when the account has TOTP enabled, or a staff role that requires it — for a short-lived MFA challenge that must be redeemed at `/auth/mfa/login` (enrolment at `/auth/mfa/setup` + `/auth/mfa/confirm`). The refresh token is rotated on every use; reuse of a rotated token revokes the entire token family.
          */
         post: operations["authLogin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/mfa/setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start TOTP enrolment
+         * @description Generates a pending shared secret and the `otpauth://` URI to scan. The account is not protected until `/auth/mfa/confirm` proves the app produces matching codes. Pass the MFA challenge from sign-in during staff enrolment, or call with a bearer token to set up from a signed-in session.
+         */
+        post: operations["authMfaSetup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/mfa/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm TOTP enrolment
+         * @description Verifies a code from the app against the pending secret, enables MFA, issues a single display of recovery codes, and — when called with the sign-in challenge — returns the session the password step withheld.
+         */
+        post: operations["authMfaConfirm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/mfa/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete sign-in with a second factor
+         * @description Redeems the MFA challenge with a TOTP code or a single-use recovery code and issues the session. Ten wrong codes per minute per IP end the attempt; the challenge itself expires after five minutes.
+         */
+        post: operations["authMfaLogin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/mfa/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Turn off TOTP
+         * @description Requires a live code even though the caller is signed in: a stolen session disabling the second factor is the exact attack MFA exists to stop.
+         */
+        post: operations["authMfaDisable"];
         delete?: never;
         options?: never;
         head?: never;
@@ -661,6 +741,39 @@ export interface components {
             /** @example Chrome on Windows */
             deviceLabel?: string;
         };
+        MfaSetupDto: {
+            /** @description The MFA challenge from sign-in. Required during enrolment; omit it when setting up from an authenticated session. */
+            mfaToken?: string;
+        };
+        MfaConfirmDto: {
+            /** @description The MFA challenge from sign-in, during enrolment. */
+            mfaToken?: string;
+            /**
+             * @description The six-digit code from your authenticator app, or one of the recovery codes issued when you set it up.
+             * @example 048392
+             */
+            code: string;
+        };
+        MfaLoginDto: {
+            /** @description The MFA challenge returned when the password was accepted. */
+            mfaToken: string;
+            /**
+             * @description The six-digit code from your authenticator app, or one of the recovery codes issued when you set it up.
+             * @example 048392
+             */
+            code: string;
+            /** @example a1b2c3d4-e5f6-... */
+            deviceId?: string;
+            /** @example Chrome on Windows */
+            deviceLabel?: string;
+        };
+        MfaDisableDto: {
+            /**
+             * @description A current code from the authenticator app. A code is required even though you are already signed in — turning the second factor off is exactly what a stolen session would try to do.
+             * @example 048392
+             */
+            code: string;
+        };
         RefreshTokenDto: {
             /** @description The refresh token issued by the previous sign-in or refresh. Rotated on every use — store the new value returned by this call and discard the old one. */
             refreshToken: string;
@@ -977,7 +1090,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Signed in. */
+            /** @description Signed in, or an MFA challenge is required. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -1000,6 +1113,157 @@ export interface operations {
             };
             /** @description Too many attempts. */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    authMfaSetup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MfaSetupDto"];
+            };
+        };
+        responses: {
+            /** @description A pending secret and otpauth URI. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No valid session or MFA challenge. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description MFA is already on; disable it first. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    authMfaConfirm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MfaConfirmDto"];
+            };
+        };
+        responses: {
+            /** @description MFA enabled; recovery codes shown exactly once. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The code did not match. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No enrolment in progress, or MFA is already on. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    authMfaLogin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MfaLoginDto"];
+            };
+        };
+        responses: {
+            /** @description Signed in. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The code is not valid. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The challenge is invalid or has expired. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many attempts. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    authMfaDisable: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MfaDisableDto"];
+            };
+        };
+        responses: {
+            /** @description MFA is off; the secret and recovery codes are gone. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The code is not valid. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description MFA is not enabled on this account. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
