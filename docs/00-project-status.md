@@ -1,6 +1,6 @@
 # 00 — Project Status
 
-> **Last updated:** 2026-09-21 · **Branch:** `main` · **Phase in flight:** Phase 1 — the migration applies, the commerce and salt paths are exercised against a real database, and **six of the seven exit criteria are met**; the seventh (placement throughput) meets its latency budget but not its sustained rate on this machine · **CI:** 🟢 **green on `main`** — run 24 is the first successful run in the repository's history, after 23 failures. Four separate defects had to be fixed to get there, and not one of them was a failing test (§5)
+> **Last updated:** 2026-09-22 · **Branch:** `main` · **Phase in flight:** Phase 1 — the migration applies, the commerce and salt paths are exercised against a real database, and **six of the seven exit criteria are met**; the seventh (placement throughput) meets its latency budget but not its sustained rate on this machine. **Admin MFA is landed end-to-end** — backend TOTP (`203f16f`) plus admin/website/mobile wiring (`221b3ce`) · **CI:** 🟢 **green on `main`** — run 24 is the first successful run in the repository's history, after 23 failures. Four separate defects had to be fixed to get there, and not one of them was a failing test (§5)
 
 A single-glance view of how much is actually built, what has been *verified* rather
 than merely written, and what is still open. Where this file and
@@ -13,7 +13,7 @@ than merely written, and what is still open. Where this file and
 | Phase | Theme | State | Complete |
 |---|---|---|---|
 | **0** | Foundation | **Complete but for the `dev` deploy, which needs credentials** | ~98% |
-| 1 | Core Commerce MVP | **In flight — six of seven exit criteria met and verified against a real database and a real Redis; remaining work is UI (wizard, admin screens, mobile storefront) plus the throughput run** | ~80% |
+| 1 | Core Commerce MVP | **In flight — six of seven exit criteria met and verified against a real database and a real Redis; admin MFA landed end-to-end; remaining work is UI (wizard, admin screens, mobile storefront) plus the throughput run** | ~80% |
 | 2 | Commercial Engine | Not started | 0% |
 | 3 | Fulfilment & Finance | Not started | 0% |
 | 4 | Scale & Mobile GA | Not started | 0% |
@@ -127,6 +127,7 @@ Everything below was executed in this environment, not assumed.
 | **Integration / concurrency suites** | `npm run test:all --workspace=@medichain/backend` | **pass** — 33 database-backed cases against PostgreSQL 17 and Redis 7, covering all but one exit criterion (§7) |
 | **Order placement under load** | `npm run load:orders` | **p95 62.6 ms** against an 800 ms budget, 0 failures; the sustained *rate* did not reproduce locally (§7) |
 | **Mobile auth flow** | `npm run test:integration --workspace=@medichain/mobile` against a live API | **pass** — 7 cases: register → verify (a wrong code rejected first) → sign in → cold-start token rotation → sign out, plus the concurrent-401 single-flight guard and replay detection revoking a token family |
+| **MFA client slice** | Direct `tsc --noEmit` (admin, website, mobile, api-client), `eslint` (admin, website, mobile), `next build` (admin, website), backend unit `mfa totp` | **pass** — admin build lists `/api/auth/mfa/setup|confirm|login`; 323 unit tests incl. `mfa`/`totp`/`mfa-policy` |
 
 > **These rows are local — and as of run 24, no longer only local.** Every one ran in
 > *this* sandbox, against throwaway PostgreSQL and Redis containers. The same suite and
@@ -176,7 +177,7 @@ something that matters:
 | 1 | **Provision `DEV_DATABASE_URL` / `KUBE_CONFIG`** | Without them the deploy-to-`dev` job reports that it is skipped — the last open Phase 0 criterion. Confirmed as of this pass: there is no `dev` estate yet, so these are not *missing* credentials so much as *uncreated* ones. A dev Postgres and cluster have to exist before any secret can point at them | GitHub → Environments → `dev` |
 | 2 | **Set `LOAD_TEST_BASE_URL` / `LOAD_TEST_PASSWORD`** | Without them the weekly k6 job reports that it is skipped | GitHub → Secrets |
 | 3 | **Render the mobile app on a device** | The auth flow is now verified at runtime headlessly; only the UI layer has never been rendered, and a device is the only way to exercise the real Keychain | `npm run dev:mobile` |
-| 4 | **Admin MFA** | The admin security model calls for mandatory TOTP; the backend has `user.mfaEnabled` but nothing reads it | Phase 1 |
+| 4 | **Admin MFA — closed 2026-09-22** | Landed: backend TOTP enrolment + second-factor sign-in (`203f16f`), wired through the admin BFF/login UI, website challenge handling and mobile guard (`221b3ce`) | — |
 | 5 | **The remaining `test-concurrency` money-path cases** | The oversell case is covered. Credit limits, the stock-ledger invariant and duplicate-webhook credit are not | `backend/test/concurrency/` |
 | 6 | **The `contract` and `test-e2e` jobs** | The OpenAPI diff and regenerated client are enforced inside the Build job; breaking-change detection and consumer-driven tests are still owed, and `test/e2e` has no specs | parked block in `ci.yml` |
 
@@ -406,7 +407,7 @@ reached rather than quietly reporting latency for load that never arrived.
 | 5 | Outbox relay | Notification delivery is best-effort with no durable retry | Phase 2 |
 | 6 | Confirm remote CI green | Every local gate passes; the workflow has still never run on a runner | push, then GitHub Actions |
 | 7 | `DEV_DATABASE_URL` / `KUBE_CONFIG` | The last open Phase 0 criterion | GitHub → Environments → `dev` |
-| 8 | Admin MFA | `user.mfaEnabled` exists and nothing reads it | Phase 1 |
+| 8 | Admin MFA — closed 2026-09-22 | Backend TOTP enrolment + challenge sign-in (`203f16f`); admin BFF + 3-step login UI, website union handling, mobile guard (`221b3ce`). Verified: direct typecheck ×4, lint ×3, `next build` ×2, 323 backend unit tests incl. `mfa`/`totp`/`mfa-policy` | — |
 | 9 | `test-isolation` / `test-concurrency` suites | Configs exist; `test/concurrency` now has specs, `test-isolation` does not | parked block in `ci.yml` |
 
 ### Local environment used for this verification
@@ -442,6 +443,8 @@ document chose the wrong one.
 | `test(orders)` | Idempotency proved against a real Redis |
 | `feat(onboarding)` | Approval provisions the organisation's administrator, so "approved" means someone can be given access |
 | `test(orders)` | The order-placement load harness |
+| `203f16f` `feat(auth)` | Backend admin TOTP: pure-Node RFC 6238, role-based enrolment policy, encrypted pending secrets, single-use recovery codes, five-minute challenge redeemed at `/auth/mfa/login`; `totp.ts` and `mfa.service.ts` held at 90% by the coverage gate |
+| `221b3ce` `feat(auth)` | MFA client wiring: admin 3-step login UI + BFF `mfa/setup|confirm|login` routes, website `SignInResult` handling with no session on challenge, mobile loud-fail guard, typed `api-client` MFA endpoints |
 
 ---
 

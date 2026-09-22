@@ -1,6 +1,6 @@
 # 05 — Phased Roadmap
 
-> **Status:** Approved · **Owner:** Product + Architecture · **Last updated:** 2026-09-21
+> **Status:** Approved · **Owner:** Product + Architecture · **Last updated:** 2026-09-22
 
 Seven phases. Each phase is **independently deployable and commercially useful** —
 no phase exists purely to set up the next one. A phase is done when its exit
@@ -288,7 +288,7 @@ log. The two that are not simply "done" say exactly what is and is not covered.
       transition the state machine rejects leaves the trail untouched. Exposed on
       `GET /orders/:id` so it is observable rather than only assertable in SQL.*
 
-### Build status (updated 2026-09-19 — six of seven exit criteria met)
+### Build status (updated 2026-09-22 — six of seven exit criteria met; admin MFA landed end-to-end)
 
 | Slice | Landed | Evidence |
 |---|---|---|
@@ -299,6 +299,7 @@ log. The two that are not simply "done" say exactly what is and is not covered.
 | Cart (backend) | Server-side cart per org; live price, availability checks; add/update/remove; **one cart yields one order** | `test/concurrency/order-placement.concurrency-spec.ts` |
 | Orders (backend) | Idempotent placement with row-locked reservation; canonical state machine; cancel releases stock; audited; **`order_status_history` on every transition** | `test/integration/order-status-history.integration-spec.ts`, `test/integration/idempotency.integration-spec.ts` (against a real Redis), `test/concurrency/…` |
 | Notifications (backend) | Templates, post-commit send behind a port, **real SMTP (nodemailer) and MSG91/Twilio transports**, selected and logged at boot | `test/unit/smtp-email.spec.ts` (against an in-process SMTP server), `test/unit/sms-transport.spec.ts`, `test/unit/routing-notification.spec.ts`, `test/integration/order-notification.integration-spec.ts` |
+| MFA / TOTP (backend + clients) | Enrolment + challenge sign-in (`203f16f`); admin 3-step login UI + BFF routes, website union handling, mobile guard (`221b3ce`) | `test/unit/totp.spec.ts`, `mfa.spec.ts`, `mfa-policy.spec.ts`; direct typecheck/lint and both `next build` green |
 | Admin (backend) | Covered by existing endpoints: buyer queue (onboarding), catalogue CRUD, order list + manual status (orders) | covered above |
 | Contract (OpenAPI) | 32 paths / 15 schemas. Operation ids qualified by resource; `Idempotency-Key` declared on all five routes that require it | `npm run openapi:generate`; the contract-drift job diffs the committed artifacts |
 | Typed API client | `catalog`, `search`, `cart`, `orders`, `onboarding` endpoint modules over the generated client; response shapes in `@medichain/shared-types` | typecheck + build green across all 9 workspaces |
