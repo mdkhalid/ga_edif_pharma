@@ -7,31 +7,27 @@ import { isSameOrigin, secondsUntil } from '@/lib/auth/session';
 import { env } from '@/lib/env';
 
 /**
- * Admin BFF sign-in.
+ * Admin BFF second-factor sign-in.
  *
- * The browser cannot hold the refresh token (it must be HttpOnly), so credentials are
- * posted here, exchanged at the API, and the refresh token is kept in a cookie scoped
- * to `/api/auth`. Only the access token goes back to the page.
- *
- * The cookie name differs from the website's (`mc_admin_refresh`), so a staff member
- * signed into both portals holds two independent sessions — revoking one does not
- * disturb the other.
+ * Redeems the short-lived MFA challenge from `/api/auth/login` with a TOTP code
+ * or a recovery code. On success the refresh token is set exactly as the
+ * password step would have set it — the session simply starts one round later.
  */
 
 const API_BASE_URL = process.env.API_BASE_URL ?? env.apiBaseUrl;
 const SERVER_CLIENT = createApiClient({ baseUrl: API_BASE_URL, appPlatform: env.appPlatform });
 
-interface LoginBody {
-  identifier?: unknown;
-  password?: unknown;
+interface MfaLoginBody {
+  mfaToken?: unknown;
+  code?: unknown;
 }
 
-function readCredentials(body: unknown): { identifier: string; password: string } | null {
+function readChallenge(body: unknown): { mfaToken: string; code: string } | null {
   if (typeof body !== 'object' || body === null) return null;
-  const { identifier, password } = body as LoginBody;
-  if (typeof identifier !== 'string' || typeof password !== 'string') return null;
-  if (identifier.trim() === '' || password === '') return null;
-  return { identifier, password };
+  const { mfaToken, code } = body as MfaLoginBody;
+  if (typeof mfaToken !== 'string' || mfaToken === '') return null;
+  if (typeof code !== 'string' || code === '') return null;
+  return { mfaToken, code };
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -39,31 +35,16 @@ export async function POST(request: Request): Promise<Response> {
     return NextResponse.json({ detail: 'Cross-origin sign-in is not permitted.' }, { status: 403 });
   }
 
-  const credentials = readCredentials(await request.json().catch(() => null));
-  if (credentials === null) {
+  const challenge = readChallenge(await request.json().catch(() => null));
+  if (challenge === null) {
     return NextResponse.json(
-      { detail: 'An identifier and a password are required.' },
+      { detail: 'An MFA challenge and a code are required.' },
       { status: 400 },
     );
   }
 
   try {
-    const session = await createAuthApi(SERVER_CLIENT).login(credentials);
-
-    // A challenge is not a session: no refresh cookie is set, and the mfaToken is
-    // the only credential handed back — short-lived and redeemable only at the
-    // MFA endpoints.
-    if (session.mfaRequired) {
-      return NextResponse.json({
-        data: {
-          mfaRequired: true,
-          mfaToken: session.mfaToken,
-          mfaEnrollment: session.mfaEnrollment,
-          expiresAt: session.expiresAt,
-        },
-      });
-    }
-
+    const session = await createAuthApi(SERVER_CLIENT).mfaLogin(challenge);
     const store = await cookies();
 
     store.set(
@@ -77,7 +58,6 @@ export async function POST(request: Request): Promise<Response> {
 
     return NextResponse.json({
       data: {
-        mfaRequired: false,
         accessToken: session.tokens.accessToken,
         accessTokenExpiresAt: session.tokens.accessTokenExpiresAt,
         user: session.user,

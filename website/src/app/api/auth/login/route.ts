@@ -53,6 +53,20 @@ export async function POST(request: Request): Promise<Response> {
 
   try {
     const session = await createAuthApi(SERVER_CLIENT).login(credentials);
+
+    // Buyers are exempt from MFA today, but the union is handled anyway: a
+    // challenge must never set a refresh cookie, because no session exists yet.
+    if (session.mfaRequired) {
+      return NextResponse.json({
+        data: {
+          mfaRequired: true,
+          mfaToken: session.mfaToken,
+          mfaEnrollment: session.mfaEnrollment,
+          expiresAt: session.expiresAt,
+        },
+      });
+    }
+
     const store = await cookies();
 
     store.set(
@@ -69,6 +83,7 @@ export async function POST(request: Request): Promise<Response> {
     // thing the cookie exists to prevent.
     return NextResponse.json({
       data: {
+        mfaRequired: false,
         accessToken: session.tokens.accessToken,
         accessTokenExpiresAt: session.tokens.accessTokenExpiresAt,
         user: session.user,

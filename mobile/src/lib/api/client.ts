@@ -93,6 +93,13 @@ export async function bootstrapSession(): Promise<void> {
 export async function login(values: { identifier: string; password: string }): Promise<void> {
   const session = await publicAuthApi.login(values);
 
+  // Buyers are exempt from MFA, so this branch should not be reachable from the
+  // storefront. Throwing (rather than reading `tokens` off the union) keeps the
+  // failure loud if that policy ever changes before an MFA screen exists here.
+  if (session.mfaRequired) {
+    throw new Error('This account requires a second factor that is not supported yet.');
+  }
+
   await saveRefreshToken(session.tokens.refreshToken);
   useAuthStore.getState().setSession(session.tokens.accessToken, session.user);
 }

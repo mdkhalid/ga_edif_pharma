@@ -18,6 +18,20 @@ export const loginSchema = z.object({
 
 export type LoginValues = z.infer<typeof loginSchema>;
 
+/**
+ * A TOTP code or a single-use recovery code.
+ *
+ * Six to eleven characters covers both shapes the backend accepts — six digits
+ * or `XXXXX-XXXXX` — without the form guessing which factor the user has.
+ */
+export const mfaCodeSchema = z
+  .string()
+  .trim()
+  .min(6, 'Enter the code from your authenticator app.')
+  .max(11, 'This code is too long.');
+
+export type MfaCodeValues = z.infer<typeof mfaCodeSchema>;
+
 export function fieldErrors(error: z.ZodError): Record<string, string> {
   const result: Record<string, string> = {};
   for (const issue of error.issues) {

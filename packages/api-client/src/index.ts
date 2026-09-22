@@ -34,6 +34,17 @@ export {
   type RegisterRequest,
   type RegisterResult,
 } from './endpoints/auth';
+// Re-export the auth response shapes so consumers do not need a second import
+// from `@medichain/shared-types` for the login/MFA contract.
+export type {
+  LoginResponse,
+  MfaChallenge,
+  MfaEnabledResult,
+  MfaEnrollmentResult,
+  MfaSetupResult,
+  SignInResult,
+  SignInSuccess,
+} from '@medichain/shared-types';
 export {
   createCatalogApi,
   type CatalogApi,

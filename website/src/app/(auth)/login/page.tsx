@@ -46,7 +46,15 @@ export default function LoginPage() {
     setSubmitting(true);
 
     try {
-      await login(parsed.data);
+      const outcome = await login(parsed.data);
+
+      // Buyers are exempt from MFA, so this should not occur; surface it as a
+      // form error rather than navigating as if a session existed.
+      if (outcome.mfaRequired) {
+        setFormError('This account requires two-factor authentication.');
+        return;
+      }
+
       const next = new URLSearchParams(window.location.search).get('next');
       router.replace(next ?? '/dashboard');
     } catch (error) {

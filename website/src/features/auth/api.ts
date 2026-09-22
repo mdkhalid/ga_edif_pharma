@@ -144,7 +144,11 @@ export async function bootstrapSession(): Promise<void> {
   }
 }
 
-export async function login(values: LoginValues): Promise<void> {
+export type LoginOutcome =
+  | { mfaRequired: false }
+  | { mfaRequired: true; mfaEnrollment: boolean };
+
+export async function login(values: LoginValues): Promise<LoginOutcome> {
   const response = await fetch('/api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -155,9 +159,20 @@ export async function login(values: LoginValues): Promise<void> {
   if (!response.ok) throw await bffError(response);
 
   const body = (await response.json()) as {
-    data: { accessToken: string; user: AuthenticatedUserProfile };
+    data:
+      | { mfaRequired: false; accessToken: string; user: AuthenticatedUserProfile }
+      | { mfaRequired: true; mfaToken: string; mfaEnrollment: boolean; expiresAt: string };
   };
+
+  // Buyers are exempt from MFA, so a challenge here is unexpected — but the
+  // union is still branched on so a future policy change fails visibly instead
+  // of writing `undefined` into the session store.
+  if (body.data.mfaRequired) {
+    return { mfaRequired: true, mfaEnrollment: body.data.mfaEnrollment };
+  }
+
   useAuthStore.getState().setSession(body.data.accessToken, body.data.user);
+  return { mfaRequired: false };
 }
 
 export async function logout(): Promise<void> {
