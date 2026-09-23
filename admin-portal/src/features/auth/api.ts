@@ -1,6 +1,6 @@
 'use client';
 
-import { ApiError, createApiClient, createAuthApi, toApiError, type AuthApi } from '@medichain/api-client';
+import { ApiError, createApiClient, createAuthApi, toApiError, type MediChainClient } from '@medichain/api-client';
 import type { AuthenticatedUserProfile, MfaSetupResult } from '@medichain/shared-types';
 
 import { env } from '@/lib/env';
@@ -69,13 +69,13 @@ async function refreshAccessToken(): Promise<string | null> {
   return refreshInFlight;
 }
 
-export async function callAuthed<T>(fn: (auth: AuthApi) => Promise<T>): Promise<T> {
+export async function callAuthed<T>(fn: (client: MediChainClient) => Promise<T>): Promise<T> {
   try {
-    return await fn(createAuthApi(clientWith(() => useAuthStore.getState().accessToken)));
+    return await fn(clientWith(() => useAuthStore.getState().accessToken));
   } catch (error) {
     if (error instanceof ApiError && error.isUnauthenticated) {
       const token = await refreshAccessToken();
-      if (token !== null) return fn(createAuthApi(clientWith(() => token)));
+      if (token !== null) return fn(clientWith(() => token));
     }
     throw error;
   }
@@ -89,7 +89,7 @@ export async function bootstrapSession(): Promise<void> {
   }
 
   try {
-    const user: AuthenticatedUserProfile = await callAuthed((auth) => auth.me());
+    const user: AuthenticatedUserProfile = await callAuthed((client) => createAuthApi(client).me());
     useAuthStore.getState().setSession(token, user);
   } catch {
     useAuthStore.getState().clear();

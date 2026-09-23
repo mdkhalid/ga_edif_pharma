@@ -3,6 +3,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardDescription, CardHeader, CardTitle } from '@medichain/ui';
 
+import { createAuthApi } from '@medichain/api-client';
+
 import { callAuthed } from '@/features/auth/api';
 
 /**
@@ -15,7 +17,7 @@ import { callAuthed } from '@/features/auth/api';
 export default function AdminDashboardPage() {
   const profile = useQuery({
     queryKey: ['auth', 'me'],
-    queryFn: () => callAuthed((auth) => auth.me()),
+    queryFn: () => callAuthed((client) => createAuthApi(client).me()),
   });
 
   if (profile.isPending) {
