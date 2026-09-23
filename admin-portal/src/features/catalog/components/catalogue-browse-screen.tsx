@@ -4,9 +4,12 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Button, Card, CardHeader, CardTitle, CardDescription, Input, Label } from '@medichain/ui';
 import { createCatalogApi } from '@medichain/api-client';
-import { ProductStatus, ScheduleClass } from '@medichain/shared-types';
+import { Capability, ProductStatus, ScheduleClass } from '@medichain/shared-types';
 
 import { callAuthed } from '@/features/auth/api';
+import { usePermission } from '@/features/auth/use-permission';
+import { CatalogueCreateForm } from './catalogue-create-form';
+import { ProductEditDialog } from './product-edit-dialog';
 
 const SCHEDULE_LABELS: Record<string, string> = {
   [ScheduleClass.OTC]: 'OTC',
@@ -29,16 +32,20 @@ const STATUS_TONE: Record<string, string> = {
 };
 
 /**
- * Read-only catalogue browse.
+ * Catalogue browse, with create and edit wired to the backend that already
+ * supports both.
  *
- * Phase 1 lands the catalogue backend (create/browse/detail/update); this screen
- * covers the read side the reviewer needs day to day — search by name and page
- * through the list. Editing (create/update) is a later slice; the backend already
- * supports it.
+ * The reviewer needs the read side day to day — search by name and page through the
+ * list — plus the ability to add a product and to correct a price or lifecycle
+ * status without leaving the screen.
  */
 export function CatalogueBrowseScreen() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [showCreate, setShowCreate] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const { can } = usePermission();
+  const canWrite = can(Capability.CATALOG_WRITE);
 
   const products = useQuery({
     queryKey: ['catalog', 'browse', search, page],
@@ -66,12 +73,28 @@ export function CatalogueBrowseScreen() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Catalogue</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          {pageData.meta.total} product{pageData.meta.total === 1 ? '' : 's'} in the catalogue.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold text-slate-900">Catalogue</h1>
+          <p className="mt-1 text-sm text-slate-500">
+            {pageData.meta.total} product{pageData.meta.total === 1 ? '' : 's'} in the catalogue.
+          </p>
+        </div>
+        {canWrite && !showCreate && (
+          <Button size="sm" onClick={() => setShowCreate(true)}>
+            New product
+          </Button>
+        )}
       </div>
+
+      {canWrite && showCreate && (
+        <CatalogueCreateForm
+          onDone={() => {
+            setShowCreate(false);
+            setPage(1);
+          }}
+        />
+      )}
 
       <div className="max-w-sm space-y-1.5">
         <Label htmlFor="catalog-search">Search by name</Label>
@@ -106,6 +129,7 @@ export function CatalogueBrowseScreen() {
                   <th className="p-3 text-left text-sm font-medium text-slate-600">Schedule</th>
                   <th className="p-3 text-left text-sm font-medium text-slate-600">Price</th>
                   <th className="p-3 text-left text-sm font-medium text-slate-600">Status</th>
+                  {canWrite && <th className="p-3 text-left text-sm font-medium text-slate-600">Actions</th>}
                 </tr>
               </thead>
               <tbody>
@@ -125,6 +149,13 @@ export function CatalogueBrowseScreen() {
                         {STATUS_LABELS[product.status] ?? product.status}
                       </span>
                     </td>
+                    {canWrite && (
+                      <td className="p-3">
+                        <Button size="sm" variant="secondary" onClick={() => setEditingId(product.id)}>
+                          Edit
+                        </Button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -132,6 +163,12 @@ export function CatalogueBrowseScreen() {
           </div>
         </Card>
       )}
+
+      {canWrite && editingId !== null && rows.length > 0 && (() => {
+        const product = rows.find((p) => p.id === editingId);
+        if (product === undefined) return null;
+        return <ProductEditDialog product={product} onClose={() => setEditingId(null)} />;
+      })()}
 
       <div className="flex items-center justify-between text-sm text-slate-500">
         <span>

@@ -68,6 +68,7 @@ track noted at the bottom.
 | T3 Order detail | done — `src/app/(admin)/orders/[id]/page.tsx` + `order-detail-screen.tsx` |
 | T4 Catalogue browse | done — `src/features/catalog/components/catalogue-browse-screen.tsx`; read-only search + paging |
 | T5 Website data exercise | pending (needs running API + browser) |
+| T6 Catalogue create/edit | done — `catalogue-create-form.tsx` (CreateProductDto, idempotency-keyed) + `product-edit-dialog.tsx` (price + status), gated on `CATALOG_WRITE` |
 
 ### Supporting change
 
@@ -89,9 +90,9 @@ commit, to keep the loop fast).
 
 ## Open follow-ups (not started)
 
-- Catalogue create/edit UI (backend already supports `create`/`update`).
 - Onboarding application wizard + document upload (backend submit-only so far).
 - Mobile storefront (auth shell only).
 - Order `order_status_history` on `OrderDetail` — the shared `OrderDetail` type
   does not yet carry it; add the field to `shared-types` when wiring history.
+- T5 Website storefront data exercise (cart/checkout/order-history against a live API).
 
