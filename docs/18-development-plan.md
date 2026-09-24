@@ -44,9 +44,9 @@ track noted at the bottom.
   - Gate on `ORDER_APPROVE` / `ORDER_CANCEL` as appropriate.
   - Files: `src/features/orders/components/orders-screen.tsx`,
     edit `src/app/(admin)/orders/page.tsx`.
-- [ ] **T3 — Admin order detail** (Orders `[id]` page)
-  - `orders.getById`: lines, total, payment status, `order_status_history`
-    when available on `OrderDetail`.
+- [x] **T3 — Admin order detail** (Orders `[id]` page)
+  - `orders.getById`: lines (with server-computed `lineTotal`), total, payment
+    status, and the full `order_status_history` audit table.
   - Files: `src/app/(admin)/orders/[id]/page.tsx`,
     `src/features/orders/components/order-detail-screen.tsx`.
 - [ ] **T4 — Admin catalogue browse** (Catalogue page)
@@ -65,7 +65,7 @@ track noted at the bottom.
 |---|---|
 | T1 Onboarding queue | done — `src/features/onboarding/components/onboarding-queue-screen.tsx`; approve/reject gated on `ONBOARDING_APPROVE`/`ONBOARDING_REJECT` |
 | T2 Orders list + status | done — `src/features/orders/components/orders-screen.tsx`; actions derived from `ORDER_TRANSITIONS`, gated on `ORDER_APPROVE`/`ORDER_CANCEL` |
-| T3 Order detail | done — `src/app/(admin)/orders/[id]/page.tsx` + `order-detail-screen.tsx` |
+| T3 Order detail | done — `src/app/(admin)/orders/[id]/page.tsx` + `order-detail-screen.tsx`; decimal-safe line totals (`lineTotal`, computed server-side) and the full `statusHistory` audit table |
 | T4 Catalogue browse | done — `src/features/catalog/components/catalogue-browse-screen.tsx`; read-only search + paging |
 | T5 Website data exercise | pending (needs running API + browser) |
 | T6 Catalogue create/edit | done — `catalogue-create-form.tsx` (CreateProductDto, idempotency-keyed) + `product-edit-dialog.tsx` (price + status), gated on `CATALOG_WRITE` |
@@ -92,7 +92,7 @@ commit, to keep the loop fast).
 
 - Onboarding application wizard + document upload (backend submit-only so far).
 - Mobile storefront (auth shell only).
-- Order `order_status_history` on `OrderDetail` — the shared `OrderDetail` type
-  does not yet carry it; add the field to `shared-types` when wiring history.
+- Onboarding reject/approve reason — the API accepts an optional `reason`
+  (`reject(id, reason?)`), but the queue UI does not collect one yet (T1 gap).
 - T5 Website storefront data exercise (cart/checkout/order-history against a live API).
 
