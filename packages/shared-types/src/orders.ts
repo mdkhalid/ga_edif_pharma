@@ -17,6 +17,18 @@ export interface OrderLine {
   readonly quantity: DecimalString;
   /** The price the line was placed at — unlike a cart line, this does not move. */
   readonly price: DecimalString;
+  /** `quantity × price`, computed server-side with decimal arithmetic. */
+  readonly lineTotal: DecimalString;
+}
+
+/** A single transition recorded in the order's status history. */
+export interface OrderStatusHistoryEntry {
+  readonly fromStatus: OrderStatus | null;
+  readonly toStatus: OrderStatus;
+  readonly actorId: string;
+  readonly reason: string | null;
+  /** ISO 8601 timestamp. */
+  readonly createdAt: string;
 }
 
 export interface OrderDetail {
@@ -25,6 +37,7 @@ export interface OrderDetail {
   readonly paymentStatus: PaymentStatus;
   readonly total: DecimalString;
   readonly items: readonly OrderLine[];
+  readonly statusHistory: readonly OrderStatusHistoryEntry[];
 }
 
 export type OrderPage = OffsetPaginated<OrderSummary>;

@@ -92,7 +92,46 @@ export function OrderDetailScreen({ orderId }: { orderId: string }) {
                   <td className="p-3 text-sm text-slate-500">{line.quantity.toString()}</td>
                   <td className="p-3 text-sm text-slate-500">₹{line.price.toString()}</td>
                   <td className="p-3 text-sm font-medium text-slate-900">
-                    ₹{(Number(line.price) * Number(line.quantity)).toString()}
+                    ₹{line.lineTotal.toString()}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Status history</CardTitle>
+          <CardDescription>Every transition recorded against this order.</CardDescription>
+        </CardHeader>
+        <div className="overflow-x-auto">
+          <table className="w-full rounded border border-slate-200">
+            <thead>
+              <tr className="border-b border-slate-200">
+                <th className="p-3 text-left text-sm font-medium text-slate-600">From</th>
+                <th className="p-3 text-left text-sm font-medium text-slate-600">To</th>
+                <th className="p-3 text-left text-sm font-medium text-slate-600">Actor</th>
+                <th className="p-3 text-left text-sm font-medium text-slate-600">Reason</th>
+                <th className="p-3 text-left text-sm font-medium text-slate-600">When</th>
+              </tr>
+            </thead>
+            <tbody>
+              {detail.statusHistory.map((entry, index) => (
+                <tr key={index} className="border-b border-slate-100">
+                  <td className="p-3 text-sm text-slate-500">
+                    {entry.fromStatus === null
+                      ? '—'
+                      : STATUS_LABELS[entry.fromStatus] ?? entry.fromStatus}
+                  </td>
+                  <td className="p-3 text-sm text-slate-900">
+                    {STATUS_LABELS[entry.toStatus] ?? entry.toStatus}
+                  </td>
+                  <td className="p-3 font-mono text-xs text-slate-400">{entry.actorId.slice(0, 8)}</td>
+                  <td className="p-3 text-sm text-slate-500">{entry.reason ?? '—'}</td>
+                  <td className="p-3 text-sm text-slate-500">
+                    {new Date(entry.createdAt).toLocaleString()}
                   </td>
                 </tr>
               ))}

@@ -240,7 +240,13 @@ export class OrderService {
     status: string;
     paymentStatus: string;
     total: string;
-    items: Array<{ productId: string; productName: string; quantity: string; price: string }>;
+    items: Array<{
+      productId: string;
+      productName: string;
+      quantity: string;
+      price: string;
+      lineTotal: string;
+    }>;
     statusHistory: Array<{
       fromStatus: string | null;
       toStatus: string;
@@ -272,6 +278,7 @@ export class OrderService {
         productName: item.product.name,
         quantity: item.quantity.toString(),
         price: item.price.toString(),
+        lineTotal: item.quantity.mul(item.price).toString(),
       })),
       statusHistory: row.statusHistory.map((entry) => ({
         fromStatus: entry.fromStatus,

@@ -74,7 +74,13 @@ export class OrderController {
       status: string;
       paymentStatus: string;
       total: string;
-      items: Array<{ productId: string; productName: string; quantity: string; price: string }>;
+      items: Array<{
+        productId: string;
+        productName: string;
+        quantity: string;
+        price: string;
+        lineTotal: string;
+      }>;
       statusHistory: Array<{
         fromStatus: string | null;
         toStatus: string;
