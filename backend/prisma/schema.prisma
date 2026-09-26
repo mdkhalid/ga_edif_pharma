@@ -93,6 +93,7 @@ model Tenant {
   customerOrders CustomerOrder[]
   orderItems    OrderItem[]
   orderStatusHistory OrderStatusHistory[]
+  priceLists    PriceList[]
 
   @@map("tenant")
 }
@@ -838,3 +839,90 @@ model OrderStatusHistory {
 // ===========================================================================
 // End Phase 1 models
 // ===========================================================================
+
+// ===========================================================================
+// Phase 2 — Commercial Engine: pricing persistence
+//
+// Price lists carry per-product override prices, optionally tiered by quantity
+// (a higher `min_qty` line wins for larger orders). A buying organisation (the
+// customer) is linked to one effective price list, and may additionally carry
+// direct per-product overrides that beat the list. Everything is tenant-scoped
+// and carries effective dating so a price list is only consulted inside its
+// window. The resolver that turns these rows into a per-product override map is
+// a pure function (see `price-override-resolver.ts`); the Prisma adapter only
+// queries and maps.
+// ===========================================================================
+
+enum PriceListStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+/// A named, tenant-scoped catalogue of per-product prices with an effective window.
+model PriceList {
+  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId      String          @map("tenant_id") @db.Uuid
+  name          String          @db.VarChar(200)
+  status        PriceListStatus @default(DRAFT)
+  effectiveFrom DateTime        @map("effective_from") @db.Timestamptz(6)
+  effectiveTo   DateTime        @map("effective_to") @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  lines    PriceListLine[]
+  customers CustomerPriceList[]
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status])
+  @@map("price_list")
+}
+
+/// One product's override price within a list. `min_qty` makes it a quantity
+/// tier: for a given line the resolver picks the highest `min_qty` that the
+/// quantity meets, so bulk buyers automatically get the better tier.
+model PriceListLine {
+  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String  @map("tenant_id") @db.Uuid
+  priceListId String  @map("price_list_id") @db.Uuid
+  productId   String  @map("product_id") @db.Uuid
+  /// Minimum line quantity for this tier price to apply.
+  minQty      Int     @map("min_qty") @default(1)
+  /// Exact per-unit override price in the tenant's currency.
+  unitPrice   Decimal @map("unit_price") @db.Decimal(18, 4)
+
+  priceList PriceList @relation(fields: [priceListId], references: [id], onDelete: Cascade)
+
+  @@unique([priceListId, productId, minQty])
+  @@index([tenantId, productId])
+  @@map("price_list_line")
+}
+
+/// Links a buying organisation to one price list.
+model CustomerPriceList {
+  id             String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId       String  @map("tenant_id") @db.Uuid
+  organisationId String  @map("organisation_id") @db.Uuid
+  priceListId    String  @map("price_list_id") @db.Uuid
+
+  priceList PriceList @relation(fields: [priceListId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, organisationId])
+  @@index([tenantId, priceListId])
+  @@map("customer_price_list")
+}
+
+/// A direct, per-customer, per-product override. Beats the assigned price list.
+model CustomerPriceOverride {
+  id             String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId       String  @map("tenant_id") @db.Uuid
+  organisationId String  @map("organisation_id") @db.Uuid
+  productId      String  @map("product_id") @db.Uuid
+  unitPrice      Decimal @map("unit_price") @db.Decimal(18, 4)
+
+  @@unique([tenantId, organisationId, productId])
+  @@index([tenantId, organisationId])
+  @@map("customer_price_override")
+}

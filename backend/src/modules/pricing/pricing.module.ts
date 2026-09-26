@@ -1,10 +1,25 @@
 import { Module } from '@nestjs/common';
 
+import { DatabaseModule } from '../../database/database.module';
+import { PricingService } from './application/pricing.service';
+import { PRICING_REPOSITORY } from './application/pricing.repository.port';
+import { PrismaPricingRepository } from './infra/pricing.repository.prisma';
+
 /**
- * Pricing module. Phase 2 (P1) ships the pure pricing/scheme engine in
- * `domain/`; the application port + Prisma repository (P2) and HTTP surface are
- * added later. Nothing is registered in the app module yet — the engine is
- * consumed directly by the cart/orders pricing steps until then.
+ * Pricing bounded context.
+ *
+ * P2 ships the persistence layer: the `PricingRepository` port (declared in
+ * `application/`) bound to its Prisma adapter (in `infra/`), and the
+ * `PricingService` that resolves overrides and feeds them to the pure engine.
+ * The HTTP surface (admin price-list management, the cart/order hooks) arrives
+ * in later tasks; for now the service is exported for those to consume.
  */
-@Module({})
+@Module({
+  imports: [DatabaseModule],
+  providers: [
+    PricingService,
+    { provide: PRICING_REPOSITORY, useClass: PrismaPricingRepository },
+  ],
+  exports: [PricingService],
+})
 export class PricingModule {}

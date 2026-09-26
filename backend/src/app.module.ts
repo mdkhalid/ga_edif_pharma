@@ -29,6 +29,7 @@ import { IamModule } from './modules/iam';
 import { NotificationsModule } from './modules/notifications';
 import { OnboardingModule } from './modules/onboarding-kyc';
 import { OrdersModule } from './modules/orders';
+import { PricingModule } from './modules/pricing';
 import { SaltEngineModule } from './modules/salt-engine';
 import { SearchModule } from './modules/search';
 
@@ -93,6 +94,7 @@ import { SearchModule } from './modules/search';
     CatalogModule,
     SaltEngineModule,
     SearchModule,
+    PricingModule,
     CartModule,
     OrdersModule,
   ],

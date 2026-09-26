@@ -58,6 +58,11 @@ export const TENANT_SCOPED_MODELS = [
   'CustomerOrder',
   'OrderItem',
   'OrderStatusHistory',
+  // Phase 2 pricing models. Every row carries a non-null `tenantId`.
+  'PriceList',
+  'PriceListLine',
+  'CustomerPriceList',
+  'CustomerPriceOverride',
 ] as const;
 
 /**
