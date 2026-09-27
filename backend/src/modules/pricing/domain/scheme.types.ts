@@ -26,6 +26,28 @@ export interface Scheme {
   /** FLAT: fixed amount off the unit price. */
   flatOff?: Money;
 
+  /**
+   * FREE_GOODS: "buy `buyQty`, get `freeQty` free" of the targeted product.
+   * `freeQty` units are granted for every `buyQty` paid units, capped so free
+   * units never exceed the quantity bought. Defaults: `buyQty = 1`, `freeQty = 1`.
+   * The free units are recorded on the line (`PricedLine.freeQuantity`) and cost
+   * nothing, so the line's payable total drops by `freeQty × unitPrice`.
+   *
+   * v1 assumption (confirm with finance): free goods are granted for the *same*
+   * targeted product. Cross-product free goods (e.g. buy shampoo, get a free
+   * conditioner) need a separate free line and are out of scope for v1.
+   */
+  buyQty?: number;
+  freeQty?: number;
+
+  /**
+   * COMBO: the scheme applies only when *every* product in `comboProductIds` is
+   * present on the order. When eligible it discounts those lines like a
+   * percentage/flat offer. Cross-line by nature, so it is evaluated in an
+   * order-level pass after the per-line schemes.
+   */
+  comboProductIds?: string[];
+
   /** Minimum quantity on the targeted line for eligibility. */
   minQty?: number;
 

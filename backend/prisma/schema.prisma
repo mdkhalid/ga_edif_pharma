@@ -94,6 +94,7 @@ model Tenant {
   orderItems    OrderItem[]
   orderStatusHistory OrderStatusHistory[]
   priceLists    PriceList[]
+  schemes       Scheme[]
 
   @@map("tenant")
 }
@@ -925,4 +926,64 @@ model CustomerPriceOverride {
   @@unique([tenantId, organisationId, productId])
   @@index([tenantId, organisationId])
   @@map("customer_price_override")
+}
+
+// ===========================================================================
+// Scheme (discount) persistence
+//
+// A scheme is **data**, not code — the engine interprets these shapes. Stored
+// here so the admin can manage promotions without a deploy. Validity is enforced
+// by the engine against `asOf`, but we also keep an `ACTIVE` status so an
+// expired-but-not-yet-removed scheme is never consulted.
+// ===========================================================================
+
+enum SchemeStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum SchemeKind {
+  PERCENTAGE
+  FLAT
+  FREE_GOODS
+  COMBO
+}
+
+model Scheme {
+  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String       @map("tenant_id") @db.Uuid
+  name         String       @db.VarChar(200)
+  status       SchemeStatus @default(ACTIVE)
+  kind         SchemeKind
+
+  /// Per-product target. Null ⇒ not product-scoped (category, combo, or order-level).
+  productId    String?      @map("product_id") @db.Uuid
+  /// Per-category target.
+  categoryId   String?      @map("category_id") @db.Uuid
+
+  /// PERCENTAGE: percent off (supports fractional, e.g. 12.5).
+  percentOff   Decimal?     @map("percent_off") @db.Decimal(5, 2)
+  /// FLAT: fixed amount off the unit price.
+  flatOff      Decimal?     @map("flat_off") @db.Decimal(18, 4)
+
+  /// Minimum line quantity for eligibility.
+  minQty       Int?         @map("min_qty")
+  /// FREE_GOODS: "buy `buyQty`, get `freeQty` free".
+  buyQty       Int?         @map("buy_qty")
+  freeQty      Int?         @map("free_qty")
+  /// COMBO: the scheme applies only when every id here is on the order.
+  comboProductIds String[]  @map("combo_product_ids")
+
+  validFrom    DateTime     @map("valid_from") @db.Timestamptz(6)
+  validTo      DateTime     @map("valid_to") @db.Timestamptz(6)
+
+  /// Non-stackable schemes are mutually exclusive; engine picks the best offer.
+  stackable    Boolean      @default(true)
+  /// Within a stackable group, lower runs first.
+  priority     Int          @default(1)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status, kind])
+  @@map("scheme")
 }

@@ -123,6 +123,10 @@ describe('priceLines — property tests (seeded)', () => {
       const productId = scopeRoll < 0.5 ? PRODUCTS[Math.floor(rand() * PRODUCTS.length)] : undefined;
       const categoryId = productId === undefined ? CATEGORIES[Math.floor(rand() * CATEGORIES.length)] : undefined;
       const minQty = 1 + Math.floor(rand() * 10);
+      // Only meaningful for FREE_GOODS ("buy N, get M"), but generated for every
+      // scheme so the shape is always well formed.
+      const buyQty = 1 + Math.floor(rand() * 4);
+      const freeQty = 1 + Math.floor(rand() * 3);
       // ~1/4 of schemes are outside the validity window.
       const outside = rand() < 0.25;
       const validFrom = outside ? new Date('2000-01-01') : ALWAYS_VALID[0];
@@ -135,6 +139,8 @@ describe('priceLines — property tests (seeded)', () => {
         percentOff: Math.floor(rand() * 50),
         flatOff: new Money(Math.floor(rand() * 200)),
         minQty,
+        buyQty,
+        freeQty,
         validFrom,
         validTo,
         stackable: rand() < 0.5,
@@ -146,9 +152,15 @@ describe('priceLines — property tests (seeded)', () => {
         (scheme.productId !== undefined ? scheme.productId === p : scheme.categoryId === c);
       const inWindow = !outside;
       for (const input of inputs) {
-        if (inWindow && new Decimal(input.quantity).greaterThanOrEqualTo(minQty) && (kind === 'PERCENTAGE' || kind === 'FLAT') && matchesScope(input.productId, input.categoryId)) {
-          applicableIds.add(id);
-        }
+        if (!inWindow || !matchesScope(input.productId, input.categoryId)) continue;
+        const qty = new Decimal(input.quantity);
+        if (qty.lessThan(minQty)) continue;
+        // A discount kind always reaches the trail. FREE_GOODS reaches it only
+        // once a whole "buy" block is met — `floor(qty / buyQty) >= 1` — so a
+        // line short of the threshold is correctly absent rather than zero.
+        if (kind === 'FREE_GOODS' && qty.lessThan(buyQty)) continue;
+        if (kind === 'COMBO') continue; // order-level pass, never a line discount
+        applicableIds.add(id);
       }
     }
 
@@ -160,24 +172,39 @@ describe('priceLines — property tests (seeded)', () => {
     const lineTotal = new Money(line.lineTotal);
     const baseLineTotal = new Money(line.baseLineTotal);
     const discountTotal = new Money(line.discountTotal);
-
-    // Line total never negative.
-    expect(lineTotal.greaterThanOrEqualTo(ZERO)).toBe(true);
-    // Raw discount never exceeds the base line value.
-    expect(discountTotal.lessThanOrEqualTo(baseLineTotal)).toBe(true);
-    // lineTotal == (base − discount) rounded to paisa.
-    expect(lineTotal.equals(baseLineTotal.minus(discountTotal).round())).toBe(true);
-    // The explanation trail sums exactly to the reported discount.
-    const sum = line.discounts.reduce((acc, d) => acc.plus(d.amount), ZERO);
-    expect(sum.equals(discountTotal)).toBe(true);
-    // Every applied scheme was actually applicable.
-    for (const d of line.discounts) {
-      expect(applicableIds.has(d.schemeId)).toBe(true);
-    }
-    // effectiveUnit × qty reconstructs the line total (display consistency).
     const qty = new Decimal(line.quantity);
+    const trailSum = line.discounts.reduce((acc, d) => acc.plus(d.amount), ZERO);
     const rebuilt = new Money(line.effectiveUnitPrice).times(qty).round();
-    expect(rebuilt.equals(lineTotal)).toBe(true);
+
+    // Each broken rule is collected by name rather than asserted one at a time.
+    // Six bare `expect(…).toBe(true)` calls all fail identically — "expected true,
+    // received false" — and the first one to trip hides the other five. A failure
+    // here should read as a list of the rules the engine broke, on the line that
+    // broke them.
+    const where = `${line.productId} qty ${line.quantity} @ ${line.baseUnitPrice} → ${line.lineTotal}`;
+    const broken: string[] = [];
+
+    if (!lineTotal.greaterThanOrEqualTo(ZERO)) broken.push('line total went negative');
+    if (!discountTotal.lessThanOrEqualTo(baseLineTotal)) {
+      broken.push(`discount ${line.discountTotal} exceeds base line ${line.baseLineTotal}`);
+    }
+    if (!lineTotal.equals(baseLineTotal.minus(discountTotal).round())) {
+      broken.push(`lineTotal ${line.lineTotal} != round(${line.baseLineTotal} − ${line.discountTotal})`);
+    }
+    if (!trailSum.equals(discountTotal)) {
+      broken.push(`trail sums to ${trailSum.toString()} but discountTotal is ${line.discountTotal}`);
+    }
+    if (!rebuilt.equals(lineTotal)) {
+      broken.push(`${line.effectiveUnitPrice} × ${line.quantity} = ${rebuilt.toString()}, not ${line.lineTotal}`);
+    }
+    for (const d of line.discounts) {
+      if (!applicableIds.has(d.schemeId)) broken.push(`scheme ${d.schemeId} was never applicable`);
+    }
+
+    // The failing line heads the list, so a report of several rules still says
+    // which line broke them.
+    if (broken.length > 0) broken.unshift(`on ${where}`);
+    expect(broken).toEqual([]);
   }
 
   it('holds invariants across 2000 random configurations', () => {
@@ -204,5 +231,110 @@ describe('priceLines — property tests (seeded)', () => {
       expect(sumBase.equals(new Money(result.subtotal))).toBe(true);
       expect(sumDiscount.equals(new Money(result.totalDiscount))).toBe(true);
     }
+  });
+});
+
+describe('priceLines — P3: free-goods, order-level, combo', () => {
+  function free(id: string, productId: string, buyQty: number, freeQty: number): Scheme {
+    return {
+      id,
+      kind: 'FREE_GOODS',
+      productId,
+      buyQty,
+      freeQty,
+      validFrom: ALWAYS_VALID[0],
+      validTo: ALWAYS_VALID[1],
+      stackable: true,
+      priority: 1,
+    };
+  }
+
+  it('grants free units and reduces the payable line total (buy 2 get 1 free)', () => {
+    const input: PriceLineInput = { productId: 'P1', quantity: 3, baseUnitPrice: new Money(100) };
+    const ctx: PricingContext = { asOf: AS_OF, schemes: [free('F1', 'P1', 2, 1)] };
+    const { lines } = priceLines([input], ctx);
+
+    expect(lines[0]!.freeQuantity).toBe('1');
+    // Pay for 2 of 3: 200, not 300.
+    expect(lines[0]!.lineTotal).toBe('200.00');
+    expect(lines[0]!.discountTotal).toBe('100.00');
+  });
+
+  it('caps free units at the quantity bought (buy 3 get 1, only 2 units)', () => {
+    const input: PriceLineInput = { productId: 'P1', quantity: 2, baseUnitPrice: new Money(50) };
+    const ctx: PricingContext = { asOf: AS_OF, schemes: [free('F1', 'P1', 3, 1)] };
+    const { lines } = priceLines([input], ctx);
+    // No whole "buy 3" block is met, so nothing is granted — and the field is
+    // *absent* rather than zero, matching `orderDiscount` and the documented
+    // shape of `PricedLine.freeQuantity`.
+    expect(lines[0]!.freeQuantity).toBeUndefined();
+    expect(lines[0]!.discounts).toHaveLength(0);
+    expect(lines[0]!.lineTotal).toBe('100.00');
+  });
+
+  it('never goes negative when free goods and a discount scheme stack on one line', () => {
+    // 1 unit at ₹100, buy 1 get 1 free (the free value is the whole line) plus
+    // 10% off. The discount cannot exceed what the line is worth, so the buyer
+    // pays zero rather than the line total turning negative.
+    const input: PriceLineInput = { productId: 'P1', quantity: 1, baseUnitPrice: new Money(100) };
+    const ctx: PricingContext = { asOf: AS_OF, schemes: [free('F1', 'P1', 1, 1), pct('S1', 'P1', 10)] };
+    const { lines } = priceLines([input], ctx);
+
+    expect(lines[0]!.lineTotal).toBe('0.00');
+    expect(new Money(lines[0]!.discountTotal).lessThanOrEqualTo(new Money('100'))).toBe(true);
+    // The trail reports the capped amount, and says so, so the buyer is not shown
+    // a ₹100 free-goods discount on a line that only absorbed ₹90 of it.
+    const freeEntry = lines[0]!.discounts.find((d) => d.kind === 'FREE_GOODS');
+    expect(freeEntry!.amount.toString()).toBe('90.00');
+    expect(freeEntry!.reason).toContain('capped');
+  });
+
+  it('applies an order-level percentage discount once to the subtotal', () => {
+    const inputs: PriceLineInput[] = [
+      { productId: 'P1', quantity: 1, baseUnitPrice: new Money(100) },
+      { productId: 'P2', quantity: 1, baseUnitPrice: new Money(100) },
+    ];
+    const orderScheme: Scheme = {
+      id: 'O1',
+      kind: 'PERCENTAGE',
+      percentOff: 10,
+      validFrom: ALWAYS_VALID[0],
+      validTo: ALWAYS_VALID[1],
+      stackable: true,
+      priority: 1,
+    };
+    const ctx: PricingContext = { asOf: AS_OF, schemes: [orderScheme] };
+    const result = priceLines(inputs, ctx);
+
+    // 10% of 200 = 20 off the whole order.
+    expect(result.orderDiscount).toBe('20.00');
+    expect(result.grandTotal).toBe('180.00');
+  });
+
+  it('applies a combo discount only when every combo product is present', () => {
+    const inputs: PriceLineInput[] = [
+      { productId: 'P1', quantity: 1, baseUnitPrice: new Money(100) },
+      { productId: 'P2', quantity: 1, baseUnitPrice: new Money(100) },
+    ];
+    const combo: Scheme = {
+      id: 'C1',
+      kind: 'COMBO',
+      comboProductIds: ['P1', 'P2'],
+      percentOff: 25,
+      validFrom: ALWAYS_VALID[0],
+      validTo: ALWAYS_VALID[1],
+      stackable: true,
+      priority: 1,
+    };
+
+    // Both present ⇒ 25% of the 200 combo base = 50 off.
+    const withCombo = priceLines(inputs, { asOf: AS_OF, schemes: [combo] });
+    expect(withCombo.orderDiscount).toBe('50.00');
+    expect(withCombo.grandTotal).toBe('150.00');
+
+    // Missing P2 ⇒ combo not eligible ⇒ no order discount.
+    const missing = priceLines([inputs[0]!], { asOf: AS_OF, schemes: [combo] });
+    expect(missing.orderDiscount).toBeUndefined();
+    expect(missing.grandTotal).toBe('100.00');
   });
 });

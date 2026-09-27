@@ -66,6 +66,16 @@ export class Money {
     return this._value.lessThanOrEqualTo(other._value);
   }
 
+  /** The smaller of two amounts. Used to clamp a discount to what is left to discount. */
+  static min(a: Money, b: Money): Money {
+    return a._value.lessThan(b._value) ? a : b;
+  }
+
+  /** The larger of two amounts. Used to floor a total at zero. */
+  static max(a: Money, b: Money): Money {
+    return a._value.greaterThan(b._value) ? a : b;
+  }
+
   equals(other: Money): boolean {
     return this._value.equals(other._value);
   }

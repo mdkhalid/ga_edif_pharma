@@ -140,17 +140,25 @@ describe('OtpService.issue', () => {
     const mocks = makeMocks();
     const service = makeService(mocks);
 
-    const before = Date.now();
+    // Measured from *after* the call, not before. The service stamps the expiry with
+    // `Date.now()` as it builds the challenge, so a `before`-anchored measurement is
+    // the TTL plus however long issuing took — structurally greater than the TTL,
+    // and it only passed at all when the call happened to take 0 ms. That made this
+    // a coin flip on a loaded machine rather than a test, and it failed roughly one
+    // run in three under coverage.
     const issued = await service.issue({
       destination: 'admin@sunrisepharma.local',
       purpose: PURPOSE,
       userId: null,
       tenantId: null,
     });
+    const after = Date.now();
 
-    const ttlMs = issued.expiresAt.getTime() - before;
-    expect(ttlMs).toBeGreaterThan(9 * 60_000);
-    expect(ttlMs).toBeLessThanOrEqual(10 * 60_000);
+    // Remaining life at the moment the call returned: at most the configured TTL,
+    // and within a millisecond or two of it.
+    const remainingMs = issued.expiresAt.getTime() - after;
+    expect(remainingMs).toBeLessThanOrEqual(10 * 60_000);
+    expect(remainingMs).toBeGreaterThan(9 * 60_000);
   });
 
   it('delivers the code with its destination, purpose and lifetime', async () => {

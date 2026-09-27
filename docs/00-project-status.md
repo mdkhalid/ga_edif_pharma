@@ -1,6 +1,14 @@
 # 00 — Project Status
 
-> **Last updated:** 2026-09-22 · **Branch:** `main` · **Phase in flight:** Phase 1 — the migration applies, the commerce and salt paths are exercised against a real database, and **six of the seven exit criteria are met**; the seventh (placement throughput) meets its latency budget but not its sustained rate on this machine. **Admin MFA is landed end-to-end** — backend TOTP (`203f16f`) plus admin/website/mobile wiring (`221b3ce`) · **CI:** 🟢 **green on `main`** — run 24 is the first successful run in the repository's history, after 23 failures. Four separate defects had to be fixed to get there, and not one of them was a failing test (§5)
+> **Last updated:** 2026-09-27 · **Branch:** `main` · **Phase in flight:** Phase 2 —
+> **P1–P3 landed and committed**: the pure pricing engine, price-list persistence,
+> and scheme scoping with order-level/combo/free-goods. Three real engine defects
+> were found by P3's own tests and fixed, including a percentage combo that priced
+> at zero and free goods that could drive a line total negative. **The P3 scheme
+> migration has never been applied to a database** — no Docker daemon this pass, so
+> `test:all` and the coverage gate are unverified. Phase 1 stands as recorded below
+> (§7) · **CI:** last observed state is run 24 green on `main`; nothing in this pass
+> has been pushed, so the workflow has not run against P3.
 
 A single-glance view of how much is actually built, what has been *verified* rather
 than merely written, and what is still open. Where this file and
@@ -14,7 +22,7 @@ than merely written, and what is still open. Where this file and
 |---|---|---|---|
 | **0** | Foundation | **Complete but for the `dev` deploy, which needs credentials** | ~98% |
 | 1 | Core Commerce MVP | **In flight — six of seven exit criteria met and verified against a real database and a real Redis; admin MFA landed end-to-end; remaining work is UI (wizard, admin screens, mobile storefront) plus the throughput run** | ~80% |
-| 2 | Commercial Engine | **In flight — P1 (pure pricing/scheme engine) and P2 (pricing persistence & port) landed and green; P3 (scheme scoping/free-goods) is next** | ~20% |
+| 2 | Commercial Engine | **In flight — P1 (engine), P2 (pricing persistence) and P3 (scheme scoping, order-level/combo, free-goods) landed and committed; the scheme migration has never been applied to a database. P4 (stock ledger) is next** | ~30% |
 | 3 | Fulfilment & Finance | Not started | 0% |
 | 4 | Scale & Mobile GA | Not started | 0% |
 | 5 | Intelligence | Not started | 0% |

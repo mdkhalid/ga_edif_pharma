@@ -63,6 +63,7 @@ export const TENANT_SCOPED_MODELS = [
   'PriceListLine',
   'CustomerPriceList',
   'CustomerPriceOverride',
+  'Scheme',
 ] as const;
 
 /**

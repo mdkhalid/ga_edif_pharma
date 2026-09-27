@@ -21,6 +21,11 @@ export interface PricingContext {
    * where the override came from. `undefined` ⇒ use the line's `baseUnitPrice`.
    */
   priceOverrides?: Record<string, Money>;
+  /**
+   * Products present on the order, used for COMBO eligibility. Derived from the
+   * inputs automatically when omitted, so callers need not supply it.
+   */
+  orderProductIds?: string[];
 }
 
 export interface AppliedDiscount {
@@ -45,20 +50,34 @@ export interface PricedLine {
   /** Paisa-rounded base line total, before discounts. */
   baseLineTotal: string;
   discounts: AppliedDiscount[];
+  /** Units granted free by a FREE_GOODS scheme (absent when none). */
+  freeQuantity?: string;
 }
 
 export interface PricingResult {
   lines: PricedLine[];
   /** Sum of base line totals. */
   subtotal: string;
-  /** Sum of (raw) discount totals. */
+  /** Sum of (raw) line discount totals (percentage/flat + free-goods value). */
   totalDiscount: string;
-  /** Sum of line totals — equal to subtotal − totalDiscount, paisa-rounded per line. */
+  /** Order-level + COMBO scheme discount, applied to the whole order once. */
+  orderDiscount?: string;
+  /** Sum of line totals — equal to subtotal − totalDiscount − orderDiscount. */
   grandTotal: string;
 }
 
 function quantityOf(input: PriceLineInput): Decimal {
   return new Decimal(input.quantity);
+}
+
+/**
+ * A scheme is *line-level* when it targets a product or category. Order-level
+ * schemes (no product/category target) and COMBO schemes (matched across the
+ * whole order by `comboProductIds`) are handled in a separate order-level pass,
+ * never inside the per-line loop.
+ */
+function isLineScheme(scheme: Scheme): boolean {
+  return scheme.kind !== 'COMBO' && (scheme.productId !== undefined || scheme.categoryId !== undefined);
 }
 
 function isApplicable(scheme: Scheme, input: PriceLineInput, qty: Decimal, asOf: Date): boolean {
@@ -70,7 +89,7 @@ function isApplicable(scheme: Scheme, input: PriceLineInput, qty: Decimal, asOf:
   return true;
 }
 
-/** Discount on the whole line for a single scheme, evaluated against the base unit. */
+/** Discount on the whole line for a single percentage/flat scheme, against the base unit. */
 function discountForScheme(scheme: Scheme, baseUnit: Money, qty: Decimal): Money {
   if (scheme.kind === 'PERCENTAGE') {
     const pct = new Decimal(scheme.percentOff ?? 0).div(100);
@@ -79,13 +98,17 @@ function discountForScheme(scheme: Scheme, baseUnit: Money, qty: Decimal): Money
   if (scheme.kind === 'FLAT') {
     return (scheme.flatOff ?? ZERO).times(qty);
   }
-  // FREE_GOODS / COMBO are not line-discount kinds yet (P3).
   return ZERO;
 }
 
 function reasonFor(scheme: Scheme): string {
   if (scheme.kind === 'PERCENTAGE') return `Scheme ${scheme.id}: ${scheme.percentOff ?? 0}% off`;
   if (scheme.kind === 'FLAT') return `Scheme ${scheme.id}: ₹${(scheme.flatOff ?? ZERO).toString()} off/unit`;
+  if (scheme.kind === 'FREE_GOODS') {
+    const buy = scheme.buyQty ?? 1;
+    const free = scheme.freeQty ?? 1;
+    return `Scheme ${scheme.id}: buy ${buy} get ${free} free`;
+  }
   return `Scheme ${scheme.id}`;
 }
 
@@ -144,18 +167,96 @@ function applyNonStackable(nonStackable: Scheme[], baseUnit: Money, qty: Decimal
   };
 }
 
+interface FreeGrant {
+  readonly scheme: Scheme;
+  units: Decimal;
+}
+
+/**
+ * The free units each FREE_GOODS scheme grants, aggregated and capped at the
+ * quantity bought.
+ *
+ * Returns one entry per scheme that actually grants something, rather than a
+ * single total: the explanation trail has to name the scheme responsible for each
+ * unit. Collapsing them first meant the trail credited `freeSchemes[0]` even when
+ * *it* was the scheme whose buy-threshold the line never met — so a buyer could be
+ * shown "buy 4 get 1 free" against a line of 2.
+ *
+ * The cap is applied from the last grant backwards, so the surplus is taken off the
+ * schemes that would have pushed the line over `qty` and the earlier ones keep
+ * their full entitlement.
+ */
+function freeGrants(freeSchemes: Scheme[], qty: Decimal): FreeGrant[] {
+  const grants: FreeGrant[] = [];
+  for (const scheme of freeSchemes) {
+    const buy = scheme.buyQty ?? 1;
+    const give = scheme.freeQty ?? 1;
+    if (buy <= 0 || give <= 0) continue;
+    const units = qty.div(buy).floor().times(give);
+    if (units.isZero()) continue;
+    grants.push({ scheme, units });
+  }
+
+  let budget = qty;
+  for (let i = grants.length - 1; i >= 0; i--) {
+    const grant = grants[i]!;
+    if (grant.units.lessThanOrEqualTo(budget)) {
+      budget = budget.minus(grant.units);
+      continue;
+    }
+    grant.units = budget;
+    budget = new Decimal(0);
+  }
+
+  return grants.filter((grant) => grant.units.isPositive());
+}
+
 function priceLine(input: PriceLineInput, ctx: PricingContext): PricedLine {
   const qty = quantityOf(input);
   const baseUnit = ctx.priceOverrides?.[input.productId] ?? input.baseUnitPrice;
   const baseLineTotal = baseUnit.times(qty);
 
-  const applicable = ctx.schemes.filter((s) => isApplicable(s, input, qty, ctx.asOf));
-  const stackable = applicable.filter((s) => s.stackable);
-  const nonStackable = applicable.filter((s) => !s.stackable);
+  const lineSchemes = ctx.schemes.filter((s) => isLineScheme(s) && isApplicable(s, input, qty, ctx.asOf));
+  const discountSchemes = lineSchemes.filter((s) => s.kind === 'PERCENTAGE' || s.kind === 'FLAT');
+  const freeSchemes = lineSchemes.filter((s) => s.kind === 'FREE_GOODS');
 
-  const applied = nonStackable.length > 0 ? applyNonStackable(nonStackable, baseUnit, qty) : applyStackable(stackable, baseUnit, qty);
+  const applied = discountSchemes.length > 0
+    ? (discountSchemes.some((s) => !s.stackable)
+        ? applyNonStackable(discountSchemes.filter((s) => !s.stackable), baseUnit, qty)
+        : applyStackable(discountSchemes.filter((s) => s.stackable), baseUnit, qty))
+    : { discounts: [] as AppliedDiscount[], total: ZERO };
 
-  const lineTotal = baseLineTotal.minus(applied.total).round();
+  // Free goods can only discount what the line is still worth. Buy 1 get 1 free
+  // *and* 10% off is the case that overflows: the raw free value can exceed the
+  // line, and subtracting it unclamped produced a negative line total — the one
+  // thing this engine promises never to do. Clamping grant by grant (rather than
+  // clamping one lump sum) keeps every entry attributed and makes the trail sum
+  // exactly to the discount, which is what the invariants check.
+  const grants = freeGrants(freeSchemes, qty);
+  let freeBudget = Money.max(baseLineTotal.minus(applied.total), ZERO);
+  const freeDiscount: AppliedDiscount[] = [];
+  let freeUnits = new Decimal(0);
+  for (const grant of grants) {
+    const raw = baseUnit.times(grant.units).round();
+    const value = Money.min(freeBudget, raw);
+    freeBudget = freeBudget.minus(value);
+    freeUnits = freeUnits.plus(grant.units);
+    // A grant the line cannot absorb moves no money, so it stays out of the trail
+    // rather than showing the buyer an offer that did nothing.
+    if (value.isZero()) continue;
+    freeDiscount.push({
+      schemeId: grant.scheme.id,
+      kind: 'FREE_GOODS',
+      amount: value,
+      reason: value.lessThan(raw)
+        ? `${reasonFor(grant.scheme)} — capped to the amount the line can absorb`
+        : reasonFor(grant.scheme),
+    });
+  }
+  const freeValue = freeDiscount.reduce((acc, d) => acc.plus(d.amount), ZERO);
+
+  const discountTotal = applied.total.plus(freeValue);
+  const lineTotal = Money.max(baseLineTotal.minus(discountTotal), ZERO).round();
   const effectiveUnit = qty.isZero() ? baseUnit : lineTotal.dividedBy(qty);
 
   return {
@@ -165,9 +266,67 @@ function priceLine(input: PriceLineInput, ctx: PricingContext): PricedLine {
     effectiveUnitPrice: effectiveUnit.toRaw(),
     lineTotal: lineTotal.toString(),
     baseLineTotal: baseLineTotal.round().toString(),
-    discountTotal: applied.total.toString(),
-    discounts: applied.discounts,
+    discountTotal: discountTotal.toString(),
+    discounts: [...applied.discounts, ...freeDiscount],
+    ...(freeUnits.isZero() ? {} : { freeQuantity: freeUnits.toString() }),
   };
+}
+
+/**
+ * The money a PERCENTAGE / FLAT / COMBO scheme takes off `base`.
+ *
+ * For the two line kinds the *kind* names the offer shape. `COMBO` does not — it
+ * names the eligibility rule ("all these products on one order"), and the offer
+ * it carries is whichever of `percentOff` / `flatOff` is set. Branching on `kind`
+ * alone therefore sent a percentage combo down the flat path, and it priced at
+ * zero, which is the kind of bug that only ever shows up as a missed discount.
+ */
+function offerOff(scheme: Scheme, base: Money): Money {
+  const isPercentage = scheme.kind === 'PERCENTAGE' || (scheme.kind === 'COMBO' && scheme.percentOff !== undefined);
+  if (isPercentage) return base.times(new Decimal(scheme.percentOff ?? 0).div(100)).round();
+  return scheme.flatOff ?? ZERO;
+}
+
+/**
+ * Order-level pass: schemes that span the whole order rather than a single line.
+ *
+ *  - **Order-level** schemes (no product/category target): a percentage/flat
+ *    discount on the order subtotal, applied once.
+ *  - **COMBO** schemes: eligible only when every product in `comboProductIds` is
+ *    on the order; the discount (percentage/flat) applies to the sum of the
+ *    combo lines' base totals.
+ *
+ * Treated as mutually exclusive (non-stackable): the single best offer wins.
+ */
+function resolveOrderDiscount(schemes: Scheme[], lines: PricedLine[], present: Set<string>, subtotal: Money): Money {
+  const candidates: Money[] = [];
+
+  for (const scheme of schemes) {
+    const isOrderLevel = (scheme.kind === 'PERCENTAGE' || scheme.kind === 'FLAT') &&
+      scheme.productId === undefined && scheme.categoryId === undefined;
+    const isCombo = scheme.kind === 'COMBO' &&
+      Array.isArray(scheme.comboProductIds) &&
+      scheme.comboProductIds.length > 0 &&
+      scheme.comboProductIds.every((id) => present.has(id));
+
+    if (!isOrderLevel && !isCombo) continue;
+
+    let base = subtotal;
+    if (isCombo) {
+      base = ZERO;
+      for (const line of lines) {
+        if (scheme.comboProductIds!.includes(line.productId)) {
+          base = base.plus(new Money(line.baseLineTotal));
+        }
+      }
+    }
+
+    let amount = offerOff(scheme, base);
+    if (amount.greaterThan(base)) amount = base; // clamp to the discounted base
+    candidates.push(amount);
+  }
+
+  return candidates.reduce((best, amt) => (amt.greaterThan(best) ? amt : best), ZERO);
 }
 
 /**
@@ -180,17 +339,23 @@ export function priceLines(inputs: PriceLineInput[], ctx: PricingContext): Prici
 
   let subtotal = ZERO;
   let totalDiscount = ZERO;
-  let grandTotal = ZERO;
   for (const line of lines) {
     subtotal = subtotal.plus(new Money(line.baseLineTotal));
     totalDiscount = totalDiscount.plus(new Money(line.discountTotal));
-    grandTotal = grandTotal.plus(new Money(line.lineTotal));
   }
+
+  const present = ctx.orderProductIds
+    ? new Set(ctx.orderProductIds)
+    : new Set(inputs.map((i) => i.productId));
+  const orderDiscount = resolveOrderDiscount(ctx.schemes, lines, present, subtotal);
+
+  const grandTotal = subtotal.minus(totalDiscount).minus(orderDiscount).round();
 
   return {
     lines,
     subtotal: subtotal.toString(),
     totalDiscount: totalDiscount.toString(),
+    ...(orderDiscount.isZero() ? {} : { orderDiscount: orderDiscount.toString() }),
     grandTotal: grandTotal.toString(),
   };
 }
