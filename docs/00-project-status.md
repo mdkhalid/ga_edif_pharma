@@ -28,7 +28,7 @@ than merely written, and what is still open. Where this file and
 | 5 | Intelligence | Not started | 0% |
 | 6 | Compliance & Multi-tenant | Not started | 0% |
 
-**Overall: ~25% of the seven-phase programme.** Two things changed the phase
+**Overall: ~27% of the seven-phase programme.** Two things changed the phase
 fundamentally in this pass. The Phase 1 migration had never run — it was invalid
 SQL — so nothing above it could be verified; it now applies from scratch, which
 unblocked end-to-end testing. And the verification that followed found a real
@@ -37,6 +37,12 @@ defect: four concurrent placements of one cart produced four orders.
 Every Phase 0 exit criterion but the credential-blocked `dev` deploy is now satisfied —
 including the mobile one, which this pass moved from "typecheck only" to a runtime run
 against a live API.
+
+**Since that pass (Phase 2):** P1–P3 of the pricing engine have landed and been
+committed, and the same pattern repeated one level up — P3's own tests were reported
+green while three of them failed, and `main` was reported green while it had been red
+for four runs (§5). Both were caught by looking rather than by reading, and both are
+why this file now states its own staleness instead of leaving a reader to assume it.
 
 ---
 
@@ -90,7 +96,7 @@ against a live API.
 | Register / verify / login / refresh / logout from all three clients | ✓ | Website and admin verified end-to-end against a live API (cookie set and rotated, session revoked on sign-out, cross-origin refused). **Mobile is now verified at runtime too** — `mobile/test/auth.integration-spec.ts` (7 cases) drives register → verify → sign in → cold-start token rotation → sign out against a live API, plus the single-flight refresh and the replay detection that revokes a token family. The run is headless: the app's real client code and HTTP calls, with the platform's Keychain replaced by an in-memory stand-in. **The screens have still not been rendered on a device or simulator — none exists in this environment** |
 | `/health/ready` returns 503 when Postgres is stopped | ✓ | Verified empirically |
 | A mutation writes an audit row with actor + correlation id | ✓ | `auth.login.succeeded`, `auth.refresh.reuse_detected`, `auth.verify.succeeded`, `auth.password.reset` |
-| CI is green on `main` | ✓ | **Run 24 (`0586fe3`) — the first green run in 24 attempts.** Every job passed: lint and typecheck across every workspace, module boundaries, secret scan, dependency audit, Semgrep, 331 tests plus the coverage gate against real PostgreSQL and Redis, the monorepo build, OpenAPI generation, the contract-drift check, the backend image build and the Trivy scan. Reaching it needed four separate fixes and none of them was a failing test (§5) |
+| CI is green on `main` | ✗ | **Was ✓ at run 24 (`0586fe3`) — the first green run in 24 attempts. `main` has been red on every run since 31.** Runs 33 and 34 (the P1 and P2 commits) each failed on exactly one job, `mobile-e2e`, at exactly one step, *Start the API*: the job runs `NODE_ENV: development` and set no `CORS_ORIGINS`, and `env.schema.ts` refuses to boot a config with zero CORS origins outside `NODE_ENV=test`. The app exited before binding a port and the readiness probe timed out. Every other job passed, including *Tests + coverage* — so the Phase 2 migration did apply in CI and the coverage gate did pass there. **Fixed 2026-09-27 (`CORS_ORIGINS` added to the job) and pushed; not yet observed green.** Three commits shipped while this row said ✓ (§5) |
 | Deploys to `dev` automatically | ✗ | Job exists and reports what is missing; gated on `DEV_DATABASE_URL` / `KUBE_CONFIG`. **The one open criterion — blocked on credentials, not code** |
 | Load test: 100 RPS, p95 < 200 ms | ✓ | 1,500 requests at 100 RPS over 15 s on `GET /auth/me`; zero errors; p50 9 ms, **p97.5 23 ms**, p99 26 ms |
 | No secret committed; scanning in CI | ✓ | `.env` gitignored; `gitleaks` on every push and PR over full history |
@@ -137,12 +143,35 @@ Everything below was executed in this environment, not assumed.
 | **Mobile auth flow** | `npm run test:integration --workspace=@medichain/mobile` against a live API | **pass** — 7 cases: register → verify (a wrong code rejected first) → sign in → cold-start token rotation → sign out, plus the concurrent-401 single-flight guard and replay detection revoking a token family |
 | **MFA client slice** | Direct `tsc --noEmit` (admin, website, mobile, api-client), `eslint` (admin, website, mobile), `next build` (admin, website), backend unit `mfa totp` | **pass** — admin build lists `/api/auth/mfa/setup|confirm|login`; 323 unit tests incl. `mfa`/`totp`/`mfa-policy` |
 
+### Phase 2 (2026-09-27) — pricing engine
+
+| Check | Command | Result |
+|---|---|---|
+| Backend typecheck | `npm run typecheck --workspace=@medichain/backend` | pass (both configs) |
+| Backend lint | `npm run lint --workspace=@medichain/backend` | 0 errors, 21 warnings — the unchanged baseline |
+| Module boundaries | `npm run check:module-boundaries` | pass — 132 files |
+| Backend build | `npm run build --workspace=@medichain/backend` | pass |
+| **Unit suite** | `npm run test:unit --workspace=@medichain/backend` | **356/356 across 22 suites, three consecutive runs** |
+| Pricing engine | unit spec, hand-picked + seeded 2000-case property test | pass — 12 cases; 3 engine defects found and fixed (§5) |
+| Scheme adapter | unit spec against a stubbed client | 9 cases — the `where` clause it builds, and the row→domain mapping |
+| Prisma schema | `npx prisma validate` | valid |
+| Env validation (the CI fix) | `validateEnv` with the `mobile-e2e` job's exact env | reproduces the boot failure without `CORS_ORIGINS`; valid with it, `PORT` 3001 |
+| **Not run** | `test:all`, `check:coverage`, `db:migrate` | **no database reachable** — the dev Postgres and Redis are Docker containers and no daemon was running |
+| **Not observed** | CI on `main` | red on runs 31–34; the `CORS_ORIGINS` fix is pushed but unobserved |
+
 > **These rows are local — and as of run 24, no longer only local.** Every one ran in
 > *this* sandbox, against throwaway PostgreSQL and Redis containers. The same suite and
 > the same coverage gate now run on a GitHub runner as well, which is what turns them from
 > a claim into a check. It took four fixes to get there (§5): before them the pipeline had
 > failed all 23 of its runs, so none of this had been verified anywhere but a developer's
 > machine.
+>
+> **Correction, 2026-09-27:** "as of run 24" is no longer the end of the story. The
+> pipeline has since failed on every run from 31 to 34 (§5), and the two Phase 2 runs
+> among them passed *Tests + coverage* — so the coverage gate and the migrations were
+> green on the runner, while `main` was red for an unrelated reason in a different job.
+> A green gate inside a red run is not a green run, and reading it as one is how three
+> commits went out under a header that claimed 🟢.
 >
 > The mobile row is the exception: it has a CI job (`mobile-e2e`) that starts the API and
 > runs the suite, but that job has not yet run on a runner — so the mobile result is, for
@@ -182,12 +211,70 @@ something that matters:
 
 | # | Item | Why it matters | Where |
 |---|---|---|---|
-| 1 | **Provision `DEV_DATABASE_URL` / `KUBE_CONFIG`** | Without them the deploy-to-`dev` job reports that it is skipped — the last open Phase 0 criterion. Confirmed as of this pass: there is no `dev` estate yet, so these are not *missing* credentials so much as *uncreated* ones. A dev Postgres and cluster have to exist before any secret can point at them | GitHub → Environments → `dev` |
-| 2 | **Set `LOAD_TEST_BASE_URL` / `LOAD_TEST_PASSWORD`** | Without them the weekly k6 job reports that it is skipped | GitHub → Secrets |
-| 3 | **Render the mobile app on a device** | The auth flow is now verified at runtime headlessly; only the UI layer has never been rendered, and a device is the only way to exercise the real Keychain | `npm run dev:mobile` |
-| 4 | **Admin MFA — closed 2026-09-22** | Landed: backend TOTP enrolment + second-factor sign-in (`203f16f`), wired through the admin BFF/login UI, website challenge handling and mobile guard (`221b3ce`) | — |
-| 5 | **The remaining `test-concurrency` money-path cases** | The oversell case is covered. Credit limits, the stock-ledger invariant and duplicate-webhook credit are not | `backend/test/concurrency/` |
-| 6 | **The `contract` and `test-e2e` jobs** | The OpenAPI diff and regenerated client are enforced inside the Build job; breaking-change detection and consumer-driven tests are still owed, and `test/e2e` has no specs | parked block in `ci.yml` |
+| 1 | **Observe CI green after the `CORS_ORIGINS` fix** | `main` has been red since run 31. The fix is pushed but unobserved, and the reason it went unnoticed is that this document asserted green — so the check has to be *run*, not inherited. `gh` is not installed in this environment; the command is in §5 | GitHub Actions |
+| 2 | **Apply `20260926060000_scheme_persistence` to a real database** | The Phase 2 scheme migration has never run, so scheme persistence is entirely unexecuted and `test:all` / `check:coverage` are unverified. Phase 1 lost most of a pass to the same omission | `npm run db:migrate` |
+| 3 | **Provision `DEV_DATABASE_URL` / `KUBE_CONFIG`** | Without them the deploy-to-`dev` job reports that it is skipped — the last open Phase 0 criterion. Confirmed as of this pass: there is no `dev` estate yet, so these are not *missing* credentials so much as *uncreated* ones. A dev Postgres and cluster have to exist before any secret can point at them | GitHub → Environments → `dev` |
+| 4 | **Set `LOAD_TEST_BASE_URL` / `LOAD_TEST_PASSWORD`** | Without them the weekly k6 job reports that it is skipped | GitHub → Secrets |
+| 5 | **Render the mobile app on a device** | The auth flow is now verified at runtime headlessly; only the UI layer has never been rendered, and a device is the only way to exercise the real Keychain | `npm run dev:mobile` |
+| 6 | **Admin MFA — closed 2026-09-22** | Landed: backend TOTP enrolment + second-factor sign-in (`203f16f`), wired through the admin BFF/login UI, website challenge handling and mobile guard (`221b3ce`) | — |
+| 7 | **The remaining `test-concurrency` money-path cases** | The oversell case is covered. Credit limits, the stock-ledger invariant and duplicate-webhook credit are not | `backend/test/concurrency/` |
+| 8 | **The `contract` and `test-e2e` jobs** | The OpenAPI diff and regenerated client are enforced inside the Build job; breaking-change detection and consumer-driven tests are still owed, and `test/e2e` has no specs | parked block in `ci.yml` |
+
+### How CI regressed to red — and why nobody saw it
+
+`main` has failed on every run since 31. Runs 33 and 34, the P1 and P2 commits, each
+failed on **exactly one job** — *Mobile auth (live API)* — at **exactly one step**,
+*Start the API*. Every other job was green, including *Tests + coverage*, which is the
+job that migrates the database and enforces the coverage gate. So the Phase 2 migration
+did apply cleanly in CI, and the coverage gate did pass there.
+
+The cause is one missing variable. The `mobile-e2e` job runs `NODE_ENV: development` on
+purpose, so the API boots like a running service rather than through the `test`
+shortcuts, and `env.schema.ts` carries a `superRefine` that rejects a config with zero
+CORS origins *unless* `NODE_ENV` is `test`:
+
+```ts
+if (env.CORS_ORIGINS.length === 0 && env.NODE_ENV !== 'test') {
+  ctx.addIssue({ ... message: 'At least one CORS origin must be configured (comma separated).' });
+}
+```
+
+The job set no `CORS_ORIGINS`, so the app threw during config validation and exited
+before binding a port. The readiness probe then waited 30 × 2 s for a process that was
+never going to arrive, and the step named the network rather than the configuration.
+Reproduced locally to confirm before changing anything:
+
+```
+NODE_ENV=development, no CORS_ORIGINS
+→ Error: Invalid environment configuration. Fix the following and restart:
+    - CORS_ORIGINS: At least one CORS origin must be configured (comma separated).
+```
+
+Adding `CORS_ORIGINS` to the job makes it validate clean, with `PORT` resolving to 3001
+— the port the job probes. The alternative, switching the job to `NODE_ENV=test`, would
+have turned it green by not booting the way production does, which is the entire purpose
+of the `test` escape hatch.
+
+`gh` is not installed in this environment, so the run is checked through the public API:
+
+```
+Invoke-RestMethod -Uri "https://api.github.com/repos/mdkhalid/ga_edif_pharma/actions/runs?per_page=5" `
+  -Headers @{ "User-Agent" = "opencode"; "Accept" = "application/vnd.github+json" }
+```
+
+The list endpoint works unauthenticated for a public repo. The per-run and per-jobs
+endpoints need the numeric run `id` — not `run_number` — and 404 without auth, so take
+the `id` from the list response.
+
+**Why it went unnoticed is the part worth keeping.** Every local gate was green on all
+three commits, and the header of this file reported CI as 🟢 — inherited from run 24,
+which had since been superseded by eleven runs. Nothing in the workflow compares a push
+against the previous conclusion, and no document can substitute for looking. The lesson
+is the one already recorded below about a stale comment, applied to a stale *claim*: **a
+document that asserts a check is green is worse than no document, because it is the
+thing a reader trusts instead of running.** Here it was wrong about `main` for three
+consecutive commits.
+
 
 One known-debt note that does not appear as an open item, because it breaks nothing
 today: a full-history `gitleaks` scan reports **six** `generic-api-key` hits beyond the
@@ -204,6 +291,9 @@ reproduces the shape is indistinguishable from the thing it is describing — wh
 precisely why the repair for those six is a reasoned allowlist rather than looser prose.
 
 ### How CI was fixed — four defects, and not one of them a test
+
+*(This is the earlier pass: how the pipeline reached run 24, its first green. The later
+regression to red on runs 31–34 is the section above.)*
 
 The workflow had **never passed a single run** in 23 attempts. Four separate defects had
 to be cleared, and fixing each one only revealed the next, because the steps and jobs it
@@ -453,6 +543,15 @@ document chose the wrong one.
 | `test(orders)` | The order-placement load harness |
 | `203f16f` `feat(auth)` | Backend admin TOTP: pure-Node RFC 6238, role-based enrolment policy, encrypted pending secrets, single-use recovery codes, five-minute challenge redeemed at `/auth/mfa/login`; `totp.ts` and `mfa.service.ts` held at 90% by the coverage gate |
 | `221b3ce` `feat(auth)` | MFA client wiring: admin 3-step login UI + BFF `mfa/setup|confirm|login` routes, website `SignInResult` handling with no session on challenge, mobile loud-fail guard, typed `api-client` MFA endpoints |
+
+### Commits in the Phase 2 pass (2026-09-27)
+
+| Commit | Change |
+|---|---|
+| `5779223` `feat(pricing)` | **P1** — the pure, deterministic pricing engine: `Money` VO, scheme data types, `priceLines` with stackable/non-stackable rules and a per-line explanation trail; hand-picked + seeded 2000-case property test |
+| `546fab5` `feat(pricing)` | **P2** — `PriceList`/`PriceListLine`/`CustomerPriceList`/`CustomerPriceOverride` + migration; `PricingRepository` port + Prisma adapter; pure override resolver; `PricingService` feeding the engine. **Its CI run (34) passed *Tests + coverage* and failed only on `mobile-e2e`** |
+| `672a21d` `feat(pricing)` | **P3** — order-level schemes, `COMBO` eligibility, `FREE_GOODS`, and the `Scheme` model + `SchemeRepository` port/adapter. Also fixes three real defects its own tests found: a percentage combo priced at zero, free goods able to drive a line total negative, and a free-goods trail crediting a scheme that granted nothing. 356/356 unit tests |
+| `fix(ci)` | `CORS_ORIGINS` added to the `mobile-e2e` job. It ran `NODE_ENV=development` with no CORS origins, which `env.schema.ts` refuses to boot, so the API exited before binding a port and the readiness probe timed out. **The reason `main` was red on runs 31–34** (§5) |
 
 ---
 

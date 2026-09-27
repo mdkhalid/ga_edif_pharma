@@ -1,9 +1,10 @@
 # 19 — Development Plan (Phase 2 — Commercial Engine)
 
-> **Last updated:** 2026-09-27 · **Branch:** `main` · **Status:** P1–P3 landed and
-> committed; the unit suite is green. **Resume at P4.** Two things P3 does *not* have:
-> the admin scheme UI (deferred) and any database-backed verification of the scheme
-> migration.
+> **Last updated:** 2026-09-27 · **Branch:** `main` (`672a21d`, pushed) · **Status:**
+> P1–P3 landed and committed; the unit suite is green. **Resume at P4**, but do the
+> two verification steps in [Resume point](#resume-point) first. Three things P3 does
+> *not* have: the admin scheme UI (deferred), any database-backed verification of the
+> scheme migration, and a CI run observed green.
 >
 > Working plan for Phase 2. Phase 1 backend is landed and verified; the remaining
 > Phase 1 UI (website storefront, onboarding wizard/upload, mobile) is tracked in
@@ -116,6 +117,57 @@
   a claim. **First thing the next session should do: bring the database up and apply
   it.** This is the same failure Phase 1 had — see `00-project-status.md` §7.
 
+- **2026-09-27 — pushed, and found `main` red.** `672a21d` is on `origin/main`.
+  Checking the run rather than assuming it exposed something the local gates could
+  never have: **`main` has been failing CI since run 31, and not because of anything
+  Phase 2 did.** Runs 33 and 34 (P1 and P2) both failed, each on exactly one job —
+  *Mobile auth (live API)* — at exactly one step, *Start the API*. Every other job was
+  green, including *Tests + coverage*, which is the job that migrates the database: so
+  the P2 migration did apply cleanly in CI, and the coverage gate did pass there. This
+  file, and `00-project-status.md`, had kept reporting CI as green from a run that
+  happened before these three.
+
+  **The cause is one missing environment variable.** The `mobile-e2e` job runs
+  `NODE_ENV: development` — deliberately, so the API boots like a running service
+  rather than through the `test` shortcuts — and `env.schema.ts` has a `superRefine`
+  that rejects a config with zero CORS origins *unless* `NODE_ENV` is `test`. The job
+  set no `CORS_ORIGINS`, so the app threw during config validation, exited before
+  binding a port, and the readiness probe timed out after 30 attempts. The step that
+  reported the failure was the one that had already waited two minutes for a process
+  that was never going to arrive.
+
+  Reproduced locally before changing anything, because the step name points at the
+  network and the cause is in configuration:
+
+  ```
+  NODE_ENV=development, no CORS_ORIGINS
+  → Error: Invalid environment configuration. Fix the following and restart:
+      - CORS_ORIGINS: At least one CORS origin must be configured (comma separated).
+  ```
+
+  with the same variables set plus `CORS_ORIGINS` validating clean and `PORT`
+  resolving to 3001 — the port the job probes. The fix is that one variable, with a
+  comment in `ci.yml` recording the diagnosis. The alternative — switching the job to
+  `NODE_ENV: test` — would have made it green by not booting the way production does,
+  which is the thing the `test` escape hatch exists to prevent.
+
+  **The lesson is the one this document keeps having to relearn.** Four runs were
+  red, and for three commits nobody looked, because the local gates were all green
+  and "CI: green" was inherited from a run that had since been superseded. A document
+  that asserts a check is green is worse than no document, because it is the thing a
+  reader trusts instead of running — and here it was actively wrong for three commits.
+  **Check the run after every push.** `gh` is not installed in this environment, so
+  use the public API (the list endpoint works unauthenticated for a public repo; the
+  per-run and per-jobs endpoints need the numeric run `id`, not `run_number`, and 404
+  without auth):
+
+  ```
+  Invoke-RestMethod -Uri "https://api.github.com/repos/mdkhalid/ga_edif_pharma/actions/runs?per_page=5" `
+    -Headers @{ "User-Agent" = "opencode"; "Accept" = "application/vnd.github+json" }
+  ```
+
+  The fix is pushed but **not yet observed green** — see [Resume point](#resume-point).
+
 
 ## Context
 
@@ -217,18 +269,47 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
 
 ## Resume point
 
-**Do the database first.** Bring up the dev Postgres and Redis, `npm run db:migrate`,
-then `npm run test:all` and `npm run check:coverage`. P3's migration has never been
-applied, so nothing about scheme persistence has been executed by a database — and
-Phase 1 lost most of a pass to exactly that (`00-project-status.md` §7).
+Next *development* task is **P4** — stock ledger domain (batches, immutable ledger,
+ATP/FEFO, and the `Σ(stock_ledger) = stock_on_hand` invariant that is its exit
+criterion). Two verification steps come before it, because both are claims this
+repository has already been caught making.
 
-Then **P4** (stock ledger domain: batches, immutable ledger, ATP/FEFO, and the
-`Σ(stock_ledger) = stock_on_hand` invariant that is its exit criterion).
+### 1. Bring the database up and apply the scheme migration
 
-P3 is not *fully* done: the admin scheme UI is still open, and it is deliberately
-deferred — schemes are data an admin will manage, so until that screen exists the
-only way to create one is SQL. Recording it as a gap rather than a task, because it
-is a screen, not a risk to the money path.
+`20260926060000_scheme_persistence` **has never been applied.** The dev Postgres and
+Redis are Docker containers and no Docker daemon was running for the P3 pass, so
+nothing about scheme persistence has been executed by a database and the scheme
+adapter's `where` clause is only asserted against a stub.
+
+```
+docker compose up -d          # or however medichain-pg-dev / medichain-redis-dev were started
+npm run db:migrate
+npm run db:seed
+npm run test:all --workspace=@medichain/backend
+npm run check:coverage
+```
+
+`check:coverage` is the real gate — it measures **every** suite, so unit-only numbers do
+not satisfy it. Phase 1 lost most of a pass to exactly this omission
+(`00-project-status.md` §7); a migration that has not run is a claim.
+
+### 2. Confirm CI is green — do not inherit it from this document
+
+The `CORS_ORIGINS` fix for `mobile-e2e` is committed and pushed, but **no run has been
+observed since.** Runs 31–34 were red and this file reported CI as green throughout,
+which is the failure mode this document is supposed to prevent. After pushing, check the
+run (command in the session log above and in `00-project-status.md` §5).
+
+If *Mobile auth (live API)* still fails at *Start the API*, the API log is uploaded as an
+artifact by that job — read it, do not re-guess. The job was fixed by adding
+`CORS_ORIGINS`; if that were not the cause, the log is where the answer is.
+
+### Then P4
+
+P3 is not *fully* done: the admin scheme UI is still open. It is deliberately deferred —
+schemes are data an admin will manage, so until that screen exists the only way to create
+one is SQL. Recorded as a gap rather than a task, because it is a screen, not a risk to
+the money path. It belongs with P11 (Admin UI).
 
 ## Verification (per task)
 
@@ -236,6 +317,9 @@ is a screen, not a risk to the money path.
 - `npm run lint --workspace=@medichain/backend`
 - `npm run test:unit --workspace=@medichain/backend` (or `npm test` for the whole
   unit suite)
+- With a database up: `npm run test:all --workspace=@medichain/backend` and
+  `npm run check:coverage` — the coverage gate measures every suite, so unit-only
+  numbers do not satisfy it.
 - With a database up: `npm run test:all --workspace=@medichain/backend` and
   `npm run check:coverage` — the coverage gate measures every suite, so unit-only
   numbers do not satisfy it.

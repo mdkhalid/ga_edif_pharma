@@ -250,6 +250,15 @@ jobs:
       REDIS_URL: redis://127.0.0.1:6379
       JWT_ACCESS_SECRET: ci-access-secret-0123456789abcdef
       JWT_REFRESH_SECRET: ci-refresh-secret-0123456789abcdef
+      # This job runs as `development` on purpose, so the API boots the way a real
+      # service does rather than through the `test` shortcuts. But the env schema
+      # refuses to start with zero CORS origins unless NODE_ENV is `test`, and this
+      # job sets no CORS_ORIGINS — so the app died during config validation and
+      # "Start the API" timed out after 30 attempts. It failed this way on runs
+      # 31-34 and the cause was invisible from the step that reported it.
+      # The suite makes server-to-server calls, so no browser origin is ever used;
+      # the value only has to be a valid one. Same pair as backend/.env.
+      CORS_ORIGINS: http://localhost:3000,http://localhost:3002
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
