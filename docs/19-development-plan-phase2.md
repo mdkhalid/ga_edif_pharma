@@ -304,10 +304,13 @@ repository has already been caught making.
 
 ### 1. Bring the database up and apply the scheme migration
 
-`20260926060000_scheme_persistence` **has never been applied.** The dev Postgres and
-Redis are Docker containers and no Docker daemon was running for the P3 pass, so
-nothing about scheme persistence has been executed by a database and the scheme
-adapter's `where` clause is only asserted against a stub.
+`20260926060000_scheme_persistence` **has never been applied *locally*** — it does apply
+in CI, where *Tests + coverage* passed on runs 34, 35 and 36, so the SQL is sound and
+every migration before it is too. What is missing is the check that can only happen on a
+developer's machine: the database-backed suites, the coverage gate, and the scheme
+adapter's `where` clause executed against a real database rather than a stub. The dev
+Postgres and Redis are Docker containers and no Docker daemon was running for the P3
+pass.
 
 ```
 docker compose up -d          # or however medichain-pg-dev / medichain-redis-dev were started

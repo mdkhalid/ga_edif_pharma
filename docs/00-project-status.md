@@ -527,7 +527,7 @@ reached rather than quietly reporting latency for load that never arrived.
 | 3 | Admin UI screens, onboarding wizard, document upload | The remaining Phase 1 scope is UI | `admin-portal/`, `website/` |
 | 4 | Mobile storefront | Auth shell only; never run on a device in this environment | `mobile/` |
 | 5 | Outbox relay | Notification delivery is best-effort with no durable retry | Phase 2 |
-| 6 | Confirm remote CI green | Every local gate passes; the workflow has still never run on a runner | push, then GitHub Actions |
+| 6 | ~~Confirm remote CI green~~ — **superseded** | This row said "the workflow has still never run on a runner". It has, dozens of times, and the answer is red: see §5. Tracked at the top of §5 now, not here | — |
 | 7 | `DEV_DATABASE_URL` / `KUBE_CONFIG` | The last open Phase 0 criterion | GitHub → Environments → `dev` |
 | 8 | Admin MFA — closed 2026-09-22 | Backend TOTP enrolment + challenge sign-in (`203f16f`); admin BFF + 3-step login UI, website union handling, mobile guard (`221b3ce`). Verified: direct typecheck ×4, lint ×3, `next build` ×2, 323 backend unit tests incl. `mfa`/`totp`/`mfa-policy` | — |
 | 9 | `test-isolation` / `test-concurrency` suites | Configs exist; `test/concurrency` now has specs, `test-isolation` does not | parked block in `ci.yml` |
