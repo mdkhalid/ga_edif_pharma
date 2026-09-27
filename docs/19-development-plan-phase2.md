@@ -168,6 +168,34 @@
 
   The fix is pushed but **not yet observed green** — see [Resume point](#resume-point).
 
+- **2026-09-27 — run 36: the CORS fix worked, and revealed a second failure behind it.**
+  `c837d2b` added the variable; run 36's *Start the API* step **passed**, so the
+  diagnosis was right and the API now boots under `NODE_ENV=development`. Every other
+  job was green again, including *Tests + coverage*.
+
+  The job then failed one step later, at **step 11, `Mobile auth flow`** — the actual
+  mobile integration suite, which had never once run in CI. It was not run by any of
+  runs 31–35 either: step 10 (*Start the API*) failed first and GitHub skips the steps
+  after a failed one, so this suite has been failing or broken since the job was added
+  and nobody could see it. **Two failures stacked behind one red step**, which is the
+  same shape as the seed-step bug in §5 of `00-project-status.md` — the steps a failing
+  step blocks are exactly the ones that would have told you what else was broken.
+
+  **Not diagnosed, and not guessed at.** The two things that would answer it both need
+  something this environment does not have:
+
+  - The job uploads `/tmp/api.log` as an artifact, but downloading artifacts and
+    fetching job logs both require an authenticated GitHub request. `gh` is not
+    installed and no token is available here.
+  - Reproducing locally needs a live API and database, and no Docker daemon is running.
+
+  So: download the `mobile-e2e-api-log` artifact from run 36 (or run
+  `npm run test:integration --workspace=@medichain/mobile` against a local API) and
+  read the actual failure. The mobile suite's base URL is
+  `http://localhost:3001/api/v1` (`mobile/src/lib/env.ts`), which does match the port
+  the job starts the API on, so a port mismatch is already ruled out — the rest of that
+  guess space should not be walked without the log.
+
 
 ## Context
 
@@ -295,14 +323,26 @@ not satisfy it. Phase 1 lost most of a pass to exactly this omission
 
 ### 2. Confirm CI is green — do not inherit it from this document
 
-The `CORS_ORIGINS` fix for `mobile-e2e` is committed and pushed, but **no run has been
-observed since.** Runs 31–34 were red and this file reported CI as green throughout,
-which is the failure mode this document is supposed to prevent. After pushing, check the
-run (command in the session log above and in `00-project-status.md` §5).
+The `CORS_ORIGINS` fix is committed, pushed and **observed working**: run 36's *Start
+the API* step passed, so the API boots under `NODE_ENV=development` and every other job
+is green again. `main` is still red, for a different reason that fix uncovered.
 
-If *Mobile auth (live API)* still fails at *Start the API*, the API log is uploaded as an
-artifact by that job — read it, do not re-guess. The job was fixed by adding
-`CORS_ORIGINS`; if that were not the cause, the log is where the answer is.
+**The mobile integration suite has never run in CI and fails.** Run 36 failed at step 11,
+*Mobile auth flow*. Runs 31–35 never reached it, because step 10 failed first and GitHub
+skips the steps after a failed one. Read the `mobile-e2e-api-log` artifact from run 36 —
+artifacts and logs both need an authenticated request, which this environment cannot
+make — or reproduce locally:
+
+```
+npm run test:integration --workspace=@medichain/mobile   # against a live API
+```
+
+Do not re-guess from the step name. The base URL
+(`http://localhost:3001/api/v1`, `mobile/src/lib/env.ts`) already matches the port the
+job starts the API on, so that is ruled out; the rest needs the log.
+
+This is the second time in two sessions that a red step was hiding a failure behind it,
+and the second time this document asserted a state it had not observed. Check the run.
 
 ### Then P4
 

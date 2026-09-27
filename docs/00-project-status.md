@@ -1,14 +1,19 @@
 # 00 — Project Status
 
-> **Last updated:** 2026-09-27 · **Branch:** `main` · **Phase in flight:** Phase 2 —
-> **P1–P3 landed and committed**: the pure pricing engine, price-list persistence,
-> and scheme scoping with order-level/combo/free-goods. Three real engine defects
-> were found by P3's own tests and fixed, including a percentage combo that priced
-> at zero and free goods that could drive a line total negative. **The P3 scheme
-> migration has never been applied to a database** — no Docker daemon this pass, so
-> `test:all` and the coverage gate are unverified. Phase 1 stands as recorded below
-> (§7) · **CI:** last observed state is run 24 green on `main`; nothing in this pass
-> has been pushed, so the workflow has not run against P3.
+> **Last updated:** 2026-09-27 · **Branch:** `main` (`c837d2b`, pushed) · **Phase in
+> flight:** Phase 2 — **P1–P3 landed and committed**: the pure pricing engine,
+> price-list persistence, and scheme scoping with order-level/combo/free-goods.
+> Three real engine defects were found by P3's own tests and fixed, including a
+> percentage combo that priced at zero and free goods that could drive a line total
+> negative. **The P3 scheme migration has never been applied to a local database** — no
+> Docker daemon this pass, so `test:all` and the coverage gate are unverified *here*
+> (both do pass in CI). Phase 1 stands as recorded below (§7) · **CI:** 🔴 **red on
+> `main` since run 31, for two stacked reasons.** The original blocker — `mobile-e2e`
+> could not boot the API, because it set no `CORS_ORIGINS` under `NODE_ENV=development`
+> — is **fixed and confirmed by run 36**. The job now fails one step later, at *Mobile
+> auth flow*, a suite that has never run in CI because the earlier step always blocked
+> it; undiagnosed, and it needs the job's API log artifact, which needs auth. This file
+> reported CI as green across all three commits that shipped red — see §5
 
 A single-glance view of how much is actually built, what has been *verified* rather
 than merely written, and what is still open. Where this file and
@@ -96,7 +101,7 @@ why this file now states its own staleness instead of leaving a reader to assume
 | Register / verify / login / refresh / logout from all three clients | ✓ | Website and admin verified end-to-end against a live API (cookie set and rotated, session revoked on sign-out, cross-origin refused). **Mobile is now verified at runtime too** — `mobile/test/auth.integration-spec.ts` (7 cases) drives register → verify → sign in → cold-start token rotation → sign out against a live API, plus the single-flight refresh and the replay detection that revokes a token family. The run is headless: the app's real client code and HTTP calls, with the platform's Keychain replaced by an in-memory stand-in. **The screens have still not been rendered on a device or simulator — none exists in this environment** |
 | `/health/ready` returns 503 when Postgres is stopped | ✓ | Verified empirically |
 | A mutation writes an audit row with actor + correlation id | ✓ | `auth.login.succeeded`, `auth.refresh.reuse_detected`, `auth.verify.succeeded`, `auth.password.reset` |
-| CI is green on `main` | ✗ | **Was ✓ at run 24 (`0586fe3`) — the first green run in 24 attempts. `main` has been red on every run since 31.** Runs 33 and 34 (the P1 and P2 commits) each failed on exactly one job, `mobile-e2e`, at exactly one step, *Start the API*: the job runs `NODE_ENV: development` and set no `CORS_ORIGINS`, and `env.schema.ts` refuses to boot a config with zero CORS origins outside `NODE_ENV=test`. The app exited before binding a port and the readiness probe timed out. Every other job passed, including *Tests + coverage* — so the Phase 2 migration did apply in CI and the coverage gate did pass there. **Fixed 2026-09-27 (`CORS_ORIGINS` added to the job) and pushed; not yet observed green.** Three commits shipped while this row said ✓ (§5) |
+| CI is green on `main` | ✗ | **Was ✓ at run 24 (`0586fe3`) — the first green run in 24 attempts. `main` has been red on every run since 31.** Runs 33 and 34 (P1, P2) each failed on exactly one job, `mobile-e2e`, at *Start the API`: the job runs `NODE_ENV: development` with no `CORS_ORIGINS`, and `env.schema.ts` refuses to boot a config with zero CORS origins outside `NODE_ENV=test`, so the app exited before binding a port. **Fixed and confirmed — run 36 (`c837d2b`) passed that step.** `main` is still red one step later: the job now fails at *Mobile auth flow*, a suite that has **never run in CI** because the earlier step always blocked it. Undiagnosed — needs the job's API log artifact, which needs auth. Three commits shipped while this row said ✓ (§5) |
 | Deploys to `dev` automatically | ✗ | Job exists and reports what is missing; gated on `DEV_DATABASE_URL` / `KUBE_CONFIG`. **The one open criterion — blocked on credentials, not code** |
 | Load test: 100 RPS, p95 < 200 ms | ✓ | 1,500 requests at 100 RPS over 15 s on `GET /auth/me`; zero errors; p50 9 ms, **p97.5 23 ms**, p99 26 ms |
 | No secret committed; scanning in CI | ✓ | `.env` gitignored; `gitleaks` on every push and PR over full history |
@@ -156,8 +161,8 @@ Everything below was executed in this environment, not assumed.
 | Scheme adapter | unit spec against a stubbed client | 9 cases — the `where` clause it builds, and the row→domain mapping |
 | Prisma schema | `npx prisma validate` | valid |
 | Env validation (the CI fix) | `validateEnv` with the `mobile-e2e` job's exact env | reproduces the boot failure without `CORS_ORIGINS`; valid with it, `PORT` 3001 |
-| **Not run** | `test:all`, `check:coverage`, `db:migrate` | **no database reachable** — the dev Postgres and Redis are Docker containers and no daemon was running |
-| **Not observed** | CI on `main` | red on runs 31–34; the `CORS_ORIGINS` fix is pushed but unobserved |
+| **Not run** | `test:all`, `check:coverage`, `db:migrate` | **no database reachable locally** — the dev Postgres and Redis are Docker containers and no daemon was running. Both do pass in CI |
+| **Not observed** | CI on `main` | runs 31–35 red at *Start the API*; run 36 passed that step and now fails at *Mobile auth flow* (§5) |
 
 > **These rows are local — and as of run 24, no longer only local.** Every one ran in
 > *this* sandbox, against throwaway PostgreSQL and Redis containers. The same suite and
@@ -211,8 +216,8 @@ something that matters:
 
 | # | Item | Why it matters | Where |
 |---|---|---|---|
-| 1 | **Observe CI green after the `CORS_ORIGINS` fix** | `main` has been red since run 31. The fix is pushed but unobserved, and the reason it went unnoticed is that this document asserted green — so the check has to be *run*, not inherited. `gh` is not installed in this environment; the command is in §5 | GitHub Actions |
-| 2 | **Apply `20260926060000_scheme_persistence` to a real database** | The Phase 2 scheme migration has never run, so scheme persistence is entirely unexecuted and `test:all` / `check:coverage` are unverified. Phase 1 lost most of a pass to the same omission | `npm run db:migrate` |
+| 1 | **Diagnose the `mobile-e2e` failure at *Mobile auth flow*** | Run 36 passed *Start the API*, so `main`'s original blocker is fixed, and the job now fails at the mobile integration suite — which has never run in CI, because the earlier step always blocked it. The `mobile-e2e-api-log` artifact and the job logs both need an authenticated GitHub request, and reproducing locally needs a live API and database. **Do not guess from the step name**; the base URL already matches the API port, so that is ruled out | GitHub Actions → run 36 |
+| 2 | **Apply `20260926060000_scheme_persistence` to a real database** | The Phase 2 scheme migration has never been run locally, so scheme persistence is unexecuted and `test:all` / `check:coverage` are unverified *here*. It did apply in CI, where *Tests + coverage* passed on runs 34, 35 and 36 | `npm run db:migrate` |
 | 3 | **Provision `DEV_DATABASE_URL` / `KUBE_CONFIG`** | Without them the deploy-to-`dev` job reports that it is skipped — the last open Phase 0 criterion. Confirmed as of this pass: there is no `dev` estate yet, so these are not *missing* credentials so much as *uncreated* ones. A dev Postgres and cluster have to exist before any secret can point at them | GitHub → Environments → `dev` |
 | 4 | **Set `LOAD_TEST_BASE_URL` / `LOAD_TEST_PASSWORD`** | Without them the weekly k6 job reports that it is skipped | GitHub → Secrets |
 | 5 | **Render the mobile app on a device** | The auth flow is now verified at runtime headlessly; only the UI layer has never been rendered, and a device is the only way to exercise the real Keychain | `npm run dev:mobile` |
@@ -254,6 +259,25 @@ Adding `CORS_ORIGINS` to the job makes it validate clean, with `PORT` resolving 
 — the port the job probes. The alternative, switching the job to `NODE_ENV=test`, would
 have turned it green by not booting the way production does, which is the entire purpose
 of the `test` escape hatch.
+
+**Observed: run 36 (`c837d2b`) passed *Start the API*.** The diagnosis was right. Every
+other job is green again, including *Tests + coverage*.
+
+**But `main` is still red, one step later.** Run 36 fails at step 11, *Mobile auth flow*
+— the mobile integration suite, which **has never run in CI**. It did not run in any of
+runs 31–35 either: step 10 failed first, and GitHub skips the steps after a failed one.
+So this suite has been failing or broken since the job was added, invisibly, behind a
+different red step. That is the same shape as the seed-step bug in the section below: the
+steps a failing step blocks are precisely the ones that would have said what else was
+wrong.
+
+Not diagnosed, and deliberately not guessed at. The two things that would answer it both
+need something this environment lacks: the `mobile-e2e-api-log` artifact and the job logs
+both require an authenticated GitHub request (`gh` is not installed, no token available),
+and reproducing locally needs a live API and database with no Docker daemon running. The
+mobile suite's base URL — `http://localhost:3001/api/v1`, `mobile/src/lib/env.ts` — does
+match the port the job starts the API on, so a port mismatch is already ruled out; the
+rest of that space should not be walked without the log.
 
 `gh` is not installed in this environment, so the run is checked through the public API:
 
@@ -551,7 +575,7 @@ document chose the wrong one.
 | `5779223` `feat(pricing)` | **P1** — the pure, deterministic pricing engine: `Money` VO, scheme data types, `priceLines` with stackable/non-stackable rules and a per-line explanation trail; hand-picked + seeded 2000-case property test |
 | `546fab5` `feat(pricing)` | **P2** — `PriceList`/`PriceListLine`/`CustomerPriceList`/`CustomerPriceOverride` + migration; `PricingRepository` port + Prisma adapter; pure override resolver; `PricingService` feeding the engine. **Its CI run (34) passed *Tests + coverage* and failed only on `mobile-e2e`** |
 | `672a21d` `feat(pricing)` | **P3** — order-level schemes, `COMBO` eligibility, `FREE_GOODS`, and the `Scheme` model + `SchemeRepository` port/adapter. Also fixes three real defects its own tests found: a percentage combo priced at zero, free goods able to drive a line total negative, and a free-goods trail crediting a scheme that granted nothing. 356/356 unit tests |
-| `fix(ci)` | `CORS_ORIGINS` added to the `mobile-e2e` job. It ran `NODE_ENV=development` with no CORS origins, which `env.schema.ts` refuses to boot, so the API exited before binding a port and the readiness probe timed out. **The reason `main` was red on runs 31–34** (§5) |
+| `c837d2b` `fix(ci)` | `CORS_ORIGINS` added to the `mobile-e2e` job. It ran `NODE_ENV=development` with no CORS origins, which `env.schema.ts` refuses to boot, so the API exited before binding a port and the readiness probe timed out. **The reason `main` was red on runs 31–34**, and run 36 confirms the fix (§5) |
 
 ---
 
