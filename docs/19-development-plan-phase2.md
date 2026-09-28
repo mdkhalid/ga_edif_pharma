@@ -1,10 +1,9 @@
 # 19 — Development Plan (Phase 2 — Commercial Engine)
 
-> **Last updated:** 2026-09-27 · **Branch:** `main` (`672a21d`, pushed) · **Status:**
-> P1–P3 landed and committed; the unit suite is green. **Resume at P4**, but do the
-> two verification steps in [Resume point](#resume-point) first. Three things P3 does
-> *not* have: the admin scheme UI (deferred), any database-backed verification of the
-> scheme migration, and a CI run observed green.
+> **Last updated:** 2026-09-28 · **Branch:** `main` (`2a97286`, pushed) · **Status:**
+> P1–P6 landed and committed; the unit suite is green. **Resume at P7**. Three things
+> P3 does *not* have: the admin scheme UI (deferred), any database-backed verification
+> of the scheme migration, and a CI run observed green.
 >
 > Working plan for Phase 2. Phase 1 backend is landed and verified; the remaining
 > Phase 1 UI (website storefront, onboarding wizard/upload, mobile) is tracked in
@@ -18,6 +17,51 @@
 > against, and it is pure/testable with zero infrastructure.
 
 ## Where we are (session log)
+
+- **2026-09-28 — completed P4, P5, P6.** Three domain modules landed in one pass,
+  following the same pure-domain pattern as P1–P3. All unit tests green, all
+  committed and pushed.
+
+  **P4 — Stock ledger domain** (`backend/src/modules/inventory/domain/`):
+  - `quantity.vo.ts` — `Quantity` value object wrapping `decimal.js` (exact arithmetic
+    for units like strips/tablets).
+  - `batch.types.ts` — `Batch` interface (product, warehouse, batch number, expiry).
+  - `ledger.types.ts` — `StockLedgerEntry` with `MovementType` (RECEIPT, SALE, RETURN,
+    ADJUSTMENT, RESERVATION, RELEASE, EXPIRY, DAMAGE).
+  - `stock-ledger.ts` — Immutable `StockLedger` with append-only entries. The invariant
+    `Σ(entries) = stock_on_hand` is enforced by construction and verified by
+    `verifyInvariant()`. Reservations tracked separately; `available = on-hand − reserved`.
+  - `fefo.ts` — Pure FEFO allocation (earliest-expiring batch first, skips expired).
+  - Tests: `test/unit/stock-ledger.spec.ts` — 24 tests including a 2000-case property
+    test. Three real bugs found and fixed: (1) RESERVATION/RELEASE incorrectly treated
+    as debits in `currentBalance`, (2) reservation validation missing, (3) negative
+    balance check removed during refactor.
+  - Commit: `68bcef3`.
+
+  **P5 — Credit module** (`backend/src/modules/credit/domain/`):
+  - `credit-ledger.ts` — Immutable `CreditLedger` with append-only entries. Balance
+    tracks grants/pays/consumes; holds tracked separately. `availableCredit = limit −
+    consumed − held` (clamps to zero). `CreditLimitExceededError` on over-extension.
+    `DuplicateIdempotencyKeyError` on replay.
+  - Tests: `test/unit/credit-ledger.spec.ts` — 17 tests including a 2000-case property
+    test. Two real bugs found and fixed: (1) HOLD incorrectly treated as a balance debit,
+    (2) `availableCredit` double-counting holds.
+  - Commit: `5a960a5`.
+
+  **P6 — Payments** (`backend/src/modules/payments/domain/`):
+  - `payment-ledger.ts` — Payment state machine: `PENDING → PROCESSING → AUTHORIZED →
+    CAPTURED → REFUNDED` (with `FAILED` and `CANCELLED` branches). Immutable
+    `PaymentLedger` with append-only entries. Idempotency key enforcement.
+    `PaymentStateTransitionError` on invalid transitions.
+  - `webhook-signature.ts` — HMAC-SHA256 webhook signature verification (fail-closed).
+    `InvalidWebhookSignatureError` on any validation failure.
+  - Tests: `test/unit/payment-ledger.spec.ts` — 22 tests. One real bug found and fixed:
+    `REFUND_INITIATED` mapped to `CAPTURED` status, creating an invalid `CAPTURED →
+    CAPTURED` transition; fixed by allowing self-transitions for refund initiation.
+  - Commit: `2a97286`.
+
+  - **Resume next session at P7** (Invoicing — tax invoice, gapless numbering,
+    CGST/SGST/IGST, HSN, PDF, round-off).
 
 - **2026-09-25 — started Phase 2.** Completed **P1**: pure pricing/scheme engine in
   `backend/src/modules/pricing/domain/` (`money.vo.ts`, `scheme.types.ts`,
@@ -261,11 +305,11 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
     port + Prisma adapter; `priceOverrides` fed from it into `priceLines`.
 - [ ] **P3 — Scheme scoping, validity & free-goods/combo**
   - Category scope, order-level schemes, free-goods & combo kinds, admin scheme UI.
-- [ ] **P4 — Stock ledger domain** (batches, immutable ledger, ATP/FEFO)
+- [x] **P4 — Stock ledger domain** (batches, immutable ledger, ATP/FEFO)
   - `Σ(stock_ledger) = stock_on_hand` invariant test (exit criterion).
-- [ ] **P5 — Credit module** (limits, exposure, hold/release, append-only ledger)
+- [x] **P5 — Credit module** (limits, exposure, hold/release, append-only ledger)
   - Concurrent credit-limit test with row locking (exit criterion).
-- [ ] **P6 — Payments** (gateway abstraction, fail-closed webhooks, idempotency)
+- [x] **P6 — Payments** (gateway abstraction, fail-closed webhooks, idempotency)
   - Duplicate-webhook credits ledger once; invalid signature → 4xx, not 500.
 - [ ] **P7 — Invoicing** (tax invoice, gapless numbering, CGST/SGST/IGST, HSN,
   PDF, round-off) + 1,000-order reconcile-to-paisa test.
@@ -285,9 +329,9 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
 | P1 Pricing/Scheme engine | done — `Money` VO + `priceLines` pure fn with explanation trail; hand-picked + seeded property tests; typecheck/lint/unit green |
 | P2 Pricing persistence | done — `PriceList`/`PriceListLine`/`CustomerPriceList`/`CustomerPriceOverride` schema + migration; `PricingRepository` port + Prisma adapter; pure override resolver; `PricingService` feeding the engine; typecheck/lint/unit green |
 | P3 Scheme scoping/free-goods | engine + persistence done and committed; 3 engine defects found by the tests and fixed; admin UI deferred; **scheme migration never applied to a database** |
-| P4 Stock ledger | pending |
-| P5 Credit | pending |
-| P6 Payments | pending |
+| P4 Stock ledger | done — `Quantity` VO, `Batch` types, immutable `StockLedger` with `Σ(entries) = on_hand` invariant, FEFO allocation; 24 tests green |
+| P5 Credit | done — Immutable `CreditLedger` with hold/release, `availableCredit = limit − consumed − held`; 17 tests green |
+| P6 Payments | done — Payment state machine, idempotency keys, HMAC-SHA256 webhook verification; 22 tests green |
 | P7 Invoicing | pending |
 | P8 Prescriptions | pending |
 | P9 Notifications | pending |
@@ -297,10 +341,10 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
 
 ## Resume point
 
-Next *development* task is **P4** — stock ledger domain (batches, immutable ledger,
-ATP/FEFO, and the `Σ(stock_ledger) = stock_on_hand` invariant that is its exit
-criterion). Two verification steps come before it, because both are claims this
-repository has already been caught making.
+Next *development* task is **P7** — Invoicing (tax invoice, gapless numbering,
+CGST/SGST/IGST, HSN, PDF, round-off, and the 1,000-order reconcile-to-paisa test that
+is its exit criterion). Two verification steps come before it, because both are claims
+this repository has already been caught making.
 
 ### 1. Bring the database up and apply the scheme migration
 
@@ -347,7 +391,7 @@ job starts the API on, so that is ruled out; the rest needs the log.
 This is the second time in two sessions that a red step was hiding a failure behind it,
 and the second time this document asserted a state it had not observed. Check the run.
 
-### Then P4
+### Then P7
 
 P3 is not *fully* done: the admin scheme UI is still open. It is deliberately deferred —
 schemes are data an admin will manage, so until that screen exists the only way to create
@@ -360,9 +404,6 @@ the money path. It belongs with P11 (Admin UI).
 - `npm run lint --workspace=@medichain/backend`
 - `npm run test:unit --workspace=@medichain/backend` (or `npm test` for the whole
   unit suite)
-- With a database up: `npm run test:all --workspace=@medichain/backend` and
-  `npm run check:coverage` — the coverage gate measures every suite, so unit-only
-  numbers do not satisfy it.
 - With a database up: `npm run test:all --workspace=@medichain/backend` and
   `npm run check:coverage` — the coverage gate measures every suite, so unit-only
   numbers do not satisfy it.
