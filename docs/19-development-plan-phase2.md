@@ -1,12 +1,13 @@
 # 19 — Development Plan (Phase 2 — Commercial Engine)
 
-> **Last updated:** 2026-09-29 · **Branch:** `main` (`eec34fe`, committed, not
-> yet pushed) · **Status:** P1–P7 landed and committed; the unit suite is green
-> (450/450). **Resume at P8**. P7's invoicing migration has never been applied
-> to a database and no DB-backed invoicing test exists yet — same standing as
-> P3's scheme migration. Three things P3 still does *not* have: the admin
-> scheme UI (deferred), any database-backed verification of the scheme
-> migration, and a CI run observed green.
+> **Last updated:** 2026-09-29 · **Branch:** `main` (`33fe5c2`, pushed) · **Status:**
+> P1–P7 landed and pushed; the unit suite is green (450/450). **Resume at P8**.
+> CI run 43 (this push) observed: every job green except the pre-existing
+> mobile-e2e failure — including *Tests + coverage*, so the P7 invoicing
+> migration applies cleanly. Still owed: local DB-backed invoicing tests and a
+> green CI run. Three things P3 still does *not* have: the admin scheme UI
+> (deferred), any database-backed verification of the scheme migration run
+> locally, and a CI run observed green.
 >
 > Working plan for Phase 2. Phase 1 backend is landed and verified; the remaining
 > Phase 1 UI (website storefront, onboarding wizard/upload, mobile) is tracked in
@@ -43,9 +44,23 @@
   pass): an `as any` in payment-ledger (deleted — the constructor already
   derives the key set), `prefer-const`/`require()` in its spec, barrel imports
   in credit/payments/invoicing, and two unused imports found in the previous
-  pass. **Not verified, and it matters:** the invoicing migration has never
+  pass.
+  **Not verified, and it matters:** the invoicing migration has never
   been applied and no DB-backed invoicing test exists — owed before P7 closes.
   **Resume next session at P8** (Prescriptions).
+- **2026-09-29 — pushed P7 and observed CI run 43.** `a4ee990..33fe5c2`,
+  `main -> main`. Run 43 completed: *Lint + Typecheck + Boundaries* ✅, *Tests
+  + coverage* ✅, *Build* ✅, *Security scans* ✅, *Mobile auth (live API)* ❌,
+  *Deploy to dev* skipped. Two consequences. First, the P7 invoicing migration
+  **does apply cleanly** — *Tests + coverage* migrates the database, so
+  `20260929000000_invoicing` is proven sound SQL and the coverage gate passes
+  with the new code; what remains owed is local, not structural: DB-backed
+  invoicing specs (issue, gapless concurrency, idempotent re-issue) run through
+  `test:all` + `check:coverage` on a developer machine. Second, `main` is red
+  for the same pre-existing reason as runs 36–42 — the mobile integration suite
+  (step 11, *Mobile auth flow*), never diagnosed for lack of the `api.log`
+  artifact, which needs an authenticated request this environment cannot make.
+  Nothing in this push caused it: every job this push could affect is green.
 - **2026-09-28 — completed P4, P5, P6.** Three domain modules landed in one pass,
   following the same pure-domain pattern as P1–P3. All unit tests green, all
   committed and pushed.
@@ -347,9 +362,11 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
     diff` needs a live shadow DB).
   - [x] Service (issue/list/get/cancel), controller/DTOs, scoping, module wiring.
   - [x] Contract regenerated (40 paths / 21 schemas) + typed client module.
-  - [ ] **Apply the invoicing migration to a real database and add DB-backed
-    invoicing tests** (issue, gapless concurrency, idempotent re-issue) — never
-    applied; no database reachable this pass.
+  - [ ] **Add DB-backed invoicing tests** (issue, gapless concurrency,
+    idempotent re-issue) and run them through `test:all` + `check:coverage` on
+    a developer machine — no database reachable this pass. The migration SQL
+    itself is proven sound: CI run 43's *Tests + coverage* applied
+    `20260929000000_invoicing` and passed the coverage gate with the new code.
   - [ ] **Invoice PDF rendering** — deferred; the invoice is structured data and
     the PDF is presentation, like the deferred admin scheme UI (belongs with
     P11 Admin UI or when fulfilment needs a printable).
