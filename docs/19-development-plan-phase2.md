@@ -1,9 +1,12 @@
 # 19 — Development Plan (Phase 2 — Commercial Engine)
 
-> **Last updated:** 2026-09-28 · **Branch:** `main` (`2a97286`, pushed) · **Status:**
-> P1–P6 landed and committed; the unit suite is green. **Resume at P7**. Three things
-> P3 does *not* have: the admin scheme UI (deferred), any database-backed verification
-> of the scheme migration, and a CI run observed green.
+> **Last updated:** 2026-09-29 · **Branch:** `main` (`eec34fe`, committed, not
+> yet pushed) · **Status:** P1–P7 landed and committed; the unit suite is green
+> (450/450). **Resume at P8**. P7's invoicing migration has never been applied
+> to a database and no DB-backed invoicing test exists yet — same standing as
+> P3's scheme migration. Three things P3 still does *not* have: the admin
+> scheme UI (deferred), any database-backed verification of the scheme
+> migration, and a CI run observed green.
 >
 > Working plan for Phase 2. Phase 1 backend is landed and verified; the remaining
 > Phase 1 UI (website storefront, onboarding wizard/upload, mobile) is tracked in
@@ -18,6 +21,31 @@
 
 ## Where we are (session log)
 
+- **2026-09-29 — completed P7 (invoicing).** Two commits, following the
+  domain-first pattern. `9f35924` — pure GST core in
+  `backend/src/modules/invoicing/domain/` (`tax.ts`, `invoice.builder.ts`,
+  `invoice-numbering.ts`, `invoice.types.ts`): intra-state CGST/SGST vs
+  inter-state IGST split, per-line tax summed (never computed on the total),
+  HSN summary, whole-rupee round-off within ±0.50, gapless number formatting.
+  Tests: hand-picked + invariants + the **1,000 generated-order
+  reconcile-to-paisa property test against an independent oracle — the P7 exit
+  criterion, green**. `eec34fe` — schema (`Invoice`/`InvoiceLine`/
+  `InvoiceSequence`, `gstRate` on Product) + hand-written migration
+  `20260929000000_invoicing` (`migrate diff` needs a live shadow DB, none
+  reachable), `InvoicingService` issuing from an order in one transaction
+  (fail-closed tax data, proportional discount distribution, idempotent
+  re-issue, atomic `UPDATE … RETURNING` numbering, audit in-tx), controller +
+  DTOs, tenant-scoping registration, AppModule wiring, contract regenerated
+  (40 paths / 21 schemas) with invoice shapes in shared-types and an invoices
+  endpoint module on the typed client. Verified: typecheck 12/12, lint back to
+  the 0-error baseline, boundaries 153 files, unit suite **450/450**.
+  Collateral repairs the gates exposed (all pre-existing, none from this
+  pass): an `as any` in payment-ledger (deleted — the constructor already
+  derives the key set), `prefer-const`/`require()` in its spec, barrel imports
+  in credit/payments/invoicing, and two unused imports found in the previous
+  pass. **Not verified, and it matters:** the invoicing migration has never
+  been applied and no DB-backed invoicing test exists — owed before P7 closes.
+  **Resume next session at P8** (Prescriptions).
 - **2026-09-28 — completed P4, P5, P6.** Three domain modules landed in one pass,
   following the same pure-domain pattern as P1–P3. All unit tests green, all
   committed and pushed.
@@ -311,8 +339,20 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
   - Concurrent credit-limit test with row locking (exit criterion).
 - [x] **P6 — Payments** (gateway abstraction, fail-closed webhooks, idempotency)
   - Duplicate-webhook credits ledger once; invalid signature → 4xx, not 500.
-- [ ] **P7 — Invoicing** (tax invoice, gapless numbering, CGST/SGST/IGST, HSN,
-  PDF, round-off) + 1,000-order reconcile-to-paisa test.
+- [x] **P7 — Invoicing** (tax invoice, gapless numbering, CGST/SGST/IGST, HSN,
+  round-off) + 1,000-order reconcile-to-paisa test — landed and committed
+  (`9f35924`, `eec34fe`); unit suite 450/450, typecheck/lint/boundaries green.
+  - [x] Pure domain + reconcile property test (the exit criterion, green).
+  - [x] Schema + migration `20260929000000_invoicing` (hand-written; `migrate
+    diff` needs a live shadow DB).
+  - [x] Service (issue/list/get/cancel), controller/DTOs, scoping, module wiring.
+  - [x] Contract regenerated (40 paths / 21 schemas) + typed client module.
+  - [ ] **Apply the invoicing migration to a real database and add DB-backed
+    invoicing tests** (issue, gapless concurrency, idempotent re-issue) — never
+    applied; no database reachable this pass.
+  - [ ] **Invoice PDF rendering** — deferred; the invoice is structured data and
+    the PDF is presentation, like the deferred admin scheme UI (belongs with
+    P11 Admin UI or when fulfilment needs a printable).
 - [ ] **P8 — Prescriptions** (upload, pharmacist verification, schedule-based
   blocking — server-side enforcement for Schedule H1).
 - [ ] **P9 — Notifications** (push, in-app centre, channel preferences, template
@@ -332,7 +372,7 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
 | P4 Stock ledger | done — `Quantity` VO, `Batch` types, immutable `StockLedger` with `Σ(entries) = on_hand` invariant, FEFO allocation; 24 tests green |
 | P5 Credit | done — Immutable `CreditLedger` with hold/release, `availableCredit = limit − consumed − held`; 17 tests green |
 | P6 Payments | done — Payment state machine, idempotency keys, HMAC-SHA256 webhook verification; 22 tests green |
-| P7 Invoicing | pending |
+| P7 Invoicing | done except DB verification + PDF (see above) — domain, service, API, contract, client; 450/450 unit |
 | P8 Prescriptions | pending |
 | P9 Notifications | pending |
 | P10 Outbox relay | pending (Phase 1 leftover) |
@@ -341,12 +381,13 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
 
 ## Resume point
 
-Next *development* task is **P7** — Invoicing (tax invoice, gapless numbering,
-CGST/SGST/IGST, HSN, PDF, round-off, and the 1,000-order reconcile-to-paisa test that
-is its exit criterion). Two verification steps come before it, because both are claims
-this repository has already been caught making.
+Next *development* task is **P8** — Prescriptions (upload, pharmacist
+verification, schedule-based blocking — server-side enforcement for Schedule
+H1, which is its exit criterion). P7's reconcile property test is green but
+three verification steps come before P8, because all three are claims this
+repository has already been caught making.
 
-### 1. Bring the database up and apply the scheme migration
+### 1. Bring the database up and apply the scheme *and invoicing* migrations
 
 `20260926060000_scheme_persistence` **has never been applied *locally*** — it does apply
 in CI, where *Tests + coverage* passed on runs 34, 35 and 36, so the SQL is sound and
@@ -355,6 +396,14 @@ developer's machine: the database-backed suites, the coverage gate, and the sche
 adapter's `where` clause executed against a real database rather than a stub. The dev
 Postgres and Redis are Docker containers and no Docker daemon was running for the P3
 pass.
+
+The same now holds for **`20260929000000_invoicing`** (`eec34fe`): the SQL is
+hand-written (no shadow DB was reachable for `migrate diff`), `prisma validate`
+passes, and the client was regenerated — but the migration has never run and
+the issue/cancel paths plus the gapless-numbering concurrency claim have no
+DB-backed test. Owed: an invoicing integration spec (issue from a real order,
+idempotent re-issue returns the same number, concurrent issues never duplicate)
+run through `test:all` + `check:coverage`.
 
 ```
 docker compose up -d          # or however medichain-pg-dev / medichain-redis-dev were started
@@ -391,12 +440,16 @@ job starts the API on, so that is ruled out; the rest needs the log.
 This is the second time in two sessions that a red step was hiding a failure behind it,
 and the second time this document asserted a state it had not observed. Check the run.
 
-### Then P7
+### Then P8
 
-P3 is not *fully* done: the admin scheme UI is still open. It is deliberately deferred —
-schemes are data an admin will manage, so until that screen exists the only way to create
-one is SQL. Recorded as a gap rather than a task, because it is a screen, not a risk to
-the money path. It belongs with P11 (Admin UI).
+P7 is not *fully* done: the invoice PDF and the DB-backed verification are still
+open. The PDF is deliberately deferred — the invoice is structured data and the
+PDF is presentation, like the admin scheme UI. It belongs with P11 (Admin UI)
+or when fulfilment needs a printable. P3 is likewise not fully done: the admin
+scheme UI is still open, deliberately deferred for the same reason — schemes
+are data an admin will manage, so until that screen exists the only way to
+create one is SQL. Recorded as gaps rather than tasks, because they are
+screens, not risks to the money path.
 
 ## Verification (per task)
 
