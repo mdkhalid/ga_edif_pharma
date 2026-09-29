@@ -1,4 +1,4 @@
-import { Money, ZERO } from '../../pricing/domain/money.vo';
+import { Money, ZERO } from '../../pricing';
 import { splitGst } from './tax';
 import type {
   BuildInvoiceInput,

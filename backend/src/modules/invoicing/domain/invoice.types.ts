@@ -1,4 +1,4 @@
-import { Money } from '../../pricing/domain/money.vo';
+import { Money } from '../../pricing';
 
 export type GstType = 'CGST_SGST' | 'IGST';
 

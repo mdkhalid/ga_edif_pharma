@@ -1,5 +1,5 @@
 import Decimal from 'decimal.js';
-import { Money, ZERO } from '../../pricing/domain/money.vo';
+import { Money, ZERO } from '../../pricing';
 import type { GstType } from './invoice.types';
 
 export interface GstSplit {

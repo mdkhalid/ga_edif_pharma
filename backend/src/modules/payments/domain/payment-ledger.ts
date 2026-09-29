@@ -1,4 +1,4 @@
-import { Money } from '../../pricing/domain/money.vo';
+import { Money } from '../../pricing';
 
 export type PaymentStatus =
   | 'PENDING'
@@ -151,14 +151,9 @@ export class PaymentLedger {
       createdAt: input.createdAt,
     };
 
-    const newKeys = new Set(this._idempotencyKeys);
-    if (entry.idempotencyKey) {
-      newKeys.add(entry.idempotencyKey);
-    }
-
-    const ledger = new PaymentLedger([...this._entries, entry]);
-    (ledger as any)._idempotencyKeys = newKeys;
-    return ledger;
+    // No manual key bookkeeping: the constructor derives the idempotency set
+    // from the full entry list, which already includes the appended entry.
+    return new PaymentLedger([...this._entries, entry]);
   }
 
   verifyIdempotencyKeys(): boolean {

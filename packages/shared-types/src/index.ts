@@ -13,4 +13,5 @@ export * from './catalog';
 export * from './search';
 export * from './cart';
 export * from './orders';
+export * from './invoices';
 export * from './onboarding';

@@ -95,6 +95,9 @@ model Tenant {
   orderStatusHistory OrderStatusHistory[]
   priceLists    PriceList[]
   schemes       Scheme[]
+  invoices      Invoice[]
+  invoiceLines  InvoiceLine[]
+  invoiceSequences InvoiceSequence[]
 
   @@map("tenant")
 }
@@ -145,6 +148,7 @@ model Organisation {
   products Product[]
   carts Cart[]
   customerOrders CustomerOrder[]
+  invoices Invoice[]
 
   @@unique([tenantId, gstin])
   @@index([tenantId, status])
@@ -668,6 +672,9 @@ model Product {
   // e.g. strip, bottle, cap
   packUnit       String?           @map("pack_unit") @db.VarChar(20)
   price          Decimal           @default(0) @map("price") @db.Decimal(18, 4)
+  /// GST rate as a percentage (e.g. 5 for 5%, 12.5 for 12.5%). Read by the
+  /// P7 invoice builder together with `hsnCode` to compute CGST/SGST/IGST.
+  gstRate        Decimal           @default(0) @map("gst_rate") @db.Decimal(5, 2)
   currency       String            @default("INR") @db.VarChar(3)
   status         ProductStatus     @default(ACTIVE)
   visibility     ProductVisibility @default(PUBLIC)
@@ -681,6 +688,7 @@ model Product {
   warehouseStock WarehouseStock[]
   cartItems CartItem[]
   orderItems OrderItem[]
+  invoiceLines InvoiceLine[]
 
   tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   organisation Organisation? @relation(fields: [organisationId], references: [id], onDelete: SetNull)
@@ -770,6 +778,7 @@ model CustomerOrder {
 
   orderItems OrderItem[]
   statusHistory OrderStatusHistory[]
+  invoices Invoice[]
 
   tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
@@ -986,4 +995,109 @@ model Scheme {
 
   @@index([tenantId, status, kind])
   @@map("scheme")
+}
+
+// ===========================================================================
+// Phase 2 — Commercial Engine: invoicing (P7)
+//
+// A tax invoice is computed by the pure `buildInvoice` domain function from the
+// order's priced lines; these tables persist its inputs and outputs so the
+// numbers are auditable and the PDF/GSTR exports (later tasks) read one source
+// of truth. `InvoiceSequence` holds the per-tenant, per-fiscal-year counter
+// behind gapless numbering: the next number is taken with an atomic
+// `UPDATE … RETURNING` inside the same transaction that creates the invoice, so
+// two concurrent issues can never reuse or skip a number.
+// ===========================================================================
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  CANCELLED
+  CREDITED
+}
+
+/// A GST tax invoice issued against one order.
+model Invoice {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId       String        @map("tenant_id") @db.Uuid
+  organisationId String        @map("organisation_id") @db.Uuid
+  orderId        String?       @map("order_id") @db.Uuid
+
+  /// Gapless, e.g. `INV/2026-27/000123`. Unique per tenant, never reused.
+  invoiceNumber String        @map("invoice_number") @db.VarChar(64)
+  invoiceDate   DateTime      @map("invoice_date") @db.Timestamptz(6)
+  fiscalYear    String        @map("fiscal_year") @db.VarChar(9)
+  /// `CGST_SGST` intra-state, `IGST` inter-state.
+  gstType            String   @map("gst_type") @db.VarChar(10)
+  supplierStateCode  String   @map("supplier_state_code") @db.VarChar(2)
+  customerStateCode  String   @map("customer_state_code") @db.VarChar(2)
+
+  taxableAmount Decimal @default(0) @map("taxable_amount") @db.Decimal(18, 4)
+  cgst          Decimal @default(0) @db.Decimal(18, 4)
+  sgst          Decimal @default(0) @db.Decimal(18, 4)
+  igst          Decimal @default(0) @db.Decimal(18, 4)
+  totalTax      Decimal @default(0) @map("total_tax") @db.Decimal(18, 4)
+  roundOff      Decimal @default(0) @map("round_off") @db.Decimal(18, 4)
+  total         Decimal @default(0) @db.Decimal(18, 4)
+  currency      String  @default("INR") @db.VarChar(3)
+  status        InvoiceStatus @default(ISSUED)
+
+  notes        String?   @db.Text
+  cancelledAt  DateTime? @map("cancelled_at") @db.Timestamptz(6)
+  cancelReason String?   @map("cancel_reason") @db.VarChar(200)
+
+  lines InvoiceLine[]
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  organisation Organisation  @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  order        CustomerOrder? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([tenantId, invoiceNumber])
+  @@index([tenantId, status])
+  @@index([tenantId, organisationId])
+  @@index([tenantId, orderId])
+  @@map("invoice")
+}
+
+/// One persisted invoice line: the net taxable value plus the tax the builder computed.
+model InvoiceLine {
+  id           String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String  @map("tenant_id") @db.Uuid
+  invoiceId    String  @map("invoice_id") @db.Uuid
+  productId    String  @map("product_id") @db.Uuid
+  hsnCode      String  @map("hsn_code") @db.VarChar(16)
+  /// GST rate as a percentage, snapshotted at issue time.
+  taxRate      Decimal @map("tax_rate") @db.Decimal(5, 2)
+  quantity     Decimal @default(0) @db.Decimal(18, 4)
+  taxableValue Decimal @default(0) @map("taxable_value") @db.Decimal(18, 4)
+  cgst         Decimal @default(0) @db.Decimal(18, 4)
+  sgst         Decimal @default(0) @db.Decimal(18, 4)
+  igst         Decimal @default(0) @db.Decimal(18, 4)
+  lineTotal    Decimal @default(0) @map("line_total") @db.Decimal(18, 4)
+  description  String? @db.VarChar(300)
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([invoiceId, productId])
+  @@index([tenantId, invoiceId])
+  @@map("invoice_line")
+}
+
+/// Per-tenant, per-fiscal-year invoice counter. The row is incremented with an
+/// atomic `UPDATE … RETURNING` inside the invoice-creation transaction.
+model InvoiceSequence {
+  id         String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId   String @map("tenant_id") @db.Uuid
+  fiscalYear String @map("fiscal_year") @db.VarChar(9)
+  lastNumber Int    @default(0) @map("last_number")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, fiscalYear])
+  @@map("invoice_sequence")
 }

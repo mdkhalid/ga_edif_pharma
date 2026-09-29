@@ -1358,6 +1358,171 @@
           "orders"
         ]
       }
+    },
+    "/invoices/issue": {
+      "post": {
+        "operationId": "invoiceIssue",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Client-generated unique key (a UUID). A retry with the same key and body replays the original response instead of performing the operation a second time; reusing a key with a different body is rejected with 409 IDEMPOTENCY_KEY_REUSED.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IssueInvoiceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Invoice issued with a gapless number."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Issue a GST tax invoice against an order",
+        "tags": [
+          "invoices"
+        ]
+      }
+    },
+    "/invoices": {
+      "get": {
+        "operationId": "invoiceList",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "ISSUED",
+              "type": "string"
+            }
+          },
+          {
+            "name": "orderId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "3f3c8c4e-9f2a-4b6d-8e1f-2a3b4c5d6e7f",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated invoice list."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List invoices (own organisation, or all for staff)",
+        "tags": [
+          "invoices"
+        ]
+      }
+    },
+    "/invoices/{id}": {
+      "get": {
+        "operationId": "invoiceGetById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The invoice."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get an invoice with its lines and totals",
+        "tags": [
+          "invoices"
+        ]
+      }
+    },
+    "/invoices/{id}/cancel": {
+      "post": {
+        "operationId": "invoiceCancel",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelInvoiceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Cancel an issued invoice",
+        "tags": [
+          "invoices"
+        ]
+      }
     }
   },
   "info": {
@@ -1814,6 +1979,33 @@
             "type": "string",
             "example": "Verified over phone.",
             "maxLength": 500
+          }
+        }
+      },
+      "IssueInvoiceDto": {
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "example": "3f3c8c4e-9f2a-4b6d-8e1f-2a3b4c5d6e7f"
+          },
+          "roundToWholeRupee": {
+            "type": "boolean",
+            "example": true,
+            "default": true
+          }
+        },
+        "required": [
+          "orderId"
+        ]
+      },
+      "CancelInvoiceDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "example": "Billed to the wrong GSTIN; re-issuing.",
+            "maxLength": 200
           }
         }
       }

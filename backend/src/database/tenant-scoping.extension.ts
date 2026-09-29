@@ -64,6 +64,12 @@ export const TENANT_SCOPED_MODELS = [
   'CustomerPriceList',
   'CustomerPriceOverride',
   'Scheme',
+  // Phase 2 invoicing models (P7). Every row carries a non-null `tenantId` —
+  // including the line table, denormalised per the schema convention so the
+  // extension can filter it directly.
+  'Invoice',
+  'InvoiceLine',
+  'InvoiceSequence',
 ] as const;
 
 /**

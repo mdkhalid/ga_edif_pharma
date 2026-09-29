@@ -69,6 +69,13 @@ export {
   type PlaceOrderRequest,
 } from './endpoints/orders';
 export {
+  createInvoicesApi,
+  type CancelInvoiceRequest,
+  type InvoicesApi,
+  type IssueInvoiceRequest,
+  type ListInvoicesOptions,
+} from './endpoints/invoices';
+export {
   createOnboardingApi,
   type OnboardingApi,
   type ReviewApplicationRequest,

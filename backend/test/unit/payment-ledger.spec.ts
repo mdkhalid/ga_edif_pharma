@@ -1,3 +1,4 @@
+import { createHmac } from 'crypto';
 import { Money } from '../../src/modules/pricing/domain/money.vo';
 import {
   PaymentLedger,
@@ -36,7 +37,7 @@ describe('PaymentLedger — state machine', () => {
   });
 
   it('transitions PENDING → PROCESSING → AUTHORIZED → CAPTURED', () => {
-    let ledger = new PaymentLedger()
+    const ledger = new PaymentLedger()
       .append(entry('E1', 'INTENT_CREATED'))
       .append(entry('E2', 'GATEWAY_REQUESTED'))
       .append(entry('E3', 'GATEWAY_AUTHORIZED'))
@@ -46,7 +47,7 @@ describe('PaymentLedger — state machine', () => {
   });
 
   it('allows PENDING → PROCESSING → FAILED', () => {
-    let ledger = new PaymentLedger()
+    const ledger = new PaymentLedger()
       .append(entry('E1', 'INTENT_CREATED'))
       .append(entry('E2', 'GATEWAY_REQUESTED'))
       .append(entry('E3', 'GATEWAY_FAILED'));
@@ -55,7 +56,7 @@ describe('PaymentLedger — state machine', () => {
   });
 
   it('allows FAILED → PENDING (retry)', () => {
-    let ledger = new PaymentLedger()
+    const ledger = new PaymentLedger()
       .append(entry('E1', 'INTENT_CREATED'))
       .append(entry('E2', 'GATEWAY_REQUESTED'))
       .append(entry('E3', 'GATEWAY_FAILED'))
@@ -79,7 +80,7 @@ describe('PaymentLedger — state machine', () => {
   });
 
   it('allows CAPTURED → REFUNDED', () => {
-    let ledger = new PaymentLedger()
+    const ledger = new PaymentLedger()
       .append(entry('E1', 'INTENT_CREATED'))
       .append(entry('E2', 'GATEWAY_REQUESTED'))
       .append(entry('E3', 'GATEWAY_AUTHORIZED'))
@@ -136,7 +137,7 @@ describe('statusForEvent', () => {
 
 describe('PaymentLedger — idempotency', () => {
   it('accepts entries with unique idempotency keys', () => {
-    let ledger = new PaymentLedger()
+    const ledger = new PaymentLedger()
       .append(entry('E1', 'INTENT_CREATED', 1000, 'idem-1'))
       .append(entry('E2', 'GATEWAY_REQUESTED', 1000, 'idem-2'));
     expect(ledger.verifyIdempotencyKeys()).toBe(true);
@@ -150,7 +151,7 @@ describe('PaymentLedger — idempotency', () => {
   });
 
   it('allows null idempotency keys (not required for all events)', () => {
-    let ledger = new PaymentLedger()
+    const ledger = new PaymentLedger()
       .append(entry('E1', 'INTENT_CREATED'))
       .append(entry('E2', 'GATEWAY_REQUESTED'));
     expect(ledger.verifyIdempotencyKeys()).toBe(true);
@@ -172,7 +173,6 @@ describe('verifyWebhookSignature', () => {
   const payload = '{"event":"payment.success","id":"PAY-001"}';
 
   function sign(payload: string, secret: string): string {
-    const { createHmac } = require('crypto');
     return createHmac('sha256', secret).update(payload, 'utf8').digest('hex');
   }
 

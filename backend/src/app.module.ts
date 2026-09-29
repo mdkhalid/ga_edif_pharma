@@ -26,6 +26,7 @@ import { CartModule } from './modules/cart';
 import { CatalogModule } from './modules/catalog';
 import { HealthModule } from './modules/health';
 import { IamModule } from './modules/iam';
+import { InvoicingModule } from './modules/invoicing';
 import { NotificationsModule } from './modules/notifications';
 import { OnboardingModule } from './modules/onboarding-kyc';
 import { OrdersModule } from './modules/orders';
@@ -97,6 +98,7 @@ import { SearchModule } from './modules/search';
     PricingModule,
     CartModule,
     OrdersModule,
+    InvoicingModule,
   ],
   providers: [
     // ---------------------------------------------------------------- pipes
