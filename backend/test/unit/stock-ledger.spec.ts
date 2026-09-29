@@ -1,7 +1,7 @@
 import { Quantity, ZERO_QTY } from '../../src/modules/inventory/domain/quantity.vo';
 import { Batch } from '../../src/modules/inventory/domain/batch.types';
 import { StockLedger, InsufficientStockError, AppendEntryInput } from '../../src/modules/inventory/domain/stock-ledger';
-import { allocateFefo, FefoResult } from '../../src/modules/inventory/domain/fefo';
+import { allocateFefo } from '../../src/modules/inventory/domain/fefo';
 
 const TENANT = 'T1';
 const PRODUCT = 'P1';

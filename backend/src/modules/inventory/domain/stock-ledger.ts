@@ -1,4 +1,3 @@
-import Decimal from 'decimal.js';
 import { Quantity, ZERO_QTY } from './quantity.vo';
 import { BatchId } from './batch.types';
 import { StockLedgerEntry, StockLevel, MovementType } from './ledger.types';
