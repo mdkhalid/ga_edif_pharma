@@ -12,7 +12,7 @@ import {
   ForbiddenError,
   NotFoundError,
 } from '../../../common/exceptions/domain.exception';
-import { Money, ZERO } from '../../pricing';
+import { Money, paisa, ZERO } from '../../pricing';
 import { buildInvoice } from '../domain/invoice.builder';
 import { fiscalYearFor, formatInvoiceNumber } from '../domain/invoice-numbering';
 import type { InvoiceLineInput } from '../domain/invoice.types';
@@ -62,12 +62,38 @@ export class InvoicingService {
     private readonly audit: AuditService,
   ) {}
 
+  /**
+   * Issues the order's tax invoice, or returns the live one it already has.
+   *
+   * ## One live invoice per order, established under a lock
+   *
+   * `READ COMMITTED` does not make "does a live invoice exist?" followed by "insert
+   * one" safe. Two concurrent issues of the same order can both read *no* existing
+   * invoice before either commits, and then both insert — two `INV/…` documents for
+   * one order. A duplicate tax document is worse than a duplicate order: an order
+   * can be cancelled, an invoice number cannot be un-issued.
+   *
+   * So the order row is locked `FOR UPDATE` before the existence check, and both
+   * happen inside the one transaction. Concurrent issuers for the same order
+   * serialise on that row, so the second reads the invoice the first committed and
+   * returns it. Locking the *order* rather than an invoice row is deliberate: on
+   * the first issue there is no invoice row to lock, and the order is the resource
+   * the invariant is keyed on.
+   */
   async issueFromOrder(
     tenantId: string,
     actorId: string,
     dto: IssueInvoiceDto,
   ): Promise<{ id: string; invoiceNumber: string; total: string }> {
     return this.uow.transaction(async (tx) => {
+      const locked = await this.uow.lockById<{ id: string }>(
+        tx,
+        'customer_order',
+        dto.orderId,
+        tenantId,
+      );
+      if (!locked) throw new NotFoundError('Order not found.');
+
       const order = await tx.customerOrder.findFirst({
         where: { id: dto.orderId },
         include: {
@@ -95,7 +121,12 @@ export class InvoicingService {
         return {
           id: existing.id,
           invoiceNumber: existing.invoiceNumber,
-          total: existing.total.toString(),
+          // `paisa`, not `toString()`: this branch echoes the stored row while the
+          // fresh-issue branch echoes the computed draft, and `Decimal.toString()`
+          // drops trailing zeros. Without this the idempotent replay returned
+          // "236" where the first response returned "236.00" — the same invoice,
+          // two different totals, to any caller comparing the two.
+          total: paisa(existing.total.toString()),
         };
       }
 
@@ -264,14 +295,17 @@ export class InvoicingService {
       invoiceNumber: row.invoiceNumber,
       status: row.status,
       gstType: row.gstType,
+      // Money goes through `paisa` so a stored `Decimal(18,4)` leaves as the same
+      // two-place string the builder produced. Tax rate and quantity are not
+      // money and keep their natural scale.
       totals: {
-        taxableTotal: row.taxableAmount.toString(),
-        cgstTotal: row.cgst.toString(),
-        sgstTotal: row.sgst.toString(),
-        igstTotal: row.igst.toString(),
-        totalTax: row.totalTax.toString(),
-        roundOff: row.roundOff.toString(),
-        grandTotal: row.total.toString(),
+        taxableTotal: paisa(row.taxableAmount.toString()),
+        cgstTotal: paisa(row.cgst.toString()),
+        sgstTotal: paisa(row.sgst.toString()),
+        igstTotal: paisa(row.igst.toString()),
+        totalTax: paisa(row.totalTax.toString()),
+        roundOff: paisa(row.roundOff.toString()),
+        grandTotal: paisa(row.total.toString()),
       },
       lines: row.lines.map((line) => ({
         productId: line.productId,
@@ -279,11 +313,11 @@ export class InvoicingService {
         hsnCode: line.hsnCode,
         taxRate: line.taxRate.toString(),
         quantity: line.quantity.toString(),
-        taxableValue: line.taxableValue.toString(),
-        cgst: line.cgst.toString(),
-        sgst: line.sgst.toString(),
-        igst: line.igst.toString(),
-        lineTotal: line.lineTotal.toString(),
+        taxableValue: paisa(line.taxableValue.toString()),
+        cgst: paisa(line.cgst.toString()),
+        sgst: paisa(line.sgst.toString()),
+        igst: paisa(line.igst.toString()),
+        lineTotal: paisa(line.lineTotal.toString()),
       })),
     };
   }
@@ -324,7 +358,7 @@ export class InvoicingService {
         id: row.id,
         invoiceNumber: row.invoiceNumber,
         status: row.status,
-        total: row.total.toString(),
+        total: paisa(row.total.toString()),
         createdAt: row.createdAt,
       })),
       meta: buildOffsetMeta(total, resolved),

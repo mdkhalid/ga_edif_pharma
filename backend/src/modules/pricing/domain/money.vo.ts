@@ -92,3 +92,23 @@ export class Money {
 }
 
 export const ZERO = new Money(0);
+
+/**
+ * A stored money column as the string the API sends.
+ *
+ * Postgres `Decimal(18,4)` round-trips through `decimal.js`, whose `toString()`
+ * drops trailing zeros: the same ₹236.00 that the builder prints as `"236.00"`
+ * comes back from the database as `"236"`. Two representations of one amount is
+ * a defect wherever a caller compares them — an idempotent replay that echoes the
+ * stored row against a first response that echoed the computed draft would return
+ * two different strings for the same invoice, and a client cannot tell whether the
+ * money changed or only its formatting did.
+ *
+ * So every money value leaving a service goes through this, and the scale is the
+ * paisa the rest of the domain already rounds at. Non-money numerics (a quantity
+ * in fractional strips, a tax rate) are left to `toString()`: forcing them to two
+ * places would invent precision they do not have.
+ */
+export function paisa(value: Decimal.Value): string {
+  return new Money(value).toString();
+}

@@ -2,6 +2,7 @@ import type { NotificationPort } from '../../src/common/ports/notification.port'
 import type { ExtendedPrismaClient } from '../../src/database/prisma.service';
 import { UnitOfWork } from '../../src/database/unit-of-work';
 import { AuditService } from '../../src/modules/audit/application/audit.service';
+import { InvoicingService } from '../../src/modules/invoicing/application/invoicing.service';
 import { NotificationService } from '../../src/modules/notifications/application/notification.service';
 import { OrderService } from '../../src/modules/orders/application/order.service';
 
@@ -40,4 +41,16 @@ export function buildOrderServiceWithPort(
     new AuditService(prisma),
     new NotificationService(port),
   );
+}
+
+/**
+ * The invoicing service, assembled the same way.
+ *
+ * It takes only the database collaborators, so there is no port to substitute:
+ * everything it depends on is either the database or `AuditService`, and the
+ * behaviour worth testing is how the invoice, its lines, the sequence counter and
+ * the audit row commit or roll back together.
+ */
+export function buildInvoicingService(prisma: ExtendedPrismaClient): InvoicingService {
+  return new InvoicingService(prisma, new UnitOfWork(prisma), new AuditService(prisma));
 }
