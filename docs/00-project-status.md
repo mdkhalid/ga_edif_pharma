@@ -8,9 +8,10 @@
 > coverage gate passed** (all ten critical files ≥96%, 53.18% statements). Phase 1
 > stands as recorded below (§7) · **CI:** 🔴 **red on `main` at run 43**, on the
 > pre-existing *Mobile auth flow* failure — still undiagnosed, and it needs the job's
-> API log artifact, which needs auth. **Run 45 also exposed a second red this work did
-> not cause:** the dependency audit, broken by `brace-expansion` advisories published
-> after run 44. Fixed in `a311bae` and **not yet observed green** — check the next run.
+> API log artifact, which needs auth. **Run 46 observed: every other job green**, so
+> the dependency audit broken by `brace-expansion` advisories published after run 44
+> (fixed in `a311bae`) is confirmed resolved and *Mobile auth (live API)* is now the
+> only red job on `main`.
 
 **What the 2026-09-30 pass changed, in one line:** the two claims this file and
 `19-development-plan-phase2.md` had carried for three sessions — that the scheme and
@@ -170,7 +171,8 @@ Everything below was executed in this environment, not assumed.
 | **Everything** | `npm run test:all --workspace=@medichain/backend` | **539/539 across 39 suites** |
 | **Coverage gate** | `npm run check:coverage` | **passed** — all ten critical files ≥96%; 53.18% statements / 39.29% branches / 50.32% functions / 53.66% lines |
 | **Dependency audit** | `npm run check:audit` | **passed** — the three `multer` advisories remain on the justified, time-boxed allow-list; the two new `brace-expansion` highs are fixed by per-major `overrides` (`a311bae`) |
-| **CI, run 45** | push of `31d89cd` + `156d1ae` | ❌ **red on two jobs, neither caused by this work.** *Lint*, *Tests + coverage* and *Build* ✅. *Security scans* ❌ on `brace-expansion` advisories published after run 44 — fixed in `a311bae`, **not yet observed**. *Mobile auth (live API)* ❌ — the pre-existing §5 failure |
+| **CI, run 45** | push of `31d89cd` + `156d1ae` | ❌ red on two jobs, neither caused by this work. *Lint*, *Tests + coverage* and *Build* ✅. *Security scans* ❌ on `brace-expansion` advisories published after run 44. *Mobile auth (live API)* ❌ — the pre-existing §5 failure |
+| **CI, run 46** | push of `a311bae` + `e48fc36` | ✅ **every job Phase 2 can affect is green** — *Lint*, *Tests + coverage*, *Build* and *Security scans* all pass, confirming the audit fix. Only *Mobile auth (live API)* is red, the pre-existing §5 failure |
 
 **Two defects the DB-backed suites found, both fixed.** Recorded here because the
 pattern is the point, not the bugs: the P7 unit suite was 450/450 and green, and the
@@ -238,7 +240,7 @@ something that matters:
 
 | # | Item | Why it matters | Where |
 |---|---|---|---|
-| 0 | **Confirm the dependency-audit fix is green in CI** | Run 45's *Security scans* went red on two high `brace-expansion` advisories **published after run 44** — no commit of this pass touched a dependency. Fixed in `a311bae` with per-major overrides; every local gate is green but the CI run has not been observed | GitHub Actions → run 45 |
+| 0 | ~~**Confirm the dependency-audit fix is green in CI**~~ — **closed by run 46** | Run 45's *Security scans* went red on two high `brace-expansion` advisories **published after run 44** — no commit of that pass touched a dependency. Fixed in `a311bae` with per-major overrides and **confirmed green by run 46** | — |
 | 1 | **Diagnose the `mobile-e2e` failure at *Mobile auth flow*** | Run 36 passed *Start the API*, so `main`'s original blocker is fixed, and the job now fails at the mobile integration suite — which has never run in CI, because the earlier step always blocked it. The `mobile-e2e-api-log` artifact and the job logs both need an authenticated GitHub request, and reproducing locally needs a live API and database. **Do not guess from the step name**; the base URL already matches the API port, so that is ruled out | GitHub Actions → run 36 |
 | 2 | ~~**Apply `20260926060000_scheme_persistence` to a real database**~~ — **closed 2026-09-30** | Applied and seeded alongside `20260929000000_invoicing`; `test:all` 539/539 and `check:coverage` passed. The DB-backed invoicing tests written alongside it found two real defects in P7 (concurrent double-issue, replay total scale), so this item was worth more than its one line suggested | — |
 | 3 | **Provision `DEV_DATABASE_URL` / `KUBE_CONFIG`** | Without them the deploy-to-`dev` job reports that it is skipped — the last open Phase 0 criterion. Confirmed as of this pass: there is no `dev` estate yet, so these are not *missing* credentials so much as *uncreated* ones. A dev Postgres and cluster have to exist before any secret can point at them | GitHub → Environments → `dev` |

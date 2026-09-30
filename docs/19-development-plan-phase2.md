@@ -13,11 +13,10 @@
 > first response, and one of my own reconciliation assertions had the round-off
 > sign backwards. Details in the session log below.
 >
-> CI was checked twice this pass, which is the habit this file keeps needing: run 45
-> showed a *new* red — the dependency audit, broken by advisories published after
-> run 44 rather than by anything in this pass — fixed in `a311bae` and **not yet
-> observed green in CI**. `main` is red regardless, on the pre-existing mobile-e2e
-> failure.
+> **Run 46 (the audit fix, `e48fc36`) observed: *Security scans* ✅.** So every job
+> this work could affect is now green, and the only red left on `main` is the
+> pre-existing mobile-e2e failure — undiagnosed since run 36, needing an artifact this
+> environment cannot fetch.
 >
 > Working plan for Phase 2. Phase 1 backend is landed and verified; the remaining
 > Phase 1 UI (website storefront, onboarding wizard/upload, mobile) is tracked in
@@ -572,16 +571,18 @@ gate passed. Two notes for whoever runs it next, since both cost time here:
 
 ### 2. Confirm CI is green — do not inherit it from this document
 
-**Still owed, and now the only thing standing between this pass and P8.** Two runs
-were checked and both were red, for two different reasons, neither of them the code
-under review:
+**Still owed, and now the only thing standing between this pass and P8: the mobile
+suite.** Two runs were checked this pass and both were red, for two different
+reasons, neither of them the code under review — and the second is now resolved:
 
 - **Run 45 — *Dependency audit***, on `brace-expansion` advisories published after
-  run 44. Fixed in `a311bae`, **not yet observed green**. Check the next run.
-- **Runs 36–45 — *Mobile auth flow***, the pre-existing failure below.
+  run 44. Fixed in `a311bae`, **confirmed green by run 46.**
+- **Runs 36–46 — *Mobile auth flow***, the pre-existing failure below. **Still red,
+  still undiagnosed, and now the only red job on `main`.**
 
-Neither is a signal about P7. Both are a signal about not trusting a document —
-including this one — to describe the state of a pipeline.
+Run 46 is the clean state this pass reached: *Lint + Typecheck + Boundaries* ✅,
+*Tests + coverage* ✅, *Build* ✅, *Security scans* ✅ — which is the first run in
+which every job Phase 2 can affect is green.
 
 The `CORS_ORIGINS` fix is committed, pushed and **observed working**: run 36's *Start
 the API* step passed, so the API boots under `NODE_ENV=development` and every other job
