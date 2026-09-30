@@ -1,13 +1,21 @@
 # 19 — Development Plan (Phase 2 — Commercial Engine)
 
-> **Last updated:** 2026-09-29 · **Branch:** `main` (`33fe5c2`, pushed) · **Status:**
-> P1–P7 landed and pushed; the unit suite is green (450/450). **Resume at P8**.
-> CI run 43 (this push) observed: every job green except the pre-existing
-> mobile-e2e failure — including *Tests + coverage*, so the P7 invoicing
-> migration applies cleanly. Still owed: local DB-backed invoicing tests and a
-> green CI run. Three things P3 still does *not* have: the admin scheme UI
-> (deferred), any database-backed verification of the scheme migration run
-> locally, and a CI run observed green.
+> **Last updated:** 2026-09-30 · **Branch:** `main` (working tree, uncommitted) ·
+> **Status: P7 is now closed except the invoice PDF, which is deliberately
+> deferred. Resume at P8.**
+>
+> What changed this pass: the database is up locally for the first time, both
+> never-applied migrations are applied and seeded, and P7's DB-backed tests exist
+> and are green — `test:all` **539/539 across 39 suites**, coverage gate **passed**
+> (53.18% statements, every critical file ≥96%). Writing them found **three real
+> defects**, all fixed: concurrent issuing of one order produced five tax
+> documents, an idempotent replay returned a differently-formatted total than the
+> first response, and one of my own reconciliation assertions had the round-off
+> sign backwards. Details in the session log below.
+>
+> Still owed, and both are claims this file has made before: **CI has not been
+> observed for this push**, and `main` was red at run 43 on the pre-existing
+> mobile-e2e failure.
 >
 > Working plan for Phase 2. Phase 1 backend is landed and verified; the remaining
 > Phase 1 UI (website storefront, onboarding wizard/upload, mobile) is tracked in
@@ -21,6 +29,109 @@
 > against, and it is pure/testable with zero infrastructure.
 
 ## Where we are (session log)
+
+- **2026-09-30 — closed P7's verification gap. Two real defects, and one of mine.**
+
+  The pass started with the thing three previous sessions said to do first: bring
+  the database up. It had never run locally. It now has.
+
+  **The database.** Docker Desktop was not running; the service was stopped and the
+  `medichain-pg-dev` / `medichain-redis-dev` containers (which match the ports in
+  `backend/.env`: 55432 and 56379) were exited. Note the compose file publishes
+  5432/6379 and is *not* what `backend/.env` points at — using it gives a
+  database the tests cannot see. After starting Docker, `db:migrate` applied
+  **three** previously-unapplied migrations — `20260926000000_pricing_persistence`,
+  `20260926060000_scheme_persistence` and `20260929000000_invoicing` — so the
+  scheme migration from P3 is now applied *and* seeded, which had been owed since
+  2026-09-27. `prisma migrate deploy` was used rather than `migrate dev`; nothing
+  here needs a shadow database.
+
+  **The tests.** Two new files, following the pattern the Phase 1 suites set
+  (real database, hand-assembled services, own tenant so the fixtures cannot
+  collide):
+
+  - `test/integration/invoicing.integration-spec.ts` — 26 tests. Intra-state
+    CGST/SGST vs inter-state IGST, per-line tax snapshotted, an order-level
+    discount taxed on the *discounted* value, whole-rupee round-off within ±0.50
+    and its exact value when declined, header/lines reconciling to the paisa, the
+    gapless number consuming exactly one sequence position, replay returning the
+    same invoice and consuming no second number, a cancelled invoice releasing the
+    order for a fresh one, all five fail-closed paths (missing HSN, missing buyer
+    state, missing tenant state, cancelled order, empty order), cancel/audit, and
+    the buyer-vs-staff read scope.
+  - `test/concurrency/invoicing-numbering.concurrency-spec.ts` — 7 tests. Six
+    concurrent issues of six orders get six distinct numbers forming an
+    *uninterrupted run*; the counter agrees with the invoices committed; every
+    invoice has its lines. Then five concurrent issues of *one* order.
+
+  **Defect 1 — five tax documents for one order.** The last concurrency test
+  failed: five concurrent issues of one order produced five invoices, numbered
+  `000022`–`000026`. The service's business-level idempotency was a
+  `findFirst`-for-a-live-invoice followed by an insert, and under `READ COMMITTED`
+  both branches of that can run before either commits — so all five callers read
+  "no existing invoice" and all five inserted. The unit suite could never have
+  found this; there was no unit test for the race, because the race is not a
+  property of the method in isolation. This is the duplicate-tax-document failure
+  the service's own header comment says is worse than a duplicate order, and the
+  idempotency guarantee was documented as holding.
+
+  Fixed by locking the order row `FOR UPDATE` (via the existing `uow.lockById`)
+  **before** the existence check, both inside the one transaction. Concurrent
+  issuers for one order now serialise on the order, so the second reads what the
+  first committed. Locking the *order* rather than an invoice row is deliberate:
+  on the first issue there is no invoice row to lock, and the order is what the
+  invariant is keyed on. The test also asserts the counter moved by exactly 1 — a
+  fix applied to the insert but not the counter would still leave four permanent
+  gaps.
+
+  **Defect 2 — the same invoice, two different totals.** The replay path returned
+  `existing.total.toString()` while the fresh path returned
+  `draft.totals.grandTotal`. `Decimal.toString()` drops trailing zeros, so the
+  first response said `"236.00"` and the replay said `"236"`. A caller comparing
+  the two cannot tell whether the money changed or only its formatting did, and the
+  API contract (`DecimalString`) does not say which scale to expect. Added
+  `paisa()` to `money.vo.ts` — the stored column rendered at the paisa the domain
+  already rounds at — and applied it to every money field leaving the service
+  (`getById` totals and lines, `list`, the replay branch). Tax rate and quantity
+  are deliberately left on `toString()`: forcing them to two places would invent
+  precision they do not have.
+
+  **Defect 3 — mine, and worth recording.** My own reconciliation assertion
+  `total + roundOff === Σ lineTotal` was backwards. The builder computes
+  `total = raw + roundOff`, so the correct relation is
+  `total − roundOff === Σ lineTotal`. It failed on a correct invoice, and had it
+  passed it would have passed for a header whose round-off was wrong in the
+  opposite direction. Fixed, with a comment explaining the sign, because the whole
+  value of this suite is that a failing assertion means something.
+
+  Two fixture problems also surfaced and were fixed rather than worked around: the
+  teardown could not cascade (`organisation.tenant` and `invoice.organisation` are
+  `Restrict`, so the tenant has to be dismantled leaf-first), and the teardown has
+  to run `runUnscoped`, since the scoping extension refuses tenant-scoped models
+  with no request context rather than guessing. Both suites use their own tenant
+  with fixed ids, tear it down completely, and set the documented
+  `medichain.allow_audit_mutation` escape hatch for the `audit_log` rows — inside
+  one transaction, so a partial teardown cannot leave rows for the next run.
+
+  **One gap recorded rather than tested around.** `Product.gstRate` is
+  `NOT NULL DEFAULT 0`, so a zero-rated line and a line whose rate was never
+  entered are indistinguishable, and both produce a zero-tax invoice. 0% is a
+  legitimate GST rate, so this is a real data-model gap rather than a fixture
+  inconvenience. Noted here and carried into the Phase 3 plan; changing the column
+  is a schema decision that belongs with invoicing+, not a test fix.
+
+  **Verified:** typecheck (both configs) ✅ · lint 0 errors, 21 warnings (the
+  unchanged baseline) ✅ · module boundaries, 153 files ✅ · unit suite **450/450**
+  ✅ · integration 55/55 ✅ · concurrency 11/11 ✅ · **`test:all` 539/539 across 39
+  suites** ✅ · **`check:coverage` passed** — all ten critical files ≥96%, global
+  53.18% statements / 39.29% branches / 50.32% functions / 53.66% lines.
+
+  **Not verified, and it matters:** CI has not been observed for this push yet.
+  `main` was red at run 43 on the pre-existing mobile-e2e failure, undiagnosed for
+  want of the `api.log` artifact. Check the run after pushing.
+
+  **Resume next session at P8** (Prescriptions). The invoice PDF and the admin
+  scheme UI stay deferred — both are screens, not money-path risks.
 
 - **2026-09-29 — completed P7 (invoicing).** Two commits, following the
   domain-first pattern. `9f35924` — pure GST core in
@@ -298,6 +409,19 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
 
 - Domain is **pure**: no `import` of NestJS, Prisma, or I/O. Import `decimal.js`
   for money math. Tests import from `../../src/modules/<m>/domain/...`.
+- **Money leaving a service goes through `paisa()`** (`pricing/domain/money.vo.ts`).
+  A `Decimal(18,4)` read back through `toString()` drops trailing zeros, so the
+  same amount would leave as `"236"` on one path and `"236.00"` on another.
+  Tax rates and quantities keep `toString()` — forcing them to two places would
+  invent precision they do not have.
+- **Database-backed suites get their own tenant** with a fixed id, and tear it
+  down completely. Two things bite: `organisation.tenant` and
+  `invoice.organisation` are `Restrict`, so the tenant must be dismantled
+  leaf-first rather than cascaded, and the teardown needs `runUnscoped` because
+  the scoping extension refuses tenant-scoped models with no request context
+  rather than guessing. `audit_log` rows need the documented
+  `SET LOCAL medichain.allow_audit_mutation = 'on'` — inside the same
+  transaction, so a partial teardown cannot leave rows for the next run.
 - Every function gets an explicit return type (eslint `explicit-function-return-type`).
 - Value objects over primitives for Money; schemes are **data**, not code.
 - Tests: `jest` unit specs in `test/unit/*.spec.ts`; `npm run test:unit`.
@@ -315,8 +439,9 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
     so schemes come from the database instead of callers.
   - [ ] **Admin scheme UI** (create/edit schemes) — deferred; engine + persistence
     are the money-path risk and land first.
-  - [ ] **Apply `20260926060000_scheme_persistence` to a real database and run
-    `test:all` + `check:coverage`** — never applied; no Docker daemon this pass.
+  - [x] **Apply `20260926060000_scheme_persistence` to a real database and run
+    `test:all` + `check:coverage`** — both done 2026-09-30: the migration applied
+    and seeded, `test:all` 539/539, `check:coverage` passed.
 - [x] **P2 — Pricing persistence & port** (application + infra)
   - `PriceList` (effective dating, `ACTIVE`/`DRAFT`/`ARCHIVED`), `PriceListLine`
     (per-product override price, quantity-tiered via `min_qty`), `CustomerPriceList`
@@ -355,21 +480,25 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
 - [x] **P6 — Payments** (gateway abstraction, fail-closed webhooks, idempotency)
   - Duplicate-webhook credits ledger once; invalid signature → 4xx, not 500.
 - [x] **P7 — Invoicing** (tax invoice, gapless numbering, CGST/SGST/IGST, HSN,
-  round-off) + 1,000-order reconcile-to-paisa test — landed and committed
-  (`9f35924`, `eec34fe`); unit suite 450/450, typecheck/lint/boundaries green.
+  round-off) + 1,000-order reconcile-to-paisa test + DB-backed verification —
+  complete except the deferred PDF.
   - [x] Pure domain + reconcile property test (the exit criterion, green).
-  - [x] Schema + migration `20260929000000_invoicing` (hand-written; `migrate
-    diff` needs a live shadow DB).
+  - [x] Schema + migration `20260929000000_invoicing` — now **applied to a real
+    database and seeded**, locally and in CI.
   - [x] Service (issue/list/get/cancel), controller/DTOs, scoping, module wiring.
   - [x] Contract regenerated (40 paths / 21 schemas) + typed client module.
-  - [ ] **Add DB-backed invoicing tests** (issue, gapless concurrency,
-    idempotent re-issue) and run them through `test:all` + `check:coverage` on
-    a developer machine — no database reachable this pass. The migration SQL
-    itself is proven sound: CI run 43's *Tests + coverage* applied
-    `20260929000000_invoicing` and passed the coverage gate with the new code.
+  - [x] **DB-backed tests**: `invoicing.integration-spec.ts` (26) and
+    `invoicing-numbering.concurrency-spec.ts` (7), green through `test:all`
+    (539/539) and `check:coverage`. Found and fixed the concurrent double-issue
+    and the replay total-scale defect; see the 2026-09-30 session log.
+  - [x] **Scheme migration applied** — `20260926060000_scheme_persistence` has now
+    run against a real database and been seeded. Owed since 2026-09-27.
   - [ ] **Invoice PDF rendering** — deferred; the invoice is structured data and
     the PDF is presentation, like the deferred admin scheme UI (belongs with
     P11 Admin UI or when fulfilment needs a printable).
+  - [ ] **`Product.gstRate` cannot express "rate not set"** — `NOT NULL DEFAULT 0`,
+    so a zero-rated line and an un-rated one invoice identically. Carried into the
+    Phase 3 plan; changing it is a schema decision, not a test fix.
 - [ ] **P8 — Prescriptions** (upload, pharmacist verification, schedule-based
   blocking — server-side enforcement for Schedule H1).
 - [ ] **P9 — Notifications** (push, in-app centre, channel preferences, template
@@ -385,11 +514,11 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
 |---|---|
 | P1 Pricing/Scheme engine | done — `Money` VO + `priceLines` pure fn with explanation trail; hand-picked + seeded property tests; typecheck/lint/unit green |
 | P2 Pricing persistence | done — `PriceList`/`PriceListLine`/`CustomerPriceList`/`CustomerPriceOverride` schema + migration; `PricingRepository` port + Prisma adapter; pure override resolver; `PricingService` feeding the engine; typecheck/lint/unit green |
-| P3 Scheme scoping/free-goods | engine + persistence done and committed; 3 engine defects found by the tests and fixed; admin UI deferred; **scheme migration never applied to a database** |
+| P3 Scheme scoping/free-goods | complete — engine + persistence; 3 engine defects found by the tests and fixed; **migration now applied and seeded**; admin UI deferred (a screen, not a money-path risk) |
 | P4 Stock ledger | done — `Quantity` VO, `Batch` types, immutable `StockLedger` with `Σ(entries) = on_hand` invariant, FEFO allocation; 24 tests green |
-| P5 Credit | done — Immutable `CreditLedger` with hold/release, `availableCredit = limit − consumed − held`; 17 tests green |
+| P5 Credit | done — immutable `CreditLedger` with hold/release, `availableCredit = limit − consumed − held`; 17 tests green |
 | P6 Payments | done — Payment state machine, idempotency keys, HMAC-SHA256 webhook verification; 22 tests green |
-| P7 Invoicing | done except DB verification + PDF (see above) — domain, service, API, contract, client; 450/450 unit |
+| P7 Invoicing | **done except the deferred PDF and the `gstRate` "not set" gap** — domain, service, API, contract, client, plus 26 integration + 7 concurrency tests; 2 real defects found by them and fixed (concurrent double-issue, replay total scale) |
 | P8 Prescriptions | pending |
 | P9 Notifications | pending |
 | P10 Outbox relay | pending (Phase 1 leftover) |
@@ -400,41 +529,26 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
 
 Next *development* task is **P8** — Prescriptions (upload, pharmacist
 verification, schedule-based blocking — server-side enforcement for Schedule
-H1, which is its exit criterion). P7's reconcile property test is green but
-three verification steps come before P8, because all three are claims this
-repository has already been caught making.
+H1, which is its exit criterion).
 
-### 1. Bring the database up and apply the scheme *and invoicing* migrations
+### 1. ~~Bring the database up and apply the migrations~~ — done 2026-09-30
 
-`20260926060000_scheme_persistence` **has never been applied *locally*** — it does apply
-in CI, where *Tests + coverage* passed on runs 34, 35 and 36, so the SQL is sound and
-every migration before it is too. What is missing is the check that can only happen on a
-developer's machine: the database-backed suites, the coverage gate, and the scheme
-adapter's `where` clause executed against a real database rather than a stub. The dev
-Postgres and Redis are Docker containers and no Docker daemon was running for the P3
-pass.
+Closed. The database-backed suites ran, `test:all` is 539/539 and the coverage
+gate passed. Two notes for whoever runs it next, since both cost time here:
 
-The same now holds for **`20260929000000_invoicing`** (`eec34fe`): the SQL is
-hand-written (no shadow DB was reachable for `migrate diff`), `prisma validate`
-passes, and the client was regenerated — but the migration has never run and
-the issue/cancel paths plus the gapless-numbering concurrency claim have no
-DB-backed test. Owed: an invoicing integration spec (issue from a real order,
-idempotent re-issue returns the same number, concurrent issues never duplicate)
-run through `test:all` + `check:coverage`.
-
-```
-docker compose up -d          # or however medichain-pg-dev / medichain-redis-dev were started
-npm run db:migrate
-npm run db:seed
-npm run test:all --workspace=@medichain/backend
-npm run check:coverage
-```
-
-`check:coverage` is the real gate — it measures **every** suite, so unit-only numbers do
-not satisfy it. Phase 1 lost most of a pass to exactly this omission
-(`00-project-status.md` §7); a migration that has not run is a claim.
+- **Use the compose file's ports only if you change `.env`.** `infra/docker/docker-compose.yml`
+  publishes 5432/6379; `backend/.env` points at 55432/56379, which is what
+  `medichain-pg-dev` / `medichain-redis-dev` publish. Bringing up the compose file
+  gives a database the tests cannot see, and the failure reads as "can't reach
+  database server" rather than as a port mismatch.
+- **`db:migrate` is `migrate deploy`, not `migrate dev`**, so it needs no shadow
+  database. That is why it could run at all, given no shadow DB was ever reachable.
 
 ### 2. Confirm CI is green — do not inherit it from this document
+
+**Still owed, and now the only thing standing between this pass and P8.** The 2026-09-30
+work has not been pushed yet, so no run exists for it. Check after pushing, per
+the instructions below.
 
 The `CORS_ORIGINS` fix is committed, pushed and **observed working**: run 36's *Start
 the API* step passed, so the API boots under `NODE_ENV=development` and every other job
@@ -459,14 +573,20 @@ and the second time this document asserted a state it had not observed. Check th
 
 ### Then P8
 
-P7 is not *fully* done: the invoice PDF and the DB-backed verification are still
-open. The PDF is deliberately deferred — the invoice is structured data and the
-PDF is presentation, like the admin scheme UI. It belongs with P11 (Admin UI)
-or when fulfilment needs a printable. P3 is likewise not fully done: the admin
-scheme UI is still open, deliberately deferred for the same reason — schemes
-are data an admin will manage, so until that screen exists the only way to
-create one is SQL. Recorded as gaps rather than tasks, because they are
-screens, not risks to the money path.
+P7 and P3 are complete as far as the money path goes. Three items stay open on
+purpose, and none of them is a correctness risk:
+
+- **Invoice PDF** — the invoice is structured data and the PDF is presentation.
+  Belongs with P11 (Admin UI) or when fulfilment needs a printable.
+- **Admin scheme UI** — schemes are data an admin will manage, so until that
+  screen exists the only way to create one is SQL. Same reasoning.
+- **`Product.gstRate` cannot express "rate not set"** (`NOT NULL DEFAULT 0`). A
+  zero-rated line and an un-rated one invoice identically, and 0% is a real GST
+  rate, so this belongs with Phase 3's invoicing work rather than being patched
+  here.
+
+Recorded as gaps rather than tasks because they are screens and one schema
+question — not risks to the numbers.
 
 ## Verification (per task)
 

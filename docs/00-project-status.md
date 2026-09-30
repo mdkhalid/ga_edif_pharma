@@ -1,19 +1,23 @@
 # 00 — Project Status
 
-> **Last updated:** 2026-09-27 · **Branch:** `main` (`c837d2b`, pushed) · **Phase in
-> flight:** Phase 2 — **P1–P3 landed and committed**: the pure pricing engine,
-> price-list persistence, and scheme scoping with order-level/combo/free-goods.
-> Three real engine defects were found by P3's own tests and fixed, including a
-> percentage combo that priced at zero and free goods that could drive a line total
-> negative. **The P3 scheme migration has never been applied to a local database** — no
-> Docker daemon this pass, so `test:all` and the coverage gate are unverified *here*
-> (both do pass in CI). Phase 1 stands as recorded below (§7) · **CI:** 🔴 **red on
-> `main` since run 31, for two stacked reasons.** The original blocker — `mobile-e2e`
-> could not boot the API, because it set no `CORS_ORIGINS` under `NODE_ENV=development`
-> — is **fixed and confirmed by run 36**. The job now fails one step later, at *Mobile
-> auth flow*, a suite that has never run in CI because the earlier step always blocked
-> it; undiagnosed, and it needs the job's API log artifact, which needs auth. This file
-> reported CI as green across all three commits that shipped red — see §5
+> **Last updated:** 2026-09-30 · **Branch:** `main` (working tree, uncommitted) ·
+> **Phase in flight:** Phase 2 — **P1–P7 complete except two deliberately deferred
+> screens** (invoice PDF, admin scheme UI). **The database is up locally for the first
+> time**: both migrations this file had carried as "never applied" are applied and
+> seeded, and the database-backed suites run — **`test:all` 539/539 across 39 suites,
+> coverage gate passed** (all ten critical files ≥96%, 53.18% statements). Phase 1
+> stands as recorded below (§7) · **CI:** 🔴 **red on `main` at run 43**, on the
+> pre-existing *Mobile auth flow* failure — still undiagnosed, and it needs the job's
+> API log artifact, which needs auth. The 2026-09-30 work is **not yet pushed**, so no
+> run exists for it. Check after pushing.
+
+**What the 2026-09-30 pass changed, in one line:** the two claims this file and
+`19-development-plan-phase2.md` had carried for three sessions — that the scheme and
+invoicing migrations were unapplied, and that issuing an invoice was idempotent — were
+both false, and checking them found **two real defects in invoicing**: five concurrent
+issues of one order produced five tax documents, and an idempotent replay returned
+`"236"` where the first response returned `"236.00"`. Both fixed; the second is why
+money now leaves services through `paisa()` rather than `Decimal.toString()`.
 
 A single-glance view of how much is actually built, what has been *verified* rather
 than merely written, and what is still open. Where this file and
@@ -27,7 +31,7 @@ than merely written, and what is still open. Where this file and
 |---|---|---|---|
 | **0** | Foundation | **Complete but for the `dev` deploy, which needs credentials** | ~98% |
 | 1 | Core Commerce MVP | **In flight — six of seven exit criteria met and verified against a real database and a real Redis; admin MFA landed end-to-end; remaining work is UI (wizard, admin screens, mobile storefront) plus the throughput run** | ~80% |
-| 2 | Commercial Engine | **In flight — P1 (engine), P2 (pricing persistence) and P3 (scheme scoping, order-level/combo, free-goods) landed and committed; the scheme migration has never been applied to a database. P4 (stock ledger) is next** | ~30% |
+| 2 | Commercial Engine | **In flight — P1–P7 landed (engine, pricing persistence, schemes, stock ledger, credit, payments, invoicing) and now verified against a real database: `test:all` 539/539, coverage gate passed. Two screens deliberately deferred. P8 (prescriptions) is next** | ~60% |
 | 3 | Fulfilment & Finance | Not started | 0% |
 | 4 | Scale & Mobile GA | Not started | 0% |
 | 5 | Intelligence | Not started | 0% |
@@ -148,21 +152,37 @@ Everything below was executed in this environment, not assumed.
 | **Mobile auth flow** | `npm run test:integration --workspace=@medichain/mobile` against a live API | **pass** — 7 cases: register → verify (a wrong code rejected first) → sign in → cold-start token rotation → sign out, plus the concurrent-401 single-flight guard and replay detection revoking a token family |
 | **MFA client slice** | Direct `tsc --noEmit` (admin, website, mobile, api-client), `eslint` (admin, website, mobile), `next build` (admin, website), backend unit `mfa totp` | **pass** — admin build lists `/api/auth/mfa/setup|confirm|login`; 323 unit tests incl. `mfa`/`totp`/`mfa-policy` |
 
-### Phase 2 (2026-09-27) — pricing engine
+### Phase 2 (2026-09-30) — through P7, with a real database
 
 | Check | Command | Result |
 |---|---|---|
 | Backend typecheck | `npm run typecheck --workspace=@medichain/backend` | pass (both configs) |
 | Backend lint | `npm run lint --workspace=@medichain/backend` | 0 errors, 21 warnings — the unchanged baseline |
-| Module boundaries | `npm run check:module-boundaries` | pass — 132 files |
-| Backend build | `npm run build --workspace=@medichain/backend` | pass |
-| **Unit suite** | `npm run test:unit --workspace=@medichain/backend` | **356/356 across 22 suites, three consecutive runs** |
+| Module boundaries | `npm run check:module-boundaries` | pass — 153 files |
+| **Unit suite** | `npm run test:unit --workspace=@medichain/backend` | **450/450 across 30 suites** |
 | Pricing engine | unit spec, hand-picked + seeded 2000-case property test | pass — 12 cases; 3 engine defects found and fixed (§5) |
-| Scheme adapter | unit spec against a stubbed client | 9 cases — the `where` clause it builds, and the row→domain mapping |
-| Prisma schema | `npx prisma validate` | valid |
-| Env validation (the CI fix) | `validateEnv` with the `mobile-e2e` job's exact env | reproduces the boot failure without `CORS_ORIGINS`; valid with it, `PORT` 3001 |
-| **Not run** | `test:all`, `check:coverage`, `db:migrate` | **no database reachable locally** — the dev Postgres and Redis are Docker containers and no daemon was running. Both do pass in CI |
-| **Not observed** | CI on `main` | runs 31–35 red at *Start the API*; run 36 passed that step and now fails at *Mobile auth flow* (§5) |
+| Invoice reconcile | unit spec, 1,000 generated orders against an independent oracle | pass — the P7 exit criterion, green |
+| **Migrations** | `npm run db:migrate` | **3 applied** — `pricing_persistence`, `scheme_persistence`, `invoicing`. The last two had never run anywhere until this pass |
+| **Seed** | `npm run db:seed` | pass — idempotent |
+| **Integration suite** | `npm run test:integration --workspace=@medichain/backend` | **55/55** — incl. `invoicing.integration-spec.ts`, 26 cases |
+| **Concurrency suite** | `npm run test:concurrency --workspace=@medichain/backend` | **11/11** — incl. `invoicing-numbering.concurrency-spec.ts`, 7 cases |
+| **Everything** | `npm run test:all --workspace=@medichain/backend` | **539/539 across 39 suites** |
+| **Coverage gate** | `npm run check:coverage` | **passed** — all ten critical files ≥96%; 53.18% statements / 39.29% branches / 50.32% functions / 53.66% lines |
+| **Not observed** | CI on `main` | **not pushed yet** — `main` was red at run 43 on *Mobile auth flow* (§5) |
+
+**Two defects the DB-backed suites found, both fixed.** Recorded here because the
+pattern is the point, not the bugs: the P7 unit suite was 450/450 and green, and the
+service's own comments claimed idempotent issuing and gapless numbering, and both
+claims were false.
+
+1. **Five concurrent issues of one order produced five invoices.** The
+   business-level idempotency was a `findFirst`-then-`insert`, which `READ COMMITTED`
+   does not make safe. Fixed by locking the order row `FOR UPDATE` before the
+   existence check.
+2. **The idempotent replay returned `"236"` where the first response returned
+   `"236.00"`.** `Decimal.toString()` drops trailing zeros, so the stored row and the
+   computed draft disagreed on scale. Fixed by routing every money field out of a
+   service through `paisa()`.
 
 > **These rows are local — and as of run 24, no longer only local.** Every one ran in
 > *this* sandbox, against throwaway PostgreSQL and Redis containers. The same suite and
@@ -217,7 +237,7 @@ something that matters:
 | # | Item | Why it matters | Where |
 |---|---|---|---|
 | 1 | **Diagnose the `mobile-e2e` failure at *Mobile auth flow*** | Run 36 passed *Start the API*, so `main`'s original blocker is fixed, and the job now fails at the mobile integration suite — which has never run in CI, because the earlier step always blocked it. The `mobile-e2e-api-log` artifact and the job logs both need an authenticated GitHub request, and reproducing locally needs a live API and database. **Do not guess from the step name**; the base URL already matches the API port, so that is ruled out | GitHub Actions → run 36 |
-| 2 | **Apply `20260926060000_scheme_persistence` to a real database** | The Phase 2 scheme migration has never been run locally, so scheme persistence is unexecuted and `test:all` / `check:coverage` are unverified *here*. It did apply in CI, where *Tests + coverage* passed on runs 34, 35 and 36 | `npm run db:migrate` |
+| 2 | ~~**Apply `20260926060000_scheme_persistence` to a real database**~~ — **closed 2026-09-30** | Applied and seeded alongside `20260929000000_invoicing`; `test:all` 539/539 and `check:coverage` passed. The DB-backed invoicing tests written alongside it found two real defects in P7 (concurrent double-issue, replay total scale), so this item was worth more than its one line suggested | — |
 | 3 | **Provision `DEV_DATABASE_URL` / `KUBE_CONFIG`** | Without them the deploy-to-`dev` job reports that it is skipped — the last open Phase 0 criterion. Confirmed as of this pass: there is no `dev` estate yet, so these are not *missing* credentials so much as *uncreated* ones. A dev Postgres and cluster have to exist before any secret can point at them | GitHub → Environments → `dev` |
 | 4 | **Set `LOAD_TEST_BASE_URL` / `LOAD_TEST_PASSWORD`** | Without them the weekly k6 job reports that it is skipped | GitHub → Secrets |
 | 5 | **Render the mobile app on a device** | The auth flow is now verified at runtime headlessly; only the UI layer has never been rendered, and a device is the only way to exercise the real Keychain | `npm run dev:mobile` |
