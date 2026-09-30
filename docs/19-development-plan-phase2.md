@@ -1,6 +1,6 @@
 # 19 — Development Plan (Phase 2 — Commercial Engine)
 
-> **Last updated:** 2026-09-30 · **Branch:** `main` (working tree, uncommitted) ·
+> **Last updated:** 2026-09-30 · **Branch:** `main` (`a311bae`, pushed) ·
 > **Status: P7 is now closed except the invoice PDF, which is deliberately
 > deferred. Resume at P8.**
 >
@@ -13,9 +13,11 @@
 > first response, and one of my own reconciliation assertions had the round-off
 > sign backwards. Details in the session log below.
 >
-> Still owed, and both are claims this file has made before: **CI has not been
-> observed for this push**, and `main` was red at run 43 on the pre-existing
-> mobile-e2e failure.
+> CI was checked twice this pass, which is the habit this file keeps needing: run 45
+> showed a *new* red — the dependency audit, broken by advisories published after
+> run 44 rather than by anything in this pass — fixed in `a311bae` and **not yet
+> observed green in CI**. `main` is red regardless, on the pre-existing mobile-e2e
+> failure.
 >
 > Working plan for Phase 2. Phase 1 backend is landed and verified; the remaining
 > Phase 1 UI (website storefront, onboarding wizard/upload, mobile) is tracked in
@@ -126,9 +128,33 @@
   suites** ✅ · **`check:coverage` passed** — all ten critical files ≥96%, global
   53.18% statements / 39.29% branches / 50.32% functions / 53.66% lines.
 
-  **Not verified, and it matters:** CI has not been observed for this push yet.
-  `main` was red at run 43 on the pre-existing mobile-e2e failure, undiagnosed for
-  want of the `api.log` artifact. Check the run after pushing.
+  **A third failure surfaced in CI, and it was not mine.** Run 45's *Security scans*
+  job went **red** — *Dependency audit*, `GHSA-qhr7-859c-m2p7` and
+  `GHSA-6j4f-fj2g-mc7p`, both high-severity uncontrolled-recursion DoS in
+  `brace-expansion`. Nothing in this pass touched a dependency: the last commit to
+  `package.json` was `e178fa7` on 2026-09-14. The advisories were *published* after
+  run 44, so a gate that had been green for a month turned red on its own. That is
+  the mirror image of the runs-31-to-42 story above and worth naming: a security
+  gate going red is not evidence the commit under review caused it, and the useful
+  move is to check *when* the finding appeared rather than to start auditing the
+  diff.
+
+  Fixed with `overrides` in `package.json` rather than `ACCEPTED` entries in
+  `check-audit.mjs`, because these have fixed releases and the allow-list exists
+  for advisories that have none. Scoped per major line
+  (`brace-expansion@1`/`@2`/`@5`) — a global pin to `1.1.21` also resolves and is
+  wrong: it forces `minimatch@10` and the Redocly chain, which need major 5, onto a
+  version they do not declare support for, and npm flags that tree invalid. Scoped,
+  it resolves with zero invalid edges. One mechanical note for next time: `npm
+  install` reports "up to date" and rewrites nothing when only an override changed;
+  `npm update brace-expansion` is what applies it.
+
+  Everything else on run 45 was green: *Lint + Typecheck + Boundaries* ✅, *Tests +
+  coverage* ✅, *Build* ✅. *Mobile auth (live API)* still fails at *Mobile auth
+  flow* — the pre-existing, undiagnosed one.
+
+  **Not verified, and it matters:** run 45 predates the dependency fix, so **the
+  audit has not been observed green in CI**. Check after pushing.
 
   **Resume next session at P8** (Prescriptions). The invoice PDF and the admin
   scheme UI stay deferred — both are screens, not money-path risks.
@@ -546,9 +572,16 @@ gate passed. Two notes for whoever runs it next, since both cost time here:
 
 ### 2. Confirm CI is green — do not inherit it from this document
 
-**Still owed, and now the only thing standing between this pass and P8.** The 2026-09-30
-work has not been pushed yet, so no run exists for it. Check after pushing, per
-the instructions below.
+**Still owed, and now the only thing standing between this pass and P8.** Two runs
+were checked and both were red, for two different reasons, neither of them the code
+under review:
+
+- **Run 45 — *Dependency audit***, on `brace-expansion` advisories published after
+  run 44. Fixed in `a311bae`, **not yet observed green**. Check the next run.
+- **Runs 36–45 — *Mobile auth flow***, the pre-existing failure below.
+
+Neither is a signal about P7. Both are a signal about not trusting a document —
+including this one — to describe the state of a pipeline.
 
 The `CORS_ORIGINS` fix is committed, pushed and **observed working**: run 36's *Start
 the API* step passed, so the API boots under `NODE_ENV=development` and every other job
