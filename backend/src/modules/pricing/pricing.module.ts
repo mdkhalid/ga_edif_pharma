@@ -1,11 +1,14 @@
 import { Module } from '@nestjs/common';
 
 import { DatabaseModule } from '../../database/database.module';
+import { AuditModule } from '../audit';
 import { PricingService } from './application/pricing.service';
+import { SchemeManagementService } from './application/scheme-management.service';
 import { PRICING_REPOSITORY } from './application/pricing.repository.port';
 import { SCHEME_REPOSITORY } from './application/scheme.repository.port';
 import { PrismaPricingRepository } from './infra/pricing.repository.prisma';
 import { PrismaSchemeRepository } from './infra/scheme.repository.prisma';
+import { SchemeController } from './api/scheme.controller';
 
 /**
  * Pricing bounded context.
@@ -18,12 +21,14 @@ import { PrismaSchemeRepository } from './infra/scheme.repository.prisma';
  * service is exported for those to consume.
  */
 @Module({
-  imports: [DatabaseModule],
+  imports: [DatabaseModule, AuditModule],
+  controllers: [SchemeController],
   providers: [
     PricingService,
+    SchemeManagementService,
     { provide: PRICING_REPOSITORY, useClass: PrismaPricingRepository },
     { provide: SCHEME_REPOSITORY, useClass: PrismaSchemeRepository },
   ],
-  exports: [PricingService],
+  exports: [PricingService, SchemeManagementService],
 })
 export class PricingModule {}

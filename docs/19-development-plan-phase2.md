@@ -628,12 +628,11 @@ purpose, and none of them is a correctness risk:
 
 - **Invoice PDF** — the invoice is structured data and the PDF is presentation.
   Belongs with P11 (Admin UI) or when fulfilment needs a printable.
-- **Admin scheme UI** — schemes are data an admin will manage, so until that
-  screen exists the only way to create one is SQL. Same reasoning.
-- **`Product.gstRate` cannot express "rate not set"** (`NOT NULL DEFAULT 0`). A
-  zero-rated line and an un-rated one invoice identically, and 0% is a real GST
-  rate, so this belongs with Phase 3's invoicing work rather than being patched
-  here.
+- **Admin scheme UI** — backend CRUD now shipped (`SchemeController` +
+  `SchemeManagementService`); the admin-portal screen itself is still owed.
+- **`Product.gstRate` can now express "rate not set"** — column is nullable, so
+  a zero-rated line (`0`) is distinguishable from an un-rated one (`null`), and
+  invoicing fails closed naming the missing field.
 
 Recorded as gaps rather than tasks because they are screens and one schema
 question — not risks to the numbers.
