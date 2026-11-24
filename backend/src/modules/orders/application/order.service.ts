@@ -17,6 +17,7 @@ import {
 } from '../../../common/exceptions/domain.exception';
 import { AuditService } from '../../audit';
 import { NotificationService } from '../../notifications';
+import { PrescriptionService } from '../../prescriptions';
 import type { ListOrdersQuery, PlaceOrderDto } from '../api/dto/order.dto';
 
 /**
@@ -47,6 +48,7 @@ export class OrderService {
     private readonly uow: UnitOfWork,
     private readonly audit: AuditService,
     private readonly notifications: NotificationService,
+    private readonly prescriptions: PrescriptionService,
   ) {}
 
   async place(
@@ -65,7 +67,7 @@ export class OrderService {
         include: {
           items: {
             include: {
-              product: { select: { id: true, name: true, status: true, price: true } },
+              product: { select: { id: true, name: true, status: true, price: true, schedule: true } },
             },
           },
         },
@@ -95,7 +97,22 @@ export class OrderService {
         );
       }
 
-      let total = new Prisma.Decimal(0);
+      // Schedule gate: a cart containing a scheduled (H/H1/X) medicine requires a
+      // verified, in-date prescription. Enforced server-side.
+       const needsPrescription = cart.items.some((item) =>
+         ['H', 'H1', 'X', 'NARCOTIC'].includes((item.product.schedule ?? '').toUpperCase()),
+       );
+       const prescriptionId: string | null = dto.prescriptionId ?? null;
+       if (needsPrescription) {
+         if (!prescriptionId) {
+           throw new BusinessRuleViolationError(
+             'This order contains scheduled medicines and requires a verified prescription.',
+           );
+         }
+         await this.prescriptions.assertUsableForOrder(tenantId, organisationId, prescriptionId);
+       }
+
+       let total = new Prisma.Decimal(0);
       const lines: Array<{ productId: string; quantity: Prisma.Decimal; price: Prisma.Decimal }> = [];
 
       for (const item of cart.items) {
@@ -122,6 +139,7 @@ export class OrderService {
           currency: 'INR',
           deliveryAddress: dto.deliveryAddress ?? null,
           notes: dto.notes ?? null,
+          prescriptionId: prescriptionId,
         },
         select: { id: true },
       });
@@ -163,6 +181,10 @@ export class OrderService {
         actorId,
         metadata: { lines: lines.length, total: total.toString() },
       });
+
+      if (prescriptionId) {
+        await this.prescriptions.incrementDispensing(tenantId, prescriptionId);
+      }
 
       return { id: order.id, total: total.toString(), lines: lines.length };
     });

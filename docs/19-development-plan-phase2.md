@@ -524,8 +524,14 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
   - [ ] **`Product.gstRate` cannot express "rate not set"** — `NOT NULL DEFAULT 0`,
     so a zero-rated line and an un-rated one invoice identically. Carried into the
     Phase 3 plan; changing it is a schema decision, not a test fix.
-- [ ] **P8 — Prescriptions** (upload, pharmacist verification, schedule-based
-  blocking — server-side enforcement for Schedule H1).
+- [x] **P8 — Prescriptions** (upload metadata + store, pharmacist verification
+  workflow, schedule-based order blocking — server-side enforcement for
+  Schedule H1). Delivered 2026-11-24: domain types/rules, `Prescription` model +
+  migration, `PrescriptionService` (create/verify/reject/list/get +
+  `assertUsableForOrder`), controller, tenant scoping, order-side gate in
+  `OrderService.place`, dispensing counter. Tests: 8 domain unit + 3 integration
+  (blocks no-rx, blocks pending, allows verified + links). File storage (S3/MinIO)
+  and reuse caps remain Phase 3 scope; `maxDispensings` field is in place.
 - [ ] **P9 — Notifications** (push, in-app centre, channel preferences, template
   UI) — partly Phase 1; durable retry depends on the outbox relay.
 - [ ] **P10 — Outbox relay** (durable notification retry) — Phase 1 leftover,
@@ -544,7 +550,7 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
 | P5 Credit | done — immutable `CreditLedger` with hold/release, `availableCredit = limit − consumed − held`; 17 tests green |
 | P6 Payments | done — Payment state machine, idempotency keys, HMAC-SHA256 webhook verification; 22 tests green |
 | P7 Invoicing | **done except the deferred PDF and the `gstRate` "not set" gap** — domain, service, API, contract, client, plus 26 integration + 7 concurrency tests; 2 real defects found by them and fixed (concurrent double-issue, replay total scale) |
-| P8 Prescriptions | pending |
+| P8 Prescriptions | done — domain, schema + migration, service, controller, tenant scoping, order-side gate, dispensing counter; 8 unit + 3 integration tests green. File storage + reuse caps remain Phase 3 |
 | P9 Notifications | pending |
 | P10 Outbox relay | pending (Phase 1 leftover) |
 | P11 Admin UI | pending |
@@ -552,9 +558,11 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
 
 ## Resume point
 
-Next *development* task is **P8** — Prescriptions (upload, pharmacist
-verification, schedule-based blocking — server-side enforcement for Schedule
-H1, which is its exit criterion).
+P8 (Prescriptions) is delivered — see the 2026-11-24 entry above. Next
+*development* task is **P9 — Notifications** (push, in-app centre, channel
+preferences, template UI) — partly Phase 1; durable retry depends on the
+outbox relay (P10). Alternatively, the deferred screens (invoice PDF, admin
+scheme UI) and the `Product.gstRate` "not set" gap can be closed first.
 
 ### 1. ~~Bring the database up and apply the migrations~~ — done 2026-09-30
 

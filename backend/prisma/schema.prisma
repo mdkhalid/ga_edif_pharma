@@ -98,6 +98,7 @@ model Tenant {
   invoices      Invoice[]
   invoiceLines  InvoiceLine[]
   invoiceSequences InvoiceSequence[]
+  prescriptions Prescription[]
 
   @@map("tenant")
 }
@@ -149,6 +150,7 @@ model Organisation {
   carts Cart[]
   customerOrders CustomerOrder[]
   invoices Invoice[]
+  prescriptions Prescription[]
 
   @@unique([tenantId, gstin])
   @@index([tenantId, status])
@@ -775,10 +777,12 @@ model CustomerOrder {
   scheduledAt     DateTime? @map("scheduled_at") @db.Timestamptz(6)
   cancelledAt     DateTime? @map("cancelled_at") @db.Timestamptz(6)
   cancelledReason String?   @map("cancelled_reason") @db.VarChar(200)
+  prescriptionId  String?   @map("prescription_id") @db.Uuid
 
   orderItems OrderItem[]
   statusHistory OrderStatusHistory[]
   invoices Invoice[]
+  prescription Prescription? @relation(fields: [prescriptionId], references: [id], onDelete: SetNull)
 
   tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
@@ -789,6 +793,44 @@ model CustomerOrder {
   @@index([tenantId, status])
   @@index([tenantId, createdAt])
   @@map("customer_order")
+}
+
+/// A prescription presented by a buyer to purchase scheduled (H/H1/X) medicines.
+///
+/// Lifecycle: PENDING_VERIFICATION → VERIFIED | REJECTED. A verified prescription
+/// whose validity window has lapsed is treated as EXPIRED at read time (the stored
+/// status is never rewritten by the clock, so the audit trail stays stable).
+/// Selling a schedule H/H1/X drug without a VERIFIED, in-date prescription is
+/// blocked server-side in OrderService.place.
+model Prescription {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId          String   @map("tenant_id") @db.Uuid
+  organisationId    String   @map("organisation_id") @db.Uuid
+  patientRef        String?  @map("patient_ref") @db.VarChar(200)
+  doctorName        String?  @map("doctor_name") @db.VarChar(200)
+  referenceNumber   String?  @map("reference_number") @db.VarChar(100)
+  validFrom         DateTime @default(now()) @map("valid_from") @db.Timestamptz(6)
+  validTo           DateTime? @map("valid_to") @db.Timestamptz(6)
+  status            String   @default("PENDING_VERIFICATION") @db.VarChar(30)
+  attachmentKey     String?  @map("attachment_key") @db.VarChar(500)
+  attachmentMimeType String? @map("attachment_mime_type") @db.VarChar(100)
+  verifiedBy        String?  @map("verified_by") @db.Uuid
+  verifiedAt        DateTime? @map("verified_at") @db.Timestamptz(6)
+  rejectionReason   String?  @map("rejection_reason") @db.VarChar(500)
+  dispensingCount   Int      @default(0) @map("dispensing_count")
+  maxDispensings    Int      @default(0) @map("max_dispensings")
+
+  orders CustomerOrder[]
+
+  tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  organisation   Organisation   @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([tenantId, organisationId])
+  @@index([tenantId, status])
+  @@map("prescription")
 }
 
 /// An order item line. Price is snapshot at order time.

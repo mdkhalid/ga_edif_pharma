@@ -57,6 +57,7 @@ import { UnitOfWork } from '../database/unit-of-work';
 import { AuditService } from '../modules/audit';
 import { NotificationService } from '../modules/notifications';
 import { OrderService } from '../modules/orders';
+import { PrescriptionService, PrescriptionRepositoryPrisma } from '../modules/prescriptions';
 
 const TARGET_RPS = Number(process.env['LOAD_RPS'] ?? 200);
 const DURATION_SECONDS = Number(process.env['LOAD_DURATION'] ?? 10);
@@ -143,11 +144,16 @@ async function main(): Promise<void> {
       }),
     }),
   );
+  const prescriptions = new PrescriptionService(
+    new AuditService(prisma),
+    new PrescriptionRepositoryPrisma(prisma),
+  );
   const orders = new OrderService(
     prisma,
     new UnitOfWork(prisma),
     new AuditService(prisma),
     new NotificationService(SILENT_PORT),
+    prescriptions,
   );
 
   const tenant = await requestContext.runUnscoped(

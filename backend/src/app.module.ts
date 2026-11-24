@@ -30,6 +30,7 @@ import { InvoicingModule } from './modules/invoicing';
 import { NotificationsModule } from './modules/notifications';
 import { OnboardingModule } from './modules/onboarding-kyc';
 import { OrdersModule } from './modules/orders';
+import { PrescriptionsModule } from './modules/prescriptions';
 import { PricingModule } from './modules/pricing';
 import { SaltEngineModule } from './modules/salt-engine';
 import { SearchModule } from './modules/search';
@@ -98,6 +99,7 @@ import { SearchModule } from './modules/search';
     PricingModule,
     CartModule,
     OrdersModule,
+    PrescriptionsModule,
     InvoicingModule,
   ],
   providers: [

@@ -5,6 +5,7 @@ import { AuditService } from '../../src/modules/audit/application/audit.service'
 import { InvoicingService } from '../../src/modules/invoicing/application/invoicing.service';
 import { NotificationService } from '../../src/modules/notifications/application/notification.service';
 import { OrderService } from '../../src/modules/orders/application/order.service';
+import { PrescriptionService, PrescriptionRepositoryPrisma } from '../../src/modules/prescriptions';
 
 /**
  * Builds application services against a real database, outside Nest.
@@ -35,11 +36,16 @@ export function buildOrderServiceWithPort(
   prisma: ExtendedPrismaClient,
   port: NotificationPort,
 ): OrderService {
+  const prescriptions = new PrescriptionService(
+    new AuditService(prisma),
+    new PrescriptionRepositoryPrisma(prisma),
+  );
   return new OrderService(
     prisma,
     new UnitOfWork(prisma),
     new AuditService(prisma),
     new NotificationService(port),
+    prescriptions,
   );
 }
 

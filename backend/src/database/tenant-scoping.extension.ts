@@ -70,6 +70,8 @@ export const TENANT_SCOPED_MODELS = [
   'Invoice',
   'InvoiceLine',
   'InvoiceSequence',
+  // Phase 2 prescriptions (P8).
+  'Prescription',
 ] as const;
 
 /**
