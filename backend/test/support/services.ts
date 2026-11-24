@@ -5,6 +5,7 @@ import { AuditService } from '../../src/modules/audit/application/audit.service'
 import { InvoicingService } from '../../src/modules/invoicing/application/invoicing.service';
 import { NotificationService } from '../../src/modules/notifications/application/notification.service';
 import { OrderService } from '../../src/modules/orders/application/order.service';
+import { OutboxService } from '../../src/modules/outbox';
 import { PrescriptionService, PrescriptionRepositoryPrisma } from '../../src/modules/prescriptions';
 
 /**
@@ -40,11 +41,13 @@ export function buildOrderServiceWithPort(
     new AuditService(prisma),
     new PrescriptionRepositoryPrisma(prisma),
   );
+  const notifications = new NotificationService(port);
+  const outbox = new OutboxService(prisma, new UnitOfWork(prisma), notifications);
   return new OrderService(
     prisma,
     new UnitOfWork(prisma),
     new AuditService(prisma),
-    new NotificationService(port),
+    outbox,
     prescriptions,
   );
 }

@@ -57,6 +57,7 @@ import { UnitOfWork } from '../database/unit-of-work';
 import { AuditService } from '../modules/audit';
 import { NotificationService } from '../modules/notifications';
 import { OrderService } from '../modules/orders';
+import { OutboxService } from '../modules/outbox';
 import { PrescriptionService, PrescriptionRepositoryPrisma } from '../modules/prescriptions';
 
 const TARGET_RPS = Number(process.env['LOAD_RPS'] ?? 200);
@@ -148,11 +149,13 @@ async function main(): Promise<void> {
     new AuditService(prisma),
     new PrescriptionRepositoryPrisma(prisma),
   );
+  const notifications = new NotificationService(SILENT_PORT);
+  const outbox = new OutboxService(prisma, new UnitOfWork(prisma), notifications);
   const orders = new OrderService(
     prisma,
     new UnitOfWork(prisma),
     new AuditService(prisma),
-    new NotificationService(SILENT_PORT),
+    outbox,
     prescriptions,
   );
 

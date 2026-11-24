@@ -16,7 +16,7 @@ import {
   NotFoundError,
 } from '../../../common/exceptions/domain.exception';
 import { AuditService } from '../../audit';
-import { NotificationService } from '../../notifications';
+import { OutboxService } from '../../outbox';
 import { PrescriptionService } from '../../prescriptions';
 import type { ListOrdersQuery, PlaceOrderDto } from '../api/dto/order.dto';
 
@@ -47,7 +47,7 @@ export class OrderService {
     @Inject(PRISMA_EXTENDED) private readonly prisma: ExtendedPrismaClient,
     private readonly uow: UnitOfWork,
     private readonly audit: AuditService,
-    private readonly notifications: NotificationService,
+    private readonly outbox: OutboxService,
     private readonly prescriptions: PrescriptionService,
   ) {}
 
@@ -186,29 +186,37 @@ export class OrderService {
         await this.prescriptions.incrementDispensing(tenantId, prescriptionId);
       }
 
+      // Durable notification: record the intent inside the same transaction as
+      // the order, so it is published iff the order committed. The relay
+      // delivers it with retry; an immediate pass after commit keeps latency low.
+      const [org, tenant] = await Promise.all([
+        tx.organisation.findFirst({ where: { id: organisationId }, select: { email: true, phone: true } }),
+        tx.tenant.findFirst({ where: { id: tenantId }, select: { name: true } }),
+      ]);
+      await this.outbox.enqueue(tx, {
+        tenantId,
+        eventType: 'order.placed',
+        aggregateType: 'CustomerOrder',
+        aggregateId: order.id,
+        payload: {
+          orderId: order.id,
+          total: total.toString(),
+          currency: 'INR',
+          itemCount: lines.length,
+          tenantName: tenant?.name ?? 'MediChain',
+          email: org?.email ?? null,
+          phone: org?.phone ?? null,
+        },
+        deduplicationKey: `order.placed:${order.id}`,
+      });
+
       return { id: order.id, total: total.toString(), lines: lines.length };
     });
 
-    const [org, tenant] = await Promise.all([
-      this.prisma.organisation.findFirst({
-        where: { id: organisationId },
-        select: { email: true, phone: true },
-      }),
-      this.prisma.tenant.findFirst({
-        where: { id: tenantId },
-        select: { name: true },
-      }),
-    ]);
-
-    await this.notifications.sendOrderPlaced({
-      orderId: placed.id,
-      total: placed.total,
-      currency: 'INR',
-      itemCount: placed.lines,
-      tenantName: tenant?.name ?? 'MediChain',
-      email: org?.email ?? null,
-      phone: org?.phone ?? null,
-    });
+    // Deliver promptly: the relay pass runs after commit so the buyer gets
+    // their notice without waiting for the polling loop, while the outbox row
+    // guarantees durability if this process dies mid-flight.
+    await this.outbox.processBatch();
 
     return { id: placed.id, total: placed.total };
   }

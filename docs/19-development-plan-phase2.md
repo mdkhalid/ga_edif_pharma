@@ -534,8 +534,12 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
   and reuse caps remain Phase 3 scope; `maxDispensings` field is in place.
 - [ ] **P9 — Notifications** (push, in-app centre, channel preferences, template
   UI) — partly Phase 1; durable retry depends on the outbox relay.
-- [ ] **P10 — Outbox relay** (durable notification retry) — Phase 1 leftover,
-  prerequisite for notification trust; currently best-effort.
+- [x] **P10 — Outbox relay** (durable notification retry) — delivered
+  2026-11-24: `OutboxService` (enqueue in-tx, claim with `FOR UPDATE SKIP LOCKED`,
+  dispatch, retry with exponential backoff, dead-letter), polling relay, and
+  `OrderService.place` now records `order.placed` in the outbox instead of
+  notifying best-effort. `NotificationService` gained `sendOrderPlacedStrict`
+  so the relay can detect failures. 2 integration tests green.
 - [ ] **P11 — Admin UI** (pricing, scheme, stock, credit, invoice viewers).
 - [ ] **P12 — Mobile** (push, barcode scan, reorder, prescription upload).
 
@@ -552,17 +556,17 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
 | P7 Invoicing | **done except the deferred PDF and the `gstRate` "not set" gap** — domain, service, API, contract, client, plus 26 integration + 7 concurrency tests; 2 real defects found by them and fixed (concurrent double-issue, replay total scale) |
 | P8 Prescriptions | done — domain, schema + migration, service, controller, tenant scoping, order-side gate, dispensing counter; 8 unit + 3 integration tests green. File storage + reuse caps remain Phase 3 |
 | P9 Notifications | pending |
-| P10 Outbox relay | pending (Phase 1 leftover) |
+| P10 Outbox relay | done — enqueue, SKIP LOCKED claim, dispatch, retry/backoff, dead-letter; order.placed durable. 2 integration tests green |
 | P11 Admin UI | pending |
 | P12 Mobile | pending |
 
 ## Resume point
 
-P8 (Prescriptions) is delivered — see the 2026-11-24 entry above. Next
-*development* task is **P9 — Notifications** (push, in-app centre, channel
-preferences, template UI) — partly Phase 1; durable retry depends on the
-outbox relay (P10). Alternatively, the deferred screens (invoice PDF, admin
-scheme UI) and the `Product.gstRate` "not set" gap can be closed first.
+P8 (Prescriptions) and P10 (Outbox relay) are delivered. Next *development*
+task is **P9 — Notifications** (push, in-app centre, channel preferences,
+template UI) — partly Phase 1; durable retry now exists via the outbox.
+Alternatively, the deferred screens (invoice PDF, admin scheme UI) and the
+`Product.gstRate` "not set" gap can be closed first.
 
 ### 1. ~~Bring the database up and apply the migrations~~ — done 2026-09-30
 

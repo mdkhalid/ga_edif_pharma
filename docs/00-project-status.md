@@ -33,7 +33,7 @@ than merely written, and what is still open. Where this file and
 |---|---|---|---|
 | **0** | Foundation | **Complete but for the `dev` deploy, which needs credentials** | ~98% |
 | 1 | Core Commerce MVP | **In flight — six of seven exit criteria met and verified against a real database and a real Redis; admin MFA landed end-to-end; remaining work is UI (wizard, admin screens, mobile storefront) plus the throughput run** | ~80% |
-| 2 | Commercial Engine | **In flight — P1–P8 landed (engine, pricing persistence, schemes, stock ledger, credit, payments, invoicing, prescriptions) and now verified against a real database: `test:all` 550/550, coverage gate passed. Two screens deliberately deferred. P9 (notifications) is next** | ~65% |
+| 2 | Commercial Engine | **In flight — P1–P8, P10 landed (engine, pricing, schemes, stock ledger, credit, payments, invoicing, prescriptions, outbox relay) and verified against a real database: `test:all` 552/552, coverage gate passed. Two screens deliberately deferred. P9 (notifications) is next** | ~68% |
 | 3 | Fulfilment & Finance | Not started | 0% |
 | 4 | Scale & Mobile GA | Not started | 0% |
 | 5 | Intelligence | Not started | 0% |

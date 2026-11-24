@@ -29,6 +29,7 @@ import { IamModule } from './modules/iam';
 import { InvoicingModule } from './modules/invoicing';
 import { NotificationsModule } from './modules/notifications';
 import { OnboardingModule } from './modules/onboarding-kyc';
+import { OutboxModule } from './modules/outbox';
 import { OrdersModule } from './modules/orders';
 import { PrescriptionsModule } from './modules/prescriptions';
 import { PricingModule } from './modules/pricing';
@@ -89,6 +90,7 @@ import { SearchModule } from './modules/search';
     // Cross-cutting feature modules.
     AuditModule,
     NotificationsModule,
+    OutboxModule,
     // HTTP-facing modules.
     HealthModule,
     IamModule,

@@ -30,24 +30,41 @@ export class NotificationService {
     email: string | null;
     phone: string | null;
   }): Promise<void> {
-    const template = renderOrderPlaced(input);
     try {
-      await this.port.sendOrderPlaced({
-        orderId: input.orderId,
-        total: input.total,
-        currency: input.currency,
-        itemCount: input.itemCount,
-        emailSubject: template.emailSubject,
-        emailBody: template.emailBody,
-        smsBody: template.smsBody,
-        email: input.email,
-        phone: input.phone,
-      });
+      await this.sendOrderPlacedStrict(input);
     } catch (error) {
       this.logger.warn(
-        `Order-placed notice for order ${input.orderId} failed and will not be retried yet: ` +
+        `Order-placed notice for order ${input.orderId} failed; the outbox relay will retry: ` +
           `${error instanceof Error ? error.message : 'unknown error'}`,
       );
     }
+  }
+
+  /**
+   * Same as `sendOrderPlaced` but lets transport errors propagate, so the
+   * outbox relay can detect a failed delivery and retry it. Direct callers that
+   * must not fail the business operation should use `sendOrderPlaced`.
+   */
+  async sendOrderPlacedStrict(input: {
+    orderId: string;
+    total: string;
+    currency: string;
+    itemCount: number;
+    tenantName: string;
+    email: string | null;
+    phone: string | null;
+  }): Promise<void> {
+    const template = renderOrderPlaced(input);
+    await this.port.sendOrderPlaced({
+      orderId: input.orderId,
+      total: input.total,
+      currency: input.currency,
+      itemCount: input.itemCount,
+      emailSubject: template.emailSubject,
+      emailBody: template.emailBody,
+      smsBody: template.smsBody,
+      email: input.email,
+      phone: input.phone,
+    });
   }
 }
