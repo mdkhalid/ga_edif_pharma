@@ -10,8 +10,11 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { Capability, type AuthenticatedPrincipal } from '@medichain/shared-types';
-
+import {
+  Capability,
+  type AuthenticatedPrincipal,
+  type NotificationTemplateSummary,
+} from '@medichain/shared-types';
 import {
   CurrentTenant,
   CurrentUser,
@@ -41,7 +44,7 @@ export class NotificationTemplateController {
   @ApiOperation({ summary: 'List notification templates' })
   async list(
     @CurrentTenant() tenantId: string,
-  ): Promise<{ data: unknown[] }> {
+  ): Promise<{ data: NotificationTemplateSummary[] }> {
     return { data: await this.templates.list(tenantId) };
   }
 

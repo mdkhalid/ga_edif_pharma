@@ -48,6 +48,13 @@ describe('scheme management (integration)', () => {
 
     const list = await asTenantUser(tenantId, async () => schemes.list(tenantId, {}));
     expect(list.data.length).toBeGreaterThanOrEqual(1);
+    const listed = list.data.find((row) => row.id === created.id);
+    expect(listed?.name).toBe('10% off');
+    // The admin portal consumes this shape: decimals are numbers and dates are
+    // ISO strings, never Prisma Decimal/Date objects.
+    expect(typeof listed?.validFrom).toBe('string');
+    expect(listed?.percentOff).toBe(10);
+    expect(listed?.flatOff).toBeNull();
 
     const got = await asTenantUser(tenantId, async () => schemes.getById(tenantId, created.id));
     expect((got as { name: string }).name).toBe('10% off');

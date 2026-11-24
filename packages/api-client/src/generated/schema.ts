@@ -24,6 +24,144 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List in-app notifications for the current user */
+        get: operations["notificationCentreList"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notifications/{id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Mark a notification as read */
+        patch: operations["notificationCentreMarkRead"];
+        trace?: never;
+    };
+    "/notifications/read-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark all notifications as read */
+        post: operations["notificationCentreMarkAllRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notifications/push-tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Register a device push token */
+        post: operations["notificationCentreRegisterPushToken"];
+        /** Unregister a device push token */
+        delete: operations["notificationCentreUnregisterPushToken"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notifications/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the channels enabled for the current user */
+        get: operations["notificationPreferenceList"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notifications/preferences/{channel}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Enable or disable a channel for the current user */
+        patch: operations["notificationPreferenceSetChannel"];
+        trace?: never;
+    };
+    "/notifications/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List notification templates */
+        get: operations["notificationTemplateList"];
+        /** Create or replace a notification template */
+        put: operations["notificationTemplateUpsert"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notifications/templates/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a notification template */
+        delete: operations["notificationTemplateRemove"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health/live": {
         parameters: {
             query?: never;
@@ -506,6 +644,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/schemes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List schemes */
+        get: operations["schemeList"];
+        put?: never;
+        /** Create a scheme */
+        post: operations["schemeCreate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/schemes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a scheme by id */
+        get: operations["schemeGetById"];
+        put?: never;
+        post?: never;
+        /** Archive (deactivate) a scheme */
+        delete: operations["schemeArchive"];
+        options?: never;
+        head?: never;
+        /** Update a scheme */
+        patch: operations["schemeUpdate"];
+        trace?: never;
+    };
     "/cart": {
         parameters: {
             query?: never;
@@ -678,6 +853,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/prescriptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List prescriptions (own organisation, or all for staff) */
+        get: operations["prescriptionList"];
+        put?: never;
+        /** Create (upload metadata for) a prescription */
+        post: operations["prescriptionCreate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/prescriptions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a prescription by id */
+        get: operations["prescriptionGetById"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/prescriptions/{id}/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Verify (approve/reject) a prescription */
+        post: operations["prescriptionVerify"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/invoices/issue": {
         parameters: {
             query?: never;
@@ -750,6 +977,29 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        RegisterPushTokenDto: {
+            /** @description Provider-issued device token */
+            token: string;
+            /** @enum {string} */
+            platform: "ios" | "android" | "web";
+            /** @description Transport the token belongs to. Defaults to the configured provider. */
+            provider?: string;
+        };
+        UnregisterPushTokenDto: {
+            /** @description Provider-issued device token */
+            token: string;
+        };
+        SetChannelPreferenceDto: {
+            /** @description Whether the channel should deliver to this user */
+            enabled: boolean;
+        };
+        UpsertNotificationTemplateDto: {
+            name: string;
+            /** @enum {string} */
+            channel: "IN_APP" | "EMAIL" | "SMS" | "PUSH";
+            subject?: string;
+            body: string;
+        };
         RegisterDto: {
             /**
              * @description Email address. Either this or `phone` is required.
@@ -909,6 +1159,8 @@ export interface components {
             schedule: "OTC" | "H" | "H1" | "X" | "NARCOTIC";
             /** @example 30049099 */
             hsnCode?: string;
+            /** @example 12.5 */
+            gstRate?: number;
             /** @example 650mg */
             strength?: string;
             /** @example 15 */
@@ -931,8 +1183,44 @@ export interface components {
             name?: string;
             /** @example 45 */
             price?: number;
+            /** @example 12.5 */
+            gstRate?: number;
             /** @enum {string} */
             status?: "ACTIVE" | "INACTIVE" | "ARCHIVED";
+        };
+        CreateSchemeDto: {
+            name: string;
+            /** @enum {string} */
+            kind: "PERCENTAGE" | "FLAT" | "FREE_GOODS" | "COMBO";
+            /** Format: uuid */
+            productId?: string | null;
+            /** Format: uuid */
+            categoryId?: string | null;
+            percentOff?: number | null;
+            flatOff?: number | null;
+            minQty?: number | null;
+            buyQty?: number | null;
+            freeQty?: number | null;
+            comboProductIds?: string[];
+            validFrom: string;
+            validTo: string;
+            stackable?: boolean;
+            priority?: number;
+        };
+        UpdateSchemeDto: {
+            name?: string;
+            /** @enum {string} */
+            status?: "ACTIVE" | "INACTIVE";
+            percentOff?: number | null;
+            flatOff?: number | null;
+            minQty?: number | null;
+            buyQty?: number | null;
+            freeQty?: number | null;
+            comboProductIds?: string[];
+            validFrom?: string;
+            validTo?: string;
+            stackable?: boolean;
+            priority?: number;
         };
         AddItemDto: {
             /** @example 3fa85f64-5717-4562-b3fc-2c963f66afa6 */
@@ -949,10 +1237,38 @@ export interface components {
             deliveryAddress?: string;
             /** @example Call before delivery */
             notes?: string;
+            /** @example prescription-uuid */
+            prescriptionId?: string;
         };
         TransitionDto: {
             /** @example Verified over phone. */
             reason?: string;
+        };
+        CreatePrescriptionDto: {
+            /** @example org-uuid */
+            organisationId: string;
+            /** @example John Doe */
+            patientRef?: Record<string, never>;
+            /** @example Dr. Smith */
+            doctorName?: Record<string, never>;
+            /** @example RX-12345 */
+            referenceNumber?: Record<string, never>;
+            /** @example 2026-01-01T00:00:00Z */
+            validFrom?: Record<string, never>;
+            /** @example 2026-12-31T23:59:59Z */
+            validTo?: Record<string, never>;
+            /** @example s3://bucket/key */
+            attachmentKey?: Record<string, never>;
+            /** @example image/jpeg */
+            attachmentMimeType?: Record<string, never>;
+            /** @example 0 */
+            maxDispensings?: number;
+        };
+        VerifyPrescriptionDto: {
+            /** @enum {string} */
+            decision: "APPROVE" | "REJECT";
+            /** @example Illegible handwriting */
+            reason?: Record<string, never>;
         };
         IssueInvoiceDto: {
             /** @example 3f3c8c4e-9f2a-4b6d-8e1f-2a3b4c5d6e7f */
@@ -987,6 +1303,202 @@ export interface operations {
         responses: {
             /** @description Prometheus text exposition format. */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    notificationCentreList: {
+        parameters: {
+            query?: {
+                unreadOnly?: boolean;
+                page?: number;
+                pageSize?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    notificationCentreMarkRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    notificationCentreMarkAllRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    notificationCentreRegisterPushToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterPushTokenDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    notificationCentreUnregisterPushToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnregisterPushTokenDto"];
+            };
+        };
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    notificationPreferenceList: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    notificationPreferenceSetChannel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channel: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetChannelPreferenceDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    notificationTemplateList: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    notificationTemplateUpsert: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertNotificationTemplateDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    notificationTemplateRemove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1752,6 +2264,110 @@ export interface operations {
             };
         };
     };
+    schemeList: {
+        parameters: {
+            query?: {
+                status?: string;
+                kind?: string;
+                page?: number;
+                pageSize?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    schemeCreate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSchemeDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    schemeGetById: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    schemeArchive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    schemeUpdate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSchemeDto"];
+            };
+        };
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     cartGet: {
         parameters: {
             query?: never;
@@ -2010,6 +2626,91 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["TransitionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    prescriptionList: {
+        parameters: {
+            query?: {
+                organisationId?: string;
+                status?: string;
+                page?: number;
+                pageSize?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    prescriptionCreate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePrescriptionDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    prescriptionGetById: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    prescriptionVerify: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerifyPrescriptionDto"];
             };
         };
         responses: {

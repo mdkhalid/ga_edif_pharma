@@ -2645,25 +2645,34 @@
             ]
           },
           "productId": {
-            "type": "object"
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
           },
           "categoryId": {
-            "type": "object"
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
           },
           "percentOff": {
-            "type": "object"
+            "type": "number",
+            "nullable": true
           },
           "flatOff": {
-            "type": "object"
+            "type": "number",
+            "nullable": true
           },
           "minQty": {
-            "type": "object"
+            "type": "number",
+            "nullable": true
           },
           "buyQty": {
-            "type": "object"
+            "type": "number",
+            "nullable": true
           },
           "freeQty": {
-            "type": "object"
+            "type": "number",
+            "nullable": true
           },
           "comboProductIds": {
             "type": "array",
@@ -2705,19 +2714,24 @@
             ]
           },
           "percentOff": {
-            "type": "object"
+            "type": "number",
+            "nullable": true
           },
           "flatOff": {
-            "type": "object"
+            "type": "number",
+            "nullable": true
           },
           "minQty": {
-            "type": "object"
+            "type": "number",
+            "nullable": true
           },
           "buyQty": {
-            "type": "object"
+            "type": "number",
+            "nullable": true
           },
           "freeQty": {
-            "type": "object"
+            "type": "number",
+            "nullable": true
           },
           "comboProductIds": {
             "type": "array",

@@ -1,8 +1,10 @@
 # 00 — Project Status
 
 > **Last updated:** 2026-11-24 · **Branch:** `main` ·
-> **Phase in flight:** Phase 2 — **P1–P10 complete except two deliberately deferred
-> screens** (invoice PDF; the admin scheme *screen*, whose backend CRUD now exists).
+> **Phase in flight:** Phase 2 — **P1–P10 complete; P11 Admin UI started** with
+> the scheme and notification-template screens (2026-11-24). The deferred items
+> left are the invoice PDF and the remaining P11 viewers (price lists, stock,
+> credit, invoices).
 > P8 Prescriptions and P9 Notifications (in-app centre, preferences, template admin
 > API, push-token registry + dispatcher) landed on 2026-11-24, after the P10 outbox
 > relay that gives notification delivery durable retry. The database is up locally
@@ -35,7 +37,7 @@ than merely written, and what is still open. Where this file and
 |---|---|---|---|
 | **0** | Foundation | **Complete but for the `dev` deploy, which needs credentials** | ~98% |
 | 1 | Core Commerce MVP | **In flight — six of seven exit criteria met and verified against a real database and a real Redis; admin MFA landed end-to-end; remaining work is UI (wizard, admin screens, mobile storefront) plus the throughput run** | ~80% |
-| 2 | Commercial Engine | **In flight — P1–P10 landed (engine, pricing, schemes, stock ledger, credit, payments, invoicing, prescriptions, outbox relay, notifications), verified against a real database: `test:all` 565/565, coverage gate passed. Two screens deliberately deferred** | ~75% |
+| 2 | Commercial Engine | **In flight — P1–P10 landed (engine, pricing, schemes, stock ledger, credit, payments, invoicing, prescriptions, outbox relay, notifications) plus the first two P11 screens (schemes, notification templates), verified against a real database: `test:all` 565/565, coverage gate passed. Invoice PDF and the remaining viewers are deferred** | ~78% |
 | 3 | Fulfilment & Finance | Not started | 0% |
 | 4 | Scale & Mobile GA | Not started | 0% |
 | 5 | Intelligence | Not started | 0% |

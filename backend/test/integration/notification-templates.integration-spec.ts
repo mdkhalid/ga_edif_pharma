@@ -53,6 +53,7 @@ describe('notification templates (integration)', () => {
 
     const list = await asTenantUser(tenantId, async () => templates.list(tenantId));
     expect(list.some((t) => t.name === 'order.placed' && t.channel === 'EMAIL')).toBe(true);
+    expect(typeof list.find((t) => t.name === 'order.placed')?.createdAt).toBe('string');
 
     const replaced = await asTenantUser(tenantId, async () =>
       templates.upsert(tenantId, actorId, {

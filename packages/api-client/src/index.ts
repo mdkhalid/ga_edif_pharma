@@ -81,3 +81,15 @@ export {
   type ReviewApplicationRequest,
   type SubmitApplicationRequest,
 } from './endpoints/onboarding';
+export {
+  createSchemesApi,
+  type CreateSchemeRequest,
+  type ListSchemesOptions,
+  type SchemesApi,
+  type UpdateSchemeRequest,
+} from './endpoints/schemes';
+export {
+  createNotificationTemplatesApi,
+  type NotificationTemplatesApi,
+  type UpsertNotificationTemplateRequest,
+} from './endpoints/notification-templates';

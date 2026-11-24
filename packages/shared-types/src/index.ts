@@ -15,3 +15,5 @@ export * from './cart';
 export * from './orders';
 export * from './invoices';
 export * from './onboarding';
+export * from './schemes';
+export * from './notifications';

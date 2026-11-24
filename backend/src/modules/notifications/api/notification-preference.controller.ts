@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, Patch } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import type { AuthenticatedPrincipal } from '@medichain/shared-types';
+import type { AuthenticatedPrincipal, NotificationPreferenceState } from '@medichain/shared-types';
 
 import { CurrentTenant, CurrentUser } from '../../../common/decorators';
 import { ValidationFailedError } from '../../../common/exceptions/domain.exception';
@@ -29,7 +29,7 @@ export class NotificationPreferenceController {
   async list(
     @CurrentTenant() tenantId: string,
     @CurrentUser() principal: AuthenticatedPrincipal,
-  ): Promise<{ data: { enabled: NotificationChannel[]; available: NotificationChannel[] } }> {
+  ): Promise<{ data: NotificationPreferenceState }> {
     const enabled = await this.preferences.getEnabledChannels(tenantId, principal.userId);
     return {
       data: { enabled: [...enabled], available: [...NOTIFICATION_CHANNELS] },

@@ -1,8 +1,12 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { Capability, type AuthenticatedPrincipal } from '@medichain/shared-types';
-
+import {
+  Capability,
+  type AuthenticatedPrincipal,
+  type OffsetPaginated,
+  type SchemeSummary,
+} from '@medichain/shared-types';
 import {
   CurrentTenant,
   CurrentUser,
@@ -28,7 +32,7 @@ export class SchemeController {
   async list(
     @CurrentTenant() tenantId: string,
     @Query() query: ListSchemesQueryDto,
-  ): Promise<unknown> {
+  ): Promise<OffsetPaginated<SchemeSummary>> {
     return this.schemes.list(tenantId, query);
   }
 
@@ -38,7 +42,7 @@ export class SchemeController {
   async getById(
     @CurrentTenant() tenantId: string,
     @Param('id', uuidParam('id')) id: string,
-  ): Promise<{ data: unknown }> {
+  ): Promise<{ data: SchemeSummary }> {
     const row = await this.schemes.getById(tenantId, id);
     return { data: row };
   }

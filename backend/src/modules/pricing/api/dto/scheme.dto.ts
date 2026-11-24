@@ -18,14 +18,14 @@ export class CreateSchemeDto {
   @IsIn(['PERCENTAGE', 'FLAT', 'FREE_GOODS', 'COMBO'])
   kind!: string;
 
-  @ApiPropertyOptional() @IsOptional() @IsUUID() productId?: string | null;
-  @ApiPropertyOptional() @IsOptional() @IsUUID() categoryId?: string | null;
+  @ApiPropertyOptional({ type: String, format: 'uuid', nullable: true }) @IsOptional() @IsUUID() productId?: string | null;
+  @ApiPropertyOptional({ type: String, format: 'uuid', nullable: true }) @IsOptional() @IsUUID() categoryId?: string | null;
 
-  @ApiPropertyOptional() @IsOptional() @IsNumber() percentOff?: number | null;
-  @ApiPropertyOptional() @IsOptional() @IsNumber() flatOff?: number | null;
-  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) minQty?: number | null;
-  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) buyQty?: number | null;
-  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) freeQty?: number | null;
+  @ApiPropertyOptional({ type: Number, nullable: true }) @IsOptional() @IsNumber() percentOff?: number | null;
+  @ApiPropertyOptional({ type: Number, nullable: true }) @IsOptional() @IsNumber() flatOff?: number | null;
+  @ApiPropertyOptional({ type: Number, nullable: true }) @IsOptional() @IsInt() @Min(0) minQty?: number | null;
+  @ApiPropertyOptional({ type: Number, nullable: true }) @IsOptional() @IsInt() @Min(0) buyQty?: number | null;
+  @ApiPropertyOptional({ type: Number, nullable: true }) @IsOptional() @IsInt() @Min(0) freeQty?: number | null;
 
   @ApiPropertyOptional({ type: [String] }) @IsOptional() @IsArray() @IsUUID('4', { each: true }) comboProductIds?: string[];
 
@@ -39,11 +39,11 @@ export class CreateSchemeDto {
 export class UpdateSchemeDto {
   @ApiPropertyOptional() @IsOptional() @IsString() name?: string;
   @ApiPropertyOptional({ enum: ['ACTIVE', 'INACTIVE'] }) @IsOptional() @IsIn(['ACTIVE', 'INACTIVE']) status?: string;
-  @ApiPropertyOptional() @IsOptional() @IsNumber() percentOff?: number | null;
-  @ApiPropertyOptional() @IsOptional() @IsNumber() flatOff?: number | null;
-  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) minQty?: number | null;
-  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) buyQty?: number | null;
-  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) freeQty?: number | null;
+  @ApiPropertyOptional({ type: Number, nullable: true }) @IsOptional() @IsNumber() percentOff?: number | null;
+  @ApiPropertyOptional({ type: Number, nullable: true }) @IsOptional() @IsNumber() flatOff?: number | null;
+  @ApiPropertyOptional({ type: Number, nullable: true }) @IsOptional() @IsInt() @Min(0) minQty?: number | null;
+  @ApiPropertyOptional({ type: Number, nullable: true }) @IsOptional() @IsInt() @Min(0) buyQty?: number | null;
+  @ApiPropertyOptional({ type: Number, nullable: true }) @IsOptional() @IsInt() @Min(0) freeQty?: number | null;
   @ApiPropertyOptional({ type: [String] }) @IsOptional() @IsArray() @IsUUID('4', { each: true }) comboProductIds?: string[];
   @ApiPropertyOptional() @IsOptional() @IsString() validFrom?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() validTo?: string;

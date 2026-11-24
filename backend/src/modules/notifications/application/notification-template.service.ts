@@ -1,18 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
 
 import { NotFoundError } from '../../../common/exceptions/domain.exception';
+import type { NotificationTemplateSummary } from '@medichain/shared-types';
 import { ExtendedPrismaClient, PRISMA_EXTENDED } from '../../../database/prisma.service';
 import { AuditService } from '../../audit';
-
-export interface NotificationTemplateRow {
-  id: string;
-  name: string;
-  channel: string;
-  subject: string | null;
-  body: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
 
 export interface UpsertTemplateInput {
   name: string;
@@ -54,19 +45,19 @@ export class NotificationTemplateService {
     return { id: row.id };
   }
 
-  /** List the templates visible to a tenant, newest wording last but stable by name. */
-  async list(_tenantId: string | null): Promise<NotificationTemplateRow[]> {
+  /** List the templates visible to a tenant, ordered by name then channel. */
+  async list(_tenantId: string | null): Promise<NotificationTemplateSummary[]> {
     const rows = await this.prisma.notificationTemplate.findMany({
       orderBy: [{ name: 'asc' }, { channel: 'asc' }],
     });
     return rows.map((row) => ({
       id: row.id,
       name: row.name,
-      channel: row.channel,
+      channel: row.channel as NotificationTemplateSummary['channel'],
       subject: row.subject,
       body: row.body,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     }));
   }
 

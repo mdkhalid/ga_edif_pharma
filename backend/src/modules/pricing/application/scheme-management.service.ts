@@ -1,7 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
 
-import { SchemeKind, SchemeStatus } from '@prisma/client';
-import { ExtendedPrismaClient, PRISMA_EXTENDED } from '../../../database/prisma.service';
+import { Prisma, SchemeKind, SchemeStatus } from '@prisma/client';
+import type { OffsetPaginated, SchemeSummary } from '@medichain/shared-types';
+
+import {
+  ExtendedPrismaClient,
+  PRISMA_EXTENDED,
+} from '../../../database/prisma.service';
 import {
   BusinessRuleViolationError,
   NotFoundError,
@@ -12,6 +17,36 @@ import type { CreateSchemeDto, UpdateSchemeDto, ListSchemesQueryDto } from '../a
 export type CreateSchemeInput = CreateSchemeDto;
 export type UpdateSchemeInput = UpdateSchemeDto;
 export type ListSchemesInput = ListSchemesQueryDto;
+
+type SchemeRow = Prisma.SchemeGetPayload<object>;
+
+/**
+ * Map a stored row to the JSON shape the admin client consumes.
+ *
+ * Decimals and dates are objects in Prisma, not values a browser can use, so the
+ * conversion happens at this boundary rather than leaking into the controller.
+ */
+function toSchemeSummary(row: SchemeRow): SchemeSummary {
+  return {
+    id: row.id,
+    tenantId: row.tenantId,
+    name: row.name,
+    kind: row.kind,
+    status: row.status,
+    productId: row.productId,
+    categoryId: row.categoryId,
+    percentOff: row.percentOff === null ? null : Number(row.percentOff),
+    flatOff: row.flatOff === null ? null : Number(row.flatOff),
+    minQty: row.minQty,
+    buyQty: row.buyQty,
+    freeQty: row.freeQty,
+    comboProductIds: row.comboProductIds,
+    validFrom: row.validFrom.toISOString(),
+    validTo: row.validTo.toISOString(),
+    stackable: row.stackable,
+    priority: row.priority,
+  };
+}
 
 /**
  * Scheme management (P9 follow-up / admin). CRUD over the persisted `Scheme`
@@ -25,10 +60,7 @@ export class SchemeManagementService {
     private readonly audit: AuditService,
   ) {}
 
-  async list(_tenantId: string, query: ListSchemesInput): Promise<{
-    data: unknown[];
-    meta: { page: number; pageSize: number; total: number; totalPages: number; hasNext: boolean; hasPrev: boolean };
-  }> {
+  async list(_tenantId: string, query: ListSchemesInput): Promise<OffsetPaginated<SchemeSummary>> {
     const page = query.page && query.page > 0 ? query.page : 1;
     const pageSize = query.pageSize && query.pageSize > 0 ? Math.min(query.pageSize, 100) : 20;
     const where: Record<string, unknown> = {};
@@ -46,15 +78,15 @@ export class SchemeManagementService {
     ]);
     const totalPages = Math.ceil(total / pageSize) || 1;
     return {
-      data: rows,
+      data: rows.map(toSchemeSummary),
       meta: { page, pageSize, total, totalPages, hasNext: page < totalPages, hasPrev: page > 1 },
     };
   }
 
-  async getById(_tenantId: string, id: string): Promise<unknown> {
+  async getById(_tenantId: string, id: string): Promise<SchemeSummary> {
     const row = await this.prisma.scheme.findFirst({ where: { id } });
     if (!row) throw new NotFoundError('Scheme not found.');
-    return row;
+    return toSchemeSummary(row);
   }
 
   async create(tenantId: string, actorId: string, dto: CreateSchemeInput): Promise<{ id: string }> {

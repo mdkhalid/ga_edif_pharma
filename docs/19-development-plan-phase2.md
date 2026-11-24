@@ -554,7 +554,17 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
   `OrderService.place` now records `order.placed` in the outbox instead of
   notifying best-effort. `NotificationService` gained `sendOrderPlacedStrict`
   so the relay can detect failures. 2 integration tests green.
-- [ ] **P11 — Admin UI** (pricing, scheme, stock, credit, invoice viewers).
+- [~] **P11 — Admin UI** — first two screens delivered 2026-11-24:
+  `/schemes` (browse with status/kind filters, create, edit, archive) and
+  `/notifications/templates` (browse, create-or-replace, delete). Both call
+  real backend APIs through typed `createSchemesApi` /
+  `createNotificationTemplatesApi` factories in `@medichain/api-client`, with
+  `callAuthed`'s single-flight 401 refresh. Write controls are gated on
+  `SCHEME_WRITE` / `SETTINGS_WRITE`; the API still enforces them. Shared
+  response shapes moved into `@medichain/shared-types` (`SchemeSummary`,
+  `NotificationTemplateSummary`) and the scheme DTO's nullable fields were
+  given explicit Swagger types so generated TS clients are usable.
+  Remaining: price-list, stock, credit and invoice viewer screens.
 - [ ] **P12 — Mobile** (push, barcode scan, reorder, prescription upload).
 
 ## Status
@@ -571,15 +581,16 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
 | P8 Prescriptions | done — domain, schema + migration, service, controller, tenant scoping, order-side gate, dispensing counter; 8 unit + 3 integration tests green. File storage + reuse caps remain Phase 3 |
 | P9 Notifications | done (backend) — in-app centre, preferences, templates + admin API, push-token registry + dispatcher; provider push transport waits on FCM/APNs credentials |
 | P10 Outbox relay | done — enqueue, SKIP LOCKED claim, dispatch, retry/backoff, dead-letter; order.placed durable. 2 integration tests green |
-| P11 Admin UI | pending |
+| P11 Admin UI | partial — scheme + notification-template screens landed; price-list, stock, credit and invoice viewers remain |
 | P12 Mobile | pending |
 
 ## Resume point
 
-P8 (Prescriptions), P9 (Notifications) and P10 (Outbox relay) are delivered.
-Next *development* task is **P11 — Admin UI**, whose backend now exists for
-schemes (`/schemes`) and notification templates (`/notifications/templates`).
-Alternatively, the deferred invoice PDF can be closed first.
+P8 (Prescriptions), P9 (Notifications) and P10 (Outbox relay) are delivered,
+and P11 (Admin UI) has started: the scheme and notification-template screens are
+live. Next *development* task is the rest of P11 — price-list, stock, credit and
+invoice viewer screens — or the deferred invoice PDF, which can now reuse the
+typed API-client pattern established here.
 
 ### 1. ~~Bring the database up and apply the migrations~~ — done 2026-09-30
 
