@@ -72,6 +72,9 @@ export const TENANT_SCOPED_MODELS = [
   'InvoiceSequence',
   // Phase 2 prescriptions (P8).
   'Prescription',
+  // Phase 2 notifications (P9).
+  'Notification',
+  'NotificationPreference',
 ] as const;
 
 /**
@@ -164,7 +167,7 @@ const CREATE_OPERATIONS = new Set(['create', 'createMany', 'createManyAndReturn'
  * pre-authentication flow, so its tenant is nullable and the filter is applied
  * only when the context has one.
  */
-const TENANT_OPTIONAL_MODELS = new Set<string>(['OtpChallenge', 'OutboxEvent']);
+const TENANT_OPTIONAL_MODELS = new Set<string>(['OtpChallenge', 'OutboxEvent', 'NotificationTemplate']);
 
 /**
  * Reads the tenant for this query.

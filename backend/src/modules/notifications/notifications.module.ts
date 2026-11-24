@@ -14,7 +14,11 @@ import {
   TwilioSmsTransport,
   type SmsTransport,
 } from '../../infra/notifications/sms-transport';
+import { NotificationCentreService } from './application/notification-centre.service';
+import { NotificationPreferenceService } from './application/notification-preference.service';
+import { NotificationTemplateService } from './application/notification-template.service';
 import { NotificationService } from './application/notification.service';
+import { NotificationCentreController } from './api/notification-centre.controller';
 
 /**
  * Notifications bounded context.
@@ -56,8 +60,12 @@ function buildSmsTransport(config: AppConfigService): SmsTransport {
 }
 
 @Module({
+  controllers: [NotificationCentreController],
   providers: [
     NotificationService,
+    NotificationCentreService,
+    NotificationPreferenceService,
+    NotificationTemplateService,
     {
       provide: NOTIFICATION_PORT,
       useFactory: (config: AppConfigService) => {
@@ -79,6 +87,12 @@ function buildSmsTransport(config: AppConfigService): SmsTransport {
       inject: [AppConfigService],
     },
   ],
-  exports: [NotificationService, NOTIFICATION_PORT],
+  exports: [
+    NotificationService,
+    NotificationCentreService,
+    NotificationPreferenceService,
+    NotificationTemplateService,
+    NOTIFICATION_PORT,
+  ],
 })
 export class NotificationsModule {}

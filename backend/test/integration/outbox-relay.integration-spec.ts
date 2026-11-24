@@ -1,13 +1,8 @@
-import { Prisma } from '@prisma/client';
-
 import type { ExtendedPrismaClient } from '../../src/database/prisma.service';
-import { AuditService } from '../../src/modules/audit/application/audit.service';
 import { NotificationService } from '../../src/modules/notifications/application/notification.service';
 import { OutboxService } from '../../src/modules/outbox';
 import { asTenantUser, createTestPrisma, seededTenant } from '../support/database';
 import { UnitOfWork } from '../../src/database/unit-of-work';
-
-const ACTOR_ID = '11111111-1111-4111-8111-111111111111';
 
 describe('outbox relay (integration)', () => {
   let prisma: ExtendedPrismaClient;

@@ -8,4 +8,7 @@
 
 export { NotificationsModule } from './notifications.module';
 export { NotificationService } from './application/notification.service';
+export { NotificationCentreService } from './application/notification-centre.service';
+export { NotificationPreferenceService } from './application/notification-preference.service';
+export { NotificationTemplateService } from './application/notification-template.service';
 export { NOTIFICATION_PORT } from '../../common/ports/notification.port';

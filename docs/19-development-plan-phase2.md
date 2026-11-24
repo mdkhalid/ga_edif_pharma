@@ -532,8 +532,12 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
   `OrderService.place`, dispensing counter. Tests: 8 domain unit + 3 integration
   (blocks no-rx, blocks pending, allows verified + links). File storage (S3/MinIO)
   and reuse caps remain Phase 3 scope; `maxDispensings` field is in place.
-- [ ] **P9 — Notifications** (push, in-app centre, channel preferences, template
-  UI) — partly Phase 1; durable retry depends on the outbox relay.
+- [~] **P9 — Notifications** — in-app centre + channel preferences + templates
+  delivered 2026-11-24 (backend): `Notification`/`NotificationPreference`/
+  `NotificationTemplate` models + migration, `NotificationCentreService` (create/list/
+  mark-read/mark-all-read), `NotificationPreferenceService`, `NotificationTemplateService`
+  (render with {{var}}), controller. Push (FCM/APNs) transport + admin template UI
+  remain. Durable delivery via P10 outbox.
 - [x] **P10 — Outbox relay** (durable notification retry) — delivered
   2026-11-24: `OutboxService` (enqueue in-tx, claim with `FOR UPDATE SKIP LOCKED`,
   dispatch, retry with exponential backoff, dead-letter), polling relay, and
@@ -555,7 +559,7 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
 | P6 Payments | done — Payment state machine, idempotency keys, HMAC-SHA256 webhook verification; 22 tests green |
 | P7 Invoicing | **done except the deferred PDF and the `gstRate` "not set" gap** — domain, service, API, contract, client, plus 26 integration + 7 concurrency tests; 2 real defects found by them and fixed (concurrent double-issue, replay total scale) |
 | P8 Prescriptions | done — domain, schema + migration, service, controller, tenant scoping, order-side gate, dispensing counter; 8 unit + 3 integration tests green. File storage + reuse caps remain Phase 3 |
-| P9 Notifications | pending |
+| P9 Notifications | partial - in-app centre, channel preferences, templates done; push transport + admin UI remain |
 | P10 Outbox relay | done — enqueue, SKIP LOCKED claim, dispatch, retry/backoff, dead-letter; order.placed durable. 2 integration tests green |
 | P11 Admin UI | pending |
 | P12 Mobile | pending |

@@ -99,6 +99,9 @@ model Tenant {
   invoiceLines  InvoiceLine[]
   invoiceSequences InvoiceSequence[]
   prescriptions Prescription[]
+  notifications Notification[]
+  notificationPreferences NotificationPreference[]
+  notificationTemplates NotificationTemplate[]
 
   @@map("tenant")
 }
@@ -242,6 +245,8 @@ model User {
   roles        UserRole[]
   sessions     Session[]
   otpChallenges OtpChallenge[]
+  notifications Notification[]
+  notificationPreferences NotificationPreference[]
 
   /// Sign-in is by email OR phone, so neither is globally unique on its own.
   /// The uniqueness that matters is "one account per identifier per tenant", and
@@ -1142,4 +1147,62 @@ model InvoiceSequence {
 
   @@unique([tenantId, fiscalYear])
   @@map("invoice_sequence")
+}
+
+
+/// In-app notification delivered to a user.
+model Notification {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  recipientId String    @map("recipient_id") @db.Uuid
+  type        String    @db.VarChar(60)
+  title       String    @db.VarChar(200)
+  body        String    @db.Text
+  metadata    Json?
+  readAt      DateTime? @map("read_at") @db.Timestamptz(6)
+
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  recipient User   @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([tenantId, recipientId, createdAt])
+  @@index([tenantId, recipientId, readAt])
+  @@map("notification")
+}
+
+/// Per-user channel preference. A missing row means "enabled by default".
+model NotificationPreference {
+  id      String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  userId  String  @map("user_id") @db.Uuid
+  channel String  @db.VarChar(30)
+  enabled Boolean @default(true)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([tenantId, userId, channel])
+  @@map("notification_preference")
+}
+
+/// Reusable message template keyed by name + channel.
+model NotificationTemplate {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String? @map("tenant_id") @db.Uuid
+  name     String @db.VarChar(120)
+  channel  String @db.VarChar(30)
+  subject  String? @db.VarChar(300)
+  body     String @db.Text
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([tenantId, name, channel])
+  @@map("notification_template")
 }
