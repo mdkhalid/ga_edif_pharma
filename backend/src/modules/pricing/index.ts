@@ -5,4 +5,6 @@ export * from './application/pricing.repository.port';
 export * from './application/price-override-resolver';
 export * from './application/pricing.service';
 export * from './application/scheme.repository.port';
+export * from './application/scheme-management.service';
+export * from './application/price-list-management.service';
 export * from './pricing.module';

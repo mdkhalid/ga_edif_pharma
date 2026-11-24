@@ -17,3 +17,6 @@ export * from './invoices';
 export * from './onboarding';
 export * from './schemes';
 export * from './notifications';
+export * from './price-lists';
+export * from './stock';
+export * from './credit';

@@ -27,6 +27,8 @@ import { CatalogModule } from './modules/catalog';
 import { HealthModule } from './modules/health';
 import { IamModule } from './modules/iam';
 import { InvoicingModule } from './modules/invoicing';
+import { CreditModule } from './modules/credit';
+import { InventoryModule } from './modules/inventory';
 import { NotificationsModule } from './modules/notifications';
 import { OnboardingModule } from './modules/onboarding-kyc';
 import { OutboxModule } from './modules/outbox';
@@ -99,6 +101,8 @@ import { SearchModule } from './modules/search';
     SaltEngineModule,
     SearchModule,
     PricingModule,
+    InventoryModule,
+    CreditModule,
     CartModule,
     OrdersModule,
     PrescriptionsModule,
