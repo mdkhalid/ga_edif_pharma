@@ -102,6 +102,7 @@ model Tenant {
   notifications Notification[]
   notificationPreferences NotificationPreference[]
   notificationTemplates NotificationTemplate[]
+  pushTokens PushToken[]
 
   @@map("tenant")
 }
@@ -247,6 +248,7 @@ model User {
   otpChallenges OtpChallenge[]
   notifications Notification[]
   notificationPreferences NotificationPreference[]
+  pushTokens PushToken[]
 
   /// Sign-in is by email OR phone, so neither is globally unique on its own.
   /// The uniqueness that matters is "one account per identifier per tenant", and
@@ -1208,4 +1210,24 @@ model NotificationTemplate {
 
   @@unique([tenantId, name, channel])
   @@map("notification_template")
+}
+
+/// Device push token registered by a client for FCM/APNs delivery.
+model PushToken {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  token     String   @db.VarChar(512)
+  platform  String   @db.VarChar(16)
+  provider  String   @default("console") @db.VarChar(16)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([userId, token])
+  @@index([tenantId, userId])
+  @@map("push_token")
 }

@@ -75,6 +75,10 @@ export const TENANT_SCOPED_MODELS = [
   // Phase 2 notifications (P9).
   'Notification',
   'NotificationPreference',
+  // Templates carry a nullable tenant: a seeded platform default has none, which
+  // is why this model is also listed in TENANT_OPTIONAL_MODELS below.
+  'NotificationTemplate',
+  'PushToken',
 ] as const;
 
 /**

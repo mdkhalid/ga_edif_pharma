@@ -1,12 +1,14 @@
 # 00 — Project Status
 
-> **Last updated:** 2026-09-30 · **Branch:** `main` (working tree, uncommitted) ·
-> **Phase in flight:** Phase 2 — **P1–P7 complete except two deliberately deferred
-> screens** (invoice PDF, admin scheme UI). **The database is up locally for the first
-> time**: both migrations this file had carried as "never applied" are applied and
-> seeded, and the database-backed suites run — **`test:all` 539/539 across 39 suites,
-> coverage gate passed** (all ten critical files ≥96%, 53.18% statements). Phase 1
-> stands as recorded below (§7) · **CI:** 🔴 **red on `main` at run 43**, on the
+> **Last updated:** 2026-11-24 · **Branch:** `main` ·
+> **Phase in flight:** Phase 2 — **P1–P10 complete except two deliberately deferred
+> screens** (invoice PDF; the admin scheme *screen*, whose backend CRUD now exists).
+> P8 Prescriptions and P9 Notifications (in-app centre, preferences, template admin
+> API, push-token registry + dispatcher) landed on 2026-11-24, after the P10 outbox
+> relay that gives notification delivery durable retry. The database is up locally
+> and seeded; the database-backed suites run — **`test:all` 565/565 across 46 suites,
+> coverage gate passed** (56.0% statements). Phase 1 stands as recorded below (§7) ·
+> **CI:** 🔴 **red on `main` at run 43**, on the
 > pre-existing *Mobile auth flow* failure — still undiagnosed, and it needs the job's
 > API log artifact, which needs auth. **Run 46 observed: every other job green**, so
 > the dependency audit broken by `brace-expansion` advisories published after run 44
@@ -33,7 +35,7 @@ than merely written, and what is still open. Where this file and
 |---|---|---|---|
 | **0** | Foundation | **Complete but for the `dev` deploy, which needs credentials** | ~98% |
 | 1 | Core Commerce MVP | **In flight — six of seven exit criteria met and verified against a real database and a real Redis; admin MFA landed end-to-end; remaining work is UI (wizard, admin screens, mobile storefront) plus the throughput run** | ~80% |
-| 2 | Commercial Engine | **In flight — P1–P8, P9 (partial), P10 landed (engine, pricing, schemes, stock ledger, credit, payments, invoicing, prescriptions, outbox relay, in-app notification centre) and verified against a real database: `test:all` 554/554, coverage gate passed. Two screens deliberately deferred** | ~70% |
+| 2 | Commercial Engine | **In flight — P1–P10 landed (engine, pricing, schemes, stock ledger, credit, payments, invoicing, prescriptions, outbox relay, notifications), verified against a real database: `test:all` 565/565, coverage gate passed. Two screens deliberately deferred** | ~75% |
 | 3 | Fulfilment & Finance | Not started | 0% |
 | 4 | Scale & Mobile GA | Not started | 0% |
 | 5 | Intelligence | Not started | 0% |
@@ -551,7 +553,7 @@ reached rather than quietly reporting latency for load that never arrived.
 | 2 | The 30 s notification bound | No mail or SMS provider is reachable here, so delivery timing is unmeasured | a staging provider |
 | 3 | Admin UI screens, onboarding wizard, document upload | The remaining Phase 1 scope is UI | `admin-portal/`, `website/` |
 | 4 | Mobile storefront | Auth shell only; never run on a device in this environment | `mobile/` |
-| 5 | Outbox relay | Notification delivery is best-effort with no durable retry | Phase 2 |
+| 5 | ~~Outbox relay~~ — closed 2026-11-24 | P10: `OutboxService` records `order.placed` in the placement transaction and the relay retries with backoff, dead-lettering exhausted events | — |
 | 6 | ~~Confirm remote CI green~~ — **superseded** | This row said "the workflow has still never run on a runner". It has, dozens of times, and the answer is red: see §5. Tracked at the top of §5 now, not here | — |
 | 7 | `DEV_DATABASE_URL` / `KUBE_CONFIG` | The last open Phase 0 criterion | GitHub → Environments → `dev` |
 | 8 | Admin MFA — closed 2026-09-22 | Backend TOTP enrolment + challenge sign-in (`203f16f`); admin BFF + 3-step login UI, website union handling, mobile guard (`221b3ce`). Verified: direct typecheck ×4, lint ×3, `next build` ×2, 323 backend unit tests incl. `mfa`/`totp`/`mfa-policy` | — |

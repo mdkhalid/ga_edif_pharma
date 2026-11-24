@@ -532,12 +532,22 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
   `OrderService.place`, dispensing counter. Tests: 8 domain unit + 3 integration
   (blocks no-rx, blocks pending, allows verified + links). File storage (S3/MinIO)
   and reuse caps remain Phase 3 scope; `maxDispensings` field is in place.
-- [~] **P9 — Notifications** — in-app centre + channel preferences + templates
-  delivered 2026-11-24 (backend): `Notification`/`NotificationPreference`/
-  `NotificationTemplate` models + migration, `NotificationCentreService` (create/list/
-  mark-read/mark-all-read), `NotificationPreferenceService`, `NotificationTemplateService`
-  (render with {{var}}), controller. Push (FCM/APNs) transport + admin template UI
-  remain. Durable delivery via P10 outbox.
+- [x] **P9 — Notifications** — delivered 2026-11-24 (backend complete):
+  `Notification`/`NotificationPreference`/`NotificationTemplate` models, plus
+  `PushToken` + migration. The in-app centre (`NotificationCentreService`),
+  per-user channel preferences (`NotificationPreferenceService`, default-on),
+  template storage with `{{var}}` rendering (`NotificationTemplateService` —
+  list/upsert/delete/render, audited), a push-token registry
+  (`PushTokenService`, idempotent on `(userId, token)`, per-device failure
+  isolation) and `NotificationDispatcherService`, which fans a notification out
+  to exactly the channels its recipient allows.
+  HTTP surface: `/notifications` (list, read, read-all, push-token register +
+  unregister), `/notifications/preferences` (self-service GET/PATCH),
+  `/notifications/templates` (admin, `SETTINGS_READ`/`SETTINGS_WRITE`).
+  Push transport is behind `PUSH_TRANSPORT`; the console transport is bound
+  until FCM/APNs credentials exist — swapping it is a one-line factory change,
+  exactly like email/SMS. Durable delivery via P10 outbox. Tests: 6 dispatch +
+  3 template integration tests green.
 - [x] **P10 — Outbox relay** (durable notification retry) — delivered
   2026-11-24: `OutboxService` (enqueue in-tx, claim with `FOR UPDATE SKIP LOCKED`,
   dispatch, retry with exponential backoff, dead-letter), polling relay, and
@@ -559,18 +569,17 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
 | P6 Payments | done — Payment state machine, idempotency keys, HMAC-SHA256 webhook verification; 22 tests green |
 | P7 Invoicing | **done except the deferred PDF and the `gstRate` "not set" gap** — domain, service, API, contract, client, plus 26 integration + 7 concurrency tests; 2 real defects found by them and fixed (concurrent double-issue, replay total scale) |
 | P8 Prescriptions | done — domain, schema + migration, service, controller, tenant scoping, order-side gate, dispensing counter; 8 unit + 3 integration tests green. File storage + reuse caps remain Phase 3 |
-| P9 Notifications | partial - in-app centre, channel preferences, templates done; push transport + admin UI remain |
+| P9 Notifications | done (backend) — in-app centre, preferences, templates + admin API, push-token registry + dispatcher; provider push transport waits on FCM/APNs credentials |
 | P10 Outbox relay | done — enqueue, SKIP LOCKED claim, dispatch, retry/backoff, dead-letter; order.placed durable. 2 integration tests green |
 | P11 Admin UI | pending |
 | P12 Mobile | pending |
 
 ## Resume point
 
-P8 (Prescriptions) and P10 (Outbox relay) are delivered. Next *development*
-task is **P9 — Notifications** (push, in-app centre, channel preferences,
-template UI) — partly Phase 1; durable retry now exists via the outbox.
-Alternatively, the deferred screens (invoice PDF, admin scheme UI) can be
-closed first.
+P8 (Prescriptions), P9 (Notifications) and P10 (Outbox relay) are delivered.
+Next *development* task is **P11 — Admin UI**, whose backend now exists for
+schemes (`/schemes`) and notification templates (`/notifications/templates`).
+Alternatively, the deferred invoice PDF can be closed first.
 
 ### 1. ~~Bring the database up and apply the migrations~~ — done 2026-09-30
 

@@ -62,6 +62,7 @@ const TENANT_ADMIN: readonly Capability[] = [
   Capability.REPORT_EXPORT,
   Capability.AUDIT_READ,
   Capability.SETTINGS_READ,
+  Capability.SETTINGS_WRITE,
   Capability.FEATURE_FLAG_WRITE,
   Capability.SUPPORT_MANAGE,
 ];

@@ -25,10 +25,10 @@ export interface ListNotificationsQuery {
 /**
  * In-app notification centre (P9).
  *
- * Records a notification for a recipient and tracks read/unread state.
- * Delivery to other channels (email/SMS/push) is handled by the existing
- * `NotificationService` transport layer and the outbox relay; this service
- * owns the durable in-app record.
+ * Records a notification for a recipient and tracks read/unread state. Delivery
+ * to other channels is `NotificationDispatcherService`'s job: it composes this
+ * service with the recipient's preferences and the push registry, so the durable
+ * in-app record stays a single, separately-testable concern.
  */
 @Injectable()
 export class NotificationCentreService {

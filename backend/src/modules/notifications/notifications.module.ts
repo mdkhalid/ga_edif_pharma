@@ -14,11 +14,17 @@ import {
   TwilioSmsTransport,
   type SmsTransport,
 } from '../../infra/notifications/sms-transport';
+import { PUSH_TRANSPORT } from '../../common/ports/push.port';
+import { buildPushTransport } from '../../infra/notifications/push-transport';
 import { NotificationCentreService } from './application/notification-centre.service';
+import { NotificationDispatcherService } from './application/notification-dispatcher.service';
 import { NotificationPreferenceService } from './application/notification-preference.service';
 import { NotificationTemplateService } from './application/notification-template.service';
 import { NotificationService } from './application/notification.service';
+import { PushTokenService } from './application/push-token.service';
 import { NotificationCentreController } from './api/notification-centre.controller';
+import { NotificationPreferenceController } from './api/notification-preference.controller';
+import { NotificationTemplateController } from './api/notification-template.controller';
 
 /**
  * Notifications bounded context.
@@ -60,12 +66,19 @@ function buildSmsTransport(config: AppConfigService): SmsTransport {
 }
 
 @Module({
-  controllers: [NotificationCentreController],
+  controllers: [
+    NotificationCentreController,
+    NotificationPreferenceController,
+    NotificationTemplateController,
+  ],
   providers: [
     NotificationService,
     NotificationCentreService,
+    NotificationDispatcherService,
     NotificationPreferenceService,
     NotificationTemplateService,
+    PushTokenService,
+    { provide: PUSH_TRANSPORT, useFactory: (config: AppConfigService) => buildPushTransport(config), inject: [AppConfigService] },
     {
       provide: NOTIFICATION_PORT,
       useFactory: (config: AppConfigService) => {
@@ -90,8 +103,10 @@ function buildSmsTransport(config: AppConfigService): SmsTransport {
   exports: [
     NotificationService,
     NotificationCentreService,
+    NotificationDispatcherService,
     NotificationPreferenceService,
     NotificationTemplateService,
+    PushTokenService,
     NOTIFICATION_PORT,
   ],
 })

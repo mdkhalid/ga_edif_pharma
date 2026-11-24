@@ -17,6 +17,296 @@
         ]
       }
     },
+    "/notifications": {
+      "get": {
+        "operationId": "notificationCentreList",
+        "parameters": [
+          {
+            "name": "unreadOnly",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List in-app notifications for the current user",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/notifications/{id}/read": {
+      "patch": {
+        "operationId": "notificationCentreMarkRead",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Mark a notification as read",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/notifications/read-all": {
+      "post": {
+        "operationId": "notificationCentreMarkAllRead",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Mark all notifications as read",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/notifications/push-tokens": {
+      "post": {
+        "operationId": "notificationCentreRegisterPushToken",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterPushTokenDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Register a device push token",
+        "tags": [
+          "notifications"
+        ]
+      },
+      "delete": {
+        "operationId": "notificationCentreUnregisterPushToken",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnregisterPushTokenDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Unregister a device push token",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/notifications/preferences": {
+      "get": {
+        "operationId": "notificationPreferenceList",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List the channels enabled for the current user",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/notifications/preferences/{channel}": {
+      "patch": {
+        "operationId": "notificationPreferenceSetChannel",
+        "parameters": [
+          {
+            "name": "channel",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetChannelPreferenceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Enable or disable a channel for the current user",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/notifications/templates": {
+      "get": {
+        "operationId": "notificationTemplateList",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List notification templates",
+        "tags": [
+          "notifications"
+        ]
+      },
+      "put": {
+        "operationId": "notificationTemplateUpsert",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpsertNotificationTemplateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create or replace a notification template",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/notifications/templates/{id}": {
+      "delete": {
+        "operationId": "notificationTemplateRemove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Delete a notification template",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
     "/health/live": {
       "get": {
         "description": "Returns 200 while the process is running. Never checks dependencies — a restart cannot fix a database outage, and failing here would crash-loop the whole fleet.",
@@ -923,6 +1213,180 @@
         ]
       }
     },
+    "/schemes": {
+      "get": {
+        "operationId": "schemeList",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "kind",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List schemes",
+        "tags": [
+          "schemes"
+        ]
+      },
+      "post": {
+        "operationId": "schemeCreate",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSchemeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a scheme",
+        "tags": [
+          "schemes"
+        ]
+      }
+    },
+    "/schemes/{id}": {
+      "get": {
+        "operationId": "schemeGetById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get a scheme by id",
+        "tags": [
+          "schemes"
+        ]
+      },
+      "patch": {
+        "operationId": "schemeUpdate",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSchemeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update a scheme",
+        "tags": [
+          "schemes"
+        ]
+      },
+      "delete": {
+        "operationId": "schemeArchive",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Archive (deactivate) a scheme",
+        "tags": [
+          "schemes"
+        ]
+      }
+    },
     "/cart": {
       "get": {
         "operationId": "cartGet",
@@ -1359,6 +1823,157 @@
         ]
       }
     },
+    "/prescriptions": {
+      "post": {
+        "operationId": "prescriptionCreate",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePrescriptionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create (upload metadata for) a prescription",
+        "tags": [
+          "prescriptions"
+        ]
+      },
+      "get": {
+        "operationId": "prescriptionList",
+        "parameters": [
+          {
+            "name": "organisationId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List prescriptions (own organisation, or all for staff)",
+        "tags": [
+          "prescriptions"
+        ]
+      }
+    },
+    "/prescriptions/{id}": {
+      "get": {
+        "operationId": "prescriptionGetById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get a prescription by id",
+        "tags": [
+          "prescriptions"
+        ]
+      }
+    },
+    "/prescriptions/{id}/verify": {
+      "post": {
+        "operationId": "prescriptionVerify",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyPrescriptionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Verify (approve/reject) a prescription",
+        "tags": [
+          "prescriptions"
+        ]
+      }
+    },
     "/invoices/issue": {
       "post": {
         "operationId": "invoiceIssue",
@@ -1555,6 +2170,87 @@
       }
     },
     "schemas": {
+      "RegisterPushTokenDto": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "Provider-issued device token",
+            "maxLength": 512
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "ios",
+              "android",
+              "web"
+            ]
+          },
+          "provider": {
+            "type": "string",
+            "description": "Transport the token belongs to. Defaults to the configured provider."
+          }
+        },
+        "required": [
+          "token",
+          "platform"
+        ]
+      },
+      "UnregisterPushTokenDto": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "Provider-issued device token",
+            "maxLength": 512
+          }
+        },
+        "required": [
+          "token"
+        ]
+      },
+      "SetChannelPreferenceDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether the channel should deliver to this user"
+          }
+        },
+        "required": [
+          "enabled"
+        ]
+      },
+      "UpsertNotificationTemplateDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "IN_APP",
+              "EMAIL",
+              "SMS",
+              "PUSH"
+            ]
+          },
+          "subject": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "body": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "channel",
+          "body"
+        ]
+      },
       "RegisterDto": {
         "type": "object",
         "properties": {
@@ -1868,6 +2564,10 @@
             "type": "string",
             "example": "30049099"
           },
+          "gstRate": {
+            "type": "number",
+            "example": 12.5
+          },
           "strength": {
             "type": "string",
             "example": "650mg"
@@ -1915,6 +2615,10 @@
             "type": "number",
             "example": 45
           },
+          "gstRate": {
+            "type": "number",
+            "example": 12.5
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -1922,6 +2626,116 @@
               "INACTIVE",
               "ARCHIVED"
             ]
+          }
+        }
+      },
+      "CreateSchemeDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "PERCENTAGE",
+              "FLAT",
+              "FREE_GOODS",
+              "COMBO"
+            ]
+          },
+          "productId": {
+            "type": "object"
+          },
+          "categoryId": {
+            "type": "object"
+          },
+          "percentOff": {
+            "type": "object"
+          },
+          "flatOff": {
+            "type": "object"
+          },
+          "minQty": {
+            "type": "object"
+          },
+          "buyQty": {
+            "type": "object"
+          },
+          "freeQty": {
+            "type": "object"
+          },
+          "comboProductIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "validFrom": {
+            "type": "string"
+          },
+          "validTo": {
+            "type": "string"
+          },
+          "stackable": {
+            "type": "boolean"
+          },
+          "priority": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "name",
+          "kind",
+          "validFrom",
+          "validTo"
+        ]
+      },
+      "UpdateSchemeDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "INACTIVE"
+            ]
+          },
+          "percentOff": {
+            "type": "object"
+          },
+          "flatOff": {
+            "type": "object"
+          },
+          "minQty": {
+            "type": "object"
+          },
+          "buyQty": {
+            "type": "object"
+          },
+          "freeQty": {
+            "type": "object"
+          },
+          "comboProductIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "validFrom": {
+            "type": "string"
+          },
+          "validTo": {
+            "type": "string"
+          },
+          "stackable": {
+            "type": "boolean"
+          },
+          "priority": {
+            "type": "number"
           }
         }
       },
@@ -1969,6 +2783,10 @@
             "type": "string",
             "example": "Call before delivery",
             "maxLength": 500
+          },
+          "prescriptionId": {
+            "type": "string",
+            "example": "prescription-uuid"
           }
         }
       },
@@ -1981,6 +2799,69 @@
             "maxLength": 500
           }
         }
+      },
+      "CreatePrescriptionDto": {
+        "type": "object",
+        "properties": {
+          "organisationId": {
+            "type": "string",
+            "example": "org-uuid"
+          },
+          "patientRef": {
+            "type": "object",
+            "example": "John Doe"
+          },
+          "doctorName": {
+            "type": "object",
+            "example": "Dr. Smith"
+          },
+          "referenceNumber": {
+            "type": "object",
+            "example": "RX-12345"
+          },
+          "validFrom": {
+            "type": "object",
+            "example": "2026-01-01T00:00:00Z"
+          },
+          "validTo": {
+            "type": "object",
+            "example": "2026-12-31T23:59:59Z"
+          },
+          "attachmentKey": {
+            "type": "object",
+            "example": "s3://bucket/key"
+          },
+          "attachmentMimeType": {
+            "type": "object",
+            "example": "image/jpeg"
+          },
+          "maxDispensings": {
+            "type": "number",
+            "example": 0
+          }
+        },
+        "required": [
+          "organisationId"
+        ]
+      },
+      "VerifyPrescriptionDto": {
+        "type": "object",
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "APPROVE",
+              "REJECT"
+            ]
+          },
+          "reason": {
+            "type": "object",
+            "example": "Illegible handwriting"
+          }
+        },
+        "required": [
+          "decision"
+        ]
       },
       "IssueInvoiceDto": {
         "type": "object",
