@@ -521,9 +521,9 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
   - [ ] **Invoice PDF rendering** — deferred; the invoice is structured data and
     the PDF is presentation, like the deferred admin scheme UI (belongs with
     P11 Admin UI or when fulfilment needs a printable).
-  - [ ] **`Product.gstRate` cannot express "rate not set"** — `NOT NULL DEFAULT 0`,
-    so a zero-rated line and an un-rated one invoice identically. Carried into the
-    Phase 3 plan; changing it is a schema decision, not a test fix.
+  - [x] **`Product.gstRate` can now express "rate not set"** — column is
+    nullable (no default), so a zero-rated line (`0`) is distinguishable from an
+    un-rated one (`null`), and invoicing fails closed naming the missing field.
 - [x] **P8 — Prescriptions** (upload metadata + store, pharmacist verification
   workflow, schedule-based order blocking — server-side enforcement for
   Schedule H1). Delivered 2026-11-24: domain types/rules, `Prescription` model +
@@ -569,8 +569,8 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
 P8 (Prescriptions) and P10 (Outbox relay) are delivered. Next *development*
 task is **P9 — Notifications** (push, in-app centre, channel preferences,
 template UI) — partly Phase 1; durable retry now exists via the outbox.
-Alternatively, the deferred screens (invoice PDF, admin scheme UI) and the
-`Product.gstRate` "not set" gap can be closed first.
+Alternatively, the deferred screens (invoice PDF, admin scheme UI) can be
+closed first.
 
 ### 1. ~~Bring the database up and apply the migrations~~ — done 2026-09-30
 

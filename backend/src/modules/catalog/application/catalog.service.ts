@@ -39,6 +39,7 @@ export class CatalogService {
           description: dto.description ?? null,
           schedule: dto.schedule,
           hsnCode: dto.hsnCode ?? null,
+          gstRate: dto.gstRate !== undefined ? new Prisma.Decimal(dto.gstRate) : null,
           strength: dto.strength ?? null,
           packSize: dto.packSize ?? 0,
           packUnit: dto.packUnit ?? null,
@@ -153,6 +154,7 @@ export class CatalogService {
         data: {
           ...(dto.name !== undefined ? { name: dto.name } : {}),
           ...(dto.price !== undefined ? { price: new Prisma.Decimal(dto.price) } : {}),
+          ...(dto.gstRate !== undefined ? { gstRate: new Prisma.Decimal(dto.gstRate) } : {}),
           ...(dto.status !== undefined
             ? { status: dto.status as 'ACTIVE' | 'INACTIVE' | 'ARCHIVED' }
             : {}),

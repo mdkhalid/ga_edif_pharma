@@ -681,7 +681,10 @@ model Product {
   price          Decimal           @default(0) @map("price") @db.Decimal(18, 4)
   /// GST rate as a percentage (e.g. 5 for 5%, 12.5 for 12.5%). Read by the
   /// P7 invoice builder together with `hsnCode` to compute CGST/SGST/IGST.
-  gstRate        Decimal           @default(0) @map("gst_rate") @db.Decimal(5, 2)
+  /// Nullable: `null` means "rate not set" (distinct from a legitimate 0%
+  /// zero-rated product). Invoicing fails closed on null rather than printing
+  /// a zero where a tax figure belongs.
+  gstRate        Decimal?          @map("gst_rate") @db.Decimal(5, 2)
   currency       String            @default("INR") @db.VarChar(3)
   status         ProductStatus     @default(ACTIVE)
   visibility     ProductVisibility @default(PUBLIC)

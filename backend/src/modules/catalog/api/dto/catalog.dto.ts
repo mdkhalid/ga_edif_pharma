@@ -39,6 +39,12 @@ export class CreateProductDto {
   @MaxLength(16)
   hsnCode?: string;
 
+  @ApiPropertyOptional({ example: 12.5 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  gstRate?: number;
+
   @ApiPropertyOptional({ example: '650mg' })
   @IsOptional()
   @IsString()
@@ -86,6 +92,12 @@ export class UpdateProductDto {
   @IsNumber()
   @Min(0)
   price?: number;
+
+  @ApiPropertyOptional({ example: 12.5 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  gstRate?: number;
 
   @ApiPropertyOptional({ enum: ['ACTIVE', 'INACTIVE', 'ARCHIVED'] })
   @IsOptional()

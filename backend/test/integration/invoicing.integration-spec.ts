@@ -160,18 +160,17 @@ describe('tax invoicing (integration)', () => {
   /**
    * A product, with or without the tax data an invoice legally requires.
    *
-   * `hsnCode: null` is a reachable state in production — a catalogue import that
-   * has not been given its HSN yet — so it is constructed here rather than assumed
-   * away. `gstRate` has no such state: the column is `NOT NULL DEFAULT 0`, so a
-   * zero rate is expressed as `0` and is indistinguishable from "not set". That is
-   * a real gap in the data model, not something this suite should paper over: a
-   * zero-rated line and a line whose rate was never entered produce the same
-   * invoice, and 0% is a legitimate GST rate. It is recorded in the Phase 3 plan
-   * rather than tested around.
+   * `hsnCode: null` and `gstRate: null` are both reachable states in production —
+   * a catalogue import that has not been given its HSN or its GST rate yet — so
+   * they are constructed here rather than assumed away. Invoicing fails closed on
+   * either, naming the missing field, rather than printing a zero where a tax
+   * figure belongs. A legitimate 0% zero-rated product is expressed as `0`, not
+   * `null`, so the two are now distinguishable (the old `NOT NULL DEFAULT 0`
+   * column could not tell them apart).
    */
   async function product(options: {
     price: string;
-    gstRate?: Prisma.Decimal;
+    gstRate?: Prisma.Decimal | null;
     hsnCode?: string | null;
     label: string;
   }): Promise<string> {
@@ -688,6 +687,15 @@ describe('tax invoicing (integration)', () => {
       const orderId = await order(org, [{ productId }]);
 
       await expect(issue(orderId)).rejects.toThrow(/HSN code/);
+      expect(await invoicesFor(orderId)).toEqual([]);
+    });
+
+    it('refuses to issue when a product has no GST rate set, and writes nothing', async () => {
+      const org = await buyer(INTRA_STATE, 'no gst');
+      const productId = await product({ price: '100', label: 'gst missing', gstRate: null });
+      const orderId = await order(org, [{ productId }]);
+
+      await expect(issue(orderId)).rejects.toThrow(/GST rate/);
       expect(await invoicesFor(orderId)).toEqual([]);
     });
 

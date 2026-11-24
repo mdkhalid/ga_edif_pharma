@@ -154,6 +154,11 @@ export class InvoicingService {
             `Product ${item.product.name} has no HSN code. Set it before invoicing.`,
           );
         }
+        if (item.product.gstRate === null) {
+          throw new BusinessRuleViolationError(
+            `Product ${item.product.name} has no GST rate set. Set it before invoicing.`,
+          );
+        }
         return {
           productId: item.productId,
           productName: item.product.name,
