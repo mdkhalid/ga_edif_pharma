@@ -1,7 +1,8 @@
 # 19 — Development Plan (Phase 2 — Commercial Engine)
 
 > **Last updated:** 2026-11-25 · **Branch:** `main` ·
-> **Status: P1–P11 delivered, including the invoice PDF. Resume at P12 Mobile.**
+> **Status: P1–P11 delivered, including the invoice PDF; P12 Mobile started
+> with order history + reorder. Resume at the remaining P12 features.**
 >
 > What changed this pass: the database is up locally for the first time, both
 > never-applied migrations are applied and seeded, and P7's DB-backed tests exist
@@ -29,6 +30,21 @@
 > against, and it is pure/testable with zero infrastructure.
 
 ## Where we are (session log)
+
+- **2026-11-25 (later still) — started P12 with the one feature that needs no
+  native module: order history + reorder.** `callAuthed` previously accepted only
+  an `AuthApi`, so no other module could use the app's single-flight refresh; it
+  now delegates to a generic `callAuthedClient(client => …)` while keeping the
+  old signature for auth callers. The new Orders tab lists the tenant buyer's
+  orders with the typed client and adds a prior order's lines to the cart with
+  the same idempotency-key helper registration uses. It deliberately stops short
+  of placing the order — prescription and price checks belong at checkout.
+
+  Verified: mobile typecheck (both configs) ✅, mobile lint 0 problems ✅. Not
+  verified: no device or simulator render, and the mobile integration suite
+  still needs a live API; the tab's runtime behaviour against a seeded account
+  is therefore unverified. Push, barcode scan and prescription upload remain —
+  all three need Expo modules that are not installed here.
 
 - **2026-11-25 (later) — closed the deferred invoice PDF.** The planned next
   item after the viewers was a printable invoice. No PDF library is installed,
@@ -663,7 +679,8 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
   shapes in `@medichain/shared-types`, and 3 integration tests. Credit is read
   from `Organisation.creditLimit/currentExposure`; a persisted ledger table does
   not exist yet.
-- [ ] **P12 — Mobile** (push, barcode scan, reorder, prescription upload).
+- [~] **P12 — Mobile** (push, barcode scan, reorder, prescription upload) —
+  order history + reorder landed 2026-11-25; the other three need native modules.
 
 ## Status
 
@@ -680,16 +697,16 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
 | P9 Notifications | done (backend) — in-app centre, preferences, templates + admin API, push-token registry + dispatcher; provider push transport waits on FCM/APNs credentials |
 | P10 Outbox relay | done — enqueue, SKIP LOCKED claim, dispatch, retry/backoff, dead-letter; order.placed durable. 2 integration tests green |
 | P11 Admin UI | complete — scheme + notification-template screens, then price-list, stock, credit and invoice viewers with PDF download (`/schemes`, `/notifications/templates`, `/price-lists`, `/stock`, `/credit`, `/invoices`); 21 admin routes build. 2026-11-25 also fixed a contract defect: paginated responses were unwrapped as single resources (`meta` lost), now `unwrapPage()` across all five pre-existing paged endpoints |
-| P12 Mobile | pending |
+| P12 Mobile | started — order history + reorder tab; typecheck/lint green. Push, barcode scan and prescription upload pending on native modules |
 
 ## Resume point
 
 P1–P11 are delivered, including the invoice PDF. P11's screens are `/schemes`,
 `/notifications/templates`, `/price-lists`, `/stock`, `/credit` and `/invoices`.
-The next *development* task is **P12 (Mobile)** — push, barcode scan, reorder
-and prescription upload. It has not started, and unlike the admin screens it
-needs native modules (notifications, camera/scanner, document picker) that are
-not installed in this workspace. P11's screens have not been rendered in a
+The next *development* task is the rest of **P12 (Mobile)**: push, barcode scan
+and prescription upload. Reorder and order history landed in the same session;
+the remaining three need native modules (notifications, camera/scanner, document
+picker) that are not installed in this workspace. P11's screens have not been rendered in a
 browser in this environment: every claim above rests on typecheck, lint and
 `next build`, not on a live render against seeded data. The PDF route has not
 been exercised over HTTP; its bytes were verified with `pypdf`.

@@ -3,6 +3,7 @@ import {
   createApiClient,
   createAuthApi,
   type AuthApi,
+  type MediChainClient,
   type RegisterResult,
 } from '@medichain/api-client';
 import type { AuthenticatedUserProfile } from '@medichain/shared-types';
@@ -62,16 +63,28 @@ async function refreshAccessToken(): Promise<string | null> {
   return refreshInFlight;
 }
 
-export async function callAuthed<T>(fn: (auth: AuthApi) => Promise<T>): Promise<T> {
+/**
+ * Runs any authenticated API call with the same single-flight refresh as auth.
+ *
+ * The original helper handed callers an `AuthApi`, which made it unusable for
+ * orders, cart and every other module. Building the generic client here keeps
+ * one refresh path for the whole app — a second one would be a second place to
+ * get token rotation wrong.
+ */
+export async function callAuthedClient<T>(fn: (client: MediChainClient) => Promise<T>): Promise<T> {
   try {
-    return await fn(createAuthApi(clientWith(() => useAuthStore.getState().accessToken)));
+    return await fn(clientWith(() => useAuthStore.getState().accessToken));
   } catch (error) {
     if (error instanceof ApiError && error.isUnauthenticated) {
       const token = await refreshAccessToken();
-      if (token !== null) return fn(createAuthApi(clientWith(() => token)));
+      if (token !== null) return fn(clientWith(() => token));
     }
     throw error;
   }
+}
+
+export async function callAuthed<T>(fn: (auth: AuthApi) => Promise<T>): Promise<T> {
+  return callAuthedClient((client) => fn(createAuthApi(client)));
 }
 
 /** Resolves the session on launch from the Keychain. */
@@ -125,7 +138,7 @@ export async function logout(): Promise<void> {
  * helper was missing is a bad failure mode; the key only needs to be unique per
  * attempt, not unguessable.
  */
-function idempotencyKey(): string {
+export function idempotencyKey(): string {
   const runtimeCrypto = globalThis.crypto as { randomUUID?: () => string } | undefined;
   if (typeof runtimeCrypto?.randomUUID === 'function') {
     return runtimeCrypto.randomUUID();
