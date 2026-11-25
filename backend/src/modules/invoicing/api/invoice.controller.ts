@@ -1,5 +1,6 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query, Res } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiProduces, ApiResponse, ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
 
 import { Capability, type AuthenticatedPrincipal } from '@medichain/shared-types';
 
@@ -7,6 +8,7 @@ import {
   CurrentTenant,
   CurrentUser,
   Idempotent,
+  RawResponse,
   RequireCapability,
 } from '../../../common/decorators';
 import { uuidParam } from '../../../common/pipes/parse-uuid.pipe';
@@ -103,6 +105,33 @@ export class InvoiceController {
     );
     if (!row) throw new NotFoundError('Invoice not found.');
     return { data: row };
+  }
+
+  @Get(':id/pdf')
+  @RequireCapability(Capability.INVOICE_READ)
+  @RawResponse()
+  @ApiOperation({ summary: 'Download a PDF copy of a stored invoice' })
+  @ApiProduces('application/pdf')
+  @ApiResponse({ status: 200, description: 'The invoice as a PDF document.' })
+  async downloadPdf(
+    @CurrentTenant() tenantId: string,
+    @CurrentUser() principal: AuthenticatedPrincipal,
+    @Param('id', uuidParam('id')) id: string,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<Uint8Array> {
+    const pdf = await this.invoicing.getInvoicePdf(
+      tenantId,
+      id,
+      principal.organisationId,
+      this.isStaff(principal),
+    );
+    if (pdf === null) throw new NotFoundError('Invoice not found.');
+
+    const filename = pdf.invoiceNumber.replace(/[^A-Za-z0-9_-]+/g, '-');
+    response.setHeader('Content-Type', 'application/pdf');
+    response.setHeader('Content-Disposition', `attachment; filename="${filename}.pdf"`);
+    response.setHeader('Cache-Control', 'no-store');
+    return Buffer.from(pdf.bytes);
   }
 
   @Post(':id/cancel')

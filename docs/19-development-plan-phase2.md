@@ -1,8 +1,7 @@
 # 19 — Development Plan (Phase 2 — Commercial Engine)
 
 > **Last updated:** 2026-11-25 · **Branch:** `main` ·
-> **Status: P8–P11 delivered (P11's invoice PDF remains deferred).
-> Resume at the invoice PDF or P12 Mobile.**
+> **Status: P1–P11 delivered, including the invoice PDF. Resume at P12 Mobile.**
 >
 > What changed this pass: the database is up locally for the first time, both
 > never-applied migrations are applied and seeded, and P7's DB-backed tests exist
@@ -30,6 +29,33 @@
 > against, and it is pure/testable with zero infrastructure.
 
 ## Where we are (session log)
+
+- **2026-11-25 (later) — closed the deferred invoice PDF.** The planned next
+  item after the viewers was a printable invoice. No PDF library is installed,
+  and installing one is exactly the kind of change that should not sneak into a
+  money-path module, so the renderer in
+  `backend/src/modules/invoicing/domain/invoice-pdf.ts` emits the fixed PDF
+  grammar directly: A4 pages, standard Helvetica, computed xref offsets,
+  continuation pages after 26 lines. It takes the already-reconciled decimal
+  strings from `getById` and does no arithmetic — a printable copy must not
+  recompute the invoice it claims to show. ASCII-only text keeps the bytes valid
+  for the standard fonts; `₹` becomes `INR ` rather than a broken glyph.
+
+  `GET /invoices/:id/pdf` reuses the same scoped read as `getById`, so a buyer
+  still cannot fetch another organisation's invoice through the PDF route. The
+  contract was regenerated (60 paths / 29 schemas), `createInvoicesApi` gained a
+  `downloadPdf()` that returns a `Blob` through `parseAs: 'blob'`, and the
+  invoice viewer gained a PDF button.
+
+  Verification worth keeping: four new unit cases cover header/xref integrity,
+  escaped delimiters, unicode replacement and pagination; the backend unit suite
+  is **462/462**. The generated PDF was then parsed by an *independent* library
+  (`pypdf`): one page, invoice number and grand total both extracted — so the
+  xref offsets and stream lengths are right, not merely self-consistent.
+  Backend typecheck ✅, backend lint 0 errors (21 baseline warnings) ✅, module
+  boundaries 192 files ✅, api-client/admin typecheck ✅, admin lint ✅,
+  `next build` ✅. The route has not been exercised over HTTP against a live
+  database; that remains a gap.
 
 - **2026-11-25 — resumed at P11; found a contract defect before writing the first
   viewer screen.**
@@ -569,8 +595,8 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
 - [x] **P6 — Payments** (gateway abstraction, fail-closed webhooks, idempotency)
   - Duplicate-webhook credits ledger once; invalid signature → 4xx, not 500.
 - [x] **P7 — Invoicing** (tax invoice, gapless numbering, CGST/SGST/IGST, HSN,
-  round-off) + 1,000-order reconcile-to-paisa test + DB-backed verification —
-  complete except the deferred PDF.
+  round-off, PDF) + 1,000-order reconcile-to-paisa test + DB-backed verification —
+  complete.
   - [x] Pure domain + reconcile property test (the exit criterion, green).
   - [x] Schema + migration `20260929000000_invoicing` — now **applied to a real
     database and seeded**, locally and in CI.
@@ -582,9 +608,9 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
     and the replay total-scale defect; see the 2026-09-30 session log.
   - [x] **Scheme migration applied** — `20260926060000_scheme_persistence` has now
     run against a real database and been seeded. Owed since 2026-09-27.
-  - [ ] **Invoice PDF rendering** — deferred; the invoice is structured data and
-    the PDF is presentation, like the deferred admin scheme UI (belongs with
-    P11 Admin UI or when fulfilment needs a printable).
+  - [x] **Invoice PDF rendering** — landed 2026-11-25: dependency-free renderer,
+    scoped `GET /invoices/:id/pdf`, typed client `downloadPdf()` and an admin
+    download button. Verified with 4 unit cases and an independent `pypdf` parse.
   - [x] **`Product.gstRate` can now express "rate not set"** — column is
     nullable (no default), so a zero-rated line (`0`) is distinguishable from an
     un-rated one (`null`), and invoicing fails closed naming the missing field.
@@ -629,7 +655,7 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
   `NotificationTemplateSummary`) and the scheme DTO's nullable fields were
   given explicit Swagger types so generated TS clients are usable.
   The remaining viewers landed 2026-11-25 (`/price-lists`, `/stock`, `/credit`,
-  `/invoices`); P11 is complete apart from the deferred invoice PDF. The first
+  `/invoices`); P11 is complete. The first
   two screens came with three read-only backend APIs — `/price-lists`,
   `/inventory/stock`, `/credit/summary` (each list + get, offset pagination,
   decimals as strings, ISO dates, gated on `PRICING_READ`/`INVENTORY_READ`/
@@ -649,22 +675,24 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
 | P4 Stock ledger | done — `Quantity` VO, `Batch` types, immutable `StockLedger` with `Σ(entries) = on_hand` invariant, FEFO allocation; 24 tests green |
 | P5 Credit | done — immutable `CreditLedger` with hold/release, `availableCredit = limit − consumed − held`; 17 tests green |
 | P6 Payments | done — Payment state machine, idempotency keys, HMAC-SHA256 webhook verification; 22 tests green |
-| P7 Invoicing | **done except the deferred PDF** — domain, service, API, contract, client, plus 26 integration + 7 concurrency tests; 2 real defects found by them and fixed (concurrent double-issue, replay total scale). The `gstRate` "not set" gap was closed 2026-11-24: nullable column + fail-closed invoicing |
+| P7 Invoicing | done — domain, service, API, contract, client, PDF, plus 26 integration + 7 concurrency tests; 2 real defects found by them and fixed (concurrent double-issue, replay total scale). The `gstRate` "not set" gap was closed 2026-11-24: nullable column + fail-closed invoicing; PDF landed 2026-11-25 |
 | P8 Prescriptions | done — domain, schema + migration, service, controller, tenant scoping, order-side gate, dispensing counter; 8 unit + 3 integration tests green. File storage + reuse caps remain Phase 3 |
 | P9 Notifications | done (backend) — in-app centre, preferences, templates + admin API, push-token registry + dispatcher; provider push transport waits on FCM/APNs credentials |
 | P10 Outbox relay | done — enqueue, SKIP LOCKED claim, dispatch, retry/backoff, dead-letter; order.placed durable. 2 integration tests green |
-| P11 Admin UI | complete apart from the deferred invoice PDF — scheme + notification-template screens, then price-list, stock, credit and invoice viewers (`/schemes`, `/notifications/templates`, `/price-lists`, `/stock`, `/credit`, `/invoices`); 21 admin routes build. 2026-11-25 also fixed a contract defect: paginated responses were unwrapped as single resources (`meta` lost), now `unwrapPage()` across all five pre-existing paged endpoints |
+| P11 Admin UI | complete — scheme + notification-template screens, then price-list, stock, credit and invoice viewers with PDF download (`/schemes`, `/notifications/templates`, `/price-lists`, `/stock`, `/credit`, `/invoices`); 21 admin routes build. 2026-11-25 also fixed a contract defect: paginated responses were unwrapped as single resources (`meta` lost), now `unwrapPage()` across all five pre-existing paged endpoints |
 | P12 Mobile | pending |
 
 ## Resume point
 
-P8 (Prescriptions), P9 (Notifications), P10 (Outbox relay) and P11 (Admin UI)
-are delivered. P11's screens are `/schemes`, `/notifications/templates`,
-`/price-lists`, `/stock`, `/credit` and `/invoices`. The next *development*
-task is the deferred invoice PDF, or P12 (Mobile) — push, barcode scan, reorder
-and prescription upload. Neither has started. P11's screens have not been
-rendered in a browser in this environment: every claim above rests on typecheck,
-lint and `next build`, not on a live render against seeded data.
+P1–P11 are delivered, including the invoice PDF. P11's screens are `/schemes`,
+`/notifications/templates`, `/price-lists`, `/stock`, `/credit` and `/invoices`.
+The next *development* task is **P12 (Mobile)** — push, barcode scan, reorder
+and prescription upload. It has not started, and unlike the admin screens it
+needs native modules (notifications, camera/scanner, document picker) that are
+not installed in this workspace. P11's screens have not been rendered in a
+browser in this environment: every claim above rests on typecheck, lint and
+`next build`, not on a live render against seeded data. The PDF route has not
+been exercised over HTTP; its bytes were verified with `pypdf`.
 
 ### 1. ~~Bring the database up and apply the migrations~~ — done 2026-09-30
 
@@ -715,21 +743,18 @@ job starts the API on, so that is ruled out; the rest needs the log.
 This is the second time in two sessions that a red step was hiding a failure behind it,
 and the second time this document asserted a state it had not observed. Check the run.
 
-### Then P8
+### Then P8 — historical note, all three items since closed
 
-P7 and P3 are complete as far as the money path goes. Three items stay open on
-purpose, and none of them is a correctness risk:
+P7 and P3 were complete as far as the money path goes. Three items were left open
+on purpose, none of them a correctness risk; all three are now done:
 
-- **Invoice PDF** — the invoice is structured data and the PDF is presentation.
-  Belongs with P11 (Admin UI) or when fulfilment needs a printable.
-- **Admin scheme UI** — backend CRUD now shipped (`SchemeController` +
-  `SchemeManagementService`); the admin-portal screen itself is still owed.
-- **`Product.gstRate` can now express "rate not set"** — column is nullable, so
-  a zero-rated line (`0`) is distinguishable from an un-rated one (`null`), and
-  invoicing fails closed naming the missing field.
-
-Recorded as gaps rather than tasks because they are screens and one schema
-question — not risks to the numbers.
+- **Invoice PDF** — landed 2026-11-25 (dependency-free renderer, scoped route,
+  typed client method, admin download button; verified with `pypdf`).
+- **Admin scheme UI** — `/schemes` shipped 2026-11-24 against the existing
+  `SchemeController` + `SchemeManagementService` CRUD.
+- **`Product.gstRate` can now express "rate not set"** — closed 2026-11-24: the
+  column is nullable, so a zero-rated line (`0`) is distinguishable from an
+  un-rated one (`null`), and invoicing fails closed naming the missing field.
 
 ## Verification (per task)
 

@@ -6,6 +6,7 @@ import type {
 } from '@medichain/shared-types';
 
 import { unwrap, unwrapPage, type MediChainClient } from '../client';
+import { toApiError } from '../error';
 import type { components } from '../generated/schema';
 
 /**
@@ -35,6 +36,8 @@ export interface InvoicesApi {
   getById(id: string): Promise<InvoiceDetail>;
   /** Cancels an issued invoice. Only ISSUED invoices can be cancelled. */
   cancel(id: string, reason?: string): Promise<{ id: string }>;
+  /** Printable copy rendered from the stored invoice; not a JSON envelope. */
+  downloadPdf(id: string): Promise<Blob>;
 }
 
 export function createInvoicesApi(client: MediChainClient): InvoicesApi {
@@ -65,6 +68,20 @@ export function createInvoicesApi(client: MediChainClient): InvoicesApi {
           params: { path: { id } },
         }),
       );
+    },
+
+    async downloadPdf(id) {
+      // A PDF is not a JSON envelope: `unwrap` cannot be used, and an error must
+      // still be turned into the same ApiError every other endpoint throws.
+      const result = await client.GET('/invoices/{id}/pdf', {
+        params: { path: { id } },
+        parseAs: 'blob',
+      });
+      if (!result.response.ok) throw await toApiError(result.response, result.error);
+      if (!(result.data instanceof Blob)) {
+        throw new Error('Invoice PDF response was not a binary body.');
+      }
+      return result.data;
     },
   };
 }

@@ -14,6 +14,7 @@ import {
 } from '../../../common/exceptions/domain.exception';
 import { Money, paisa, ZERO } from '../../pricing';
 import { buildInvoice } from '../domain/invoice.builder';
+import { renderInvoicePdf } from '../domain/invoice-pdf';
 import { fiscalYearFor, formatInvoiceNumber } from '../domain/invoice-numbering';
 import type { InvoiceLineInput } from '../domain/invoice.types';
 import { distributeDiscount } from './discount-distribution';
@@ -325,6 +326,24 @@ export class InvoicingService {
         lineTotal: paisa(line.lineTotal.toString()),
       })),
     };
+  }
+
+  /**
+   * Printable copy of a stored invoice.
+   *
+   * The same scoped read as `getById` feeds the renderer, so a buyer cannot
+   * obtain another organisation's invoice by asking for its PDF. The renderer
+   * receives the already-reconciled decimal strings and computes nothing.
+   */
+  async getInvoicePdf(
+    tenantId: string,
+    id: string,
+    organisationId: string | null,
+    staff: boolean,
+  ): Promise<{ readonly bytes: Uint8Array; readonly invoiceNumber: string } | null> {
+    const invoice = await this.getById(tenantId, id, organisationId, staff);
+    if (invoice === null) return null;
+    return { bytes: renderInvoicePdf(invoice), invoiceNumber: invoice.invoiceNumber };
   }
 
   async list(

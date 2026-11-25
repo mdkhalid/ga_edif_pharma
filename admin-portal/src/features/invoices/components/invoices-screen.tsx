@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { Button, Card, CardDescription, CardHeader, CardTitle } from '@medichain/ui';
 import { ApiError, createInvoicesApi } from '@medichain/api-client';
 import type { InvoiceStatus } from '@medichain/shared-types';
@@ -28,6 +28,23 @@ export function InvoicesScreen() {
   const [orderId, setOrderId] = useState('');
   const [page, setPage] = useState(1);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+
+  const pdf = useMutation({
+    mutationFn: ({ id }: { id: string; number: string }) =>
+      callAuthed((client) => createInvoicesApi(client).downloadPdf(id)),
+    onSuccess: (blob, { number }) => {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${number.replace(/[^A-Za-z0-9_-]+/g, '-')}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    },
+    onError: () => setPdfError('Could not download the PDF. Try signing in again.'),
+  });
 
   const invoices = useQuery({
     queryKey: ['invoices', 'list', status, orderId, page],
@@ -127,6 +144,8 @@ export function InvoicesScreen() {
         </Button>
       </form>
 
+      {pdfError !== null && <p className="text-sm text-danger-600">{pdfError}</p>}
+
       {rows.length === 0 ? (
         <Card>
           <CardHeader>
@@ -173,13 +192,26 @@ export function InvoicesScreen() {
                       ₹{invoice.total}
                     </td>
                     <td className="p-3">
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => setOpenId(openId === invoice.id ? null : invoice.id)}
-                      >
-                        {openId === invoice.id ? 'Hide details' : 'Details'}
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => setOpenId(openId === invoice.id ? null : invoice.id)}
+                        >
+                          {openId === invoice.id ? 'Hide details' : 'Details'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          disabled={pdf.isPending}
+                          onClick={() => {
+                            setPdfError(null);
+                            pdf.mutate({ id: invoice.id, number: invoice.invoiceNumber });
+                          }}
+                        >
+                          {pdf.isPending ? '…' : 'PDF'}
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}

@@ -1,12 +1,13 @@
 # 00 — Project Status
 
 > **Last updated:** 2026-11-25 · **Branch:** `main` ·
-> **Phase in flight:** Phase 2 — **P1–P11 complete** (P11's invoice PDF remains
-> deferred). The four remaining admin viewers — price lists, stock, credit and
-> invoices — landed 2026-11-25, alongside a fix to the typed client that had been
-> dropping pagination `meta` on every paged endpoint. Backend `test:all` is
-> **568/568 across 49 suites**, coverage gate passed. P11 screens are verified by
-> typecheck, lint and `next build`, not by a browser render.
+> **Phase in flight:** Phase 2 — **P1–P11 complete, including the invoice PDF**.
+> The four remaining admin viewers — price lists, stock, credit and invoices —
+> and the PDF landed 2026-11-25, alongside a fix to the typed client that had
+> been dropping pagination `meta` on every paged endpoint. Backend unit tests are
+> **462/462**; `test:all` was **568/568 across 49 suites** before this pass.
+> P11 screens are verified by typecheck, lint and `next build`, not by a browser
+> render; the PDF bytes were verified independently with `pypdf`.
 > P8 Prescriptions and P9 Notifications (in-app centre, preferences, template admin
 > API, push-token registry + dispatcher) landed on 2026-11-24, after the P10 outbox
 > relay that gives notification delivery durable retry. The database is up locally
@@ -38,7 +39,7 @@ than merely written, and what is still open. Where this file and
 |---|---|---|---|
 | **0** | Foundation | **Complete but for the `dev` deploy, which needs credentials** | ~98% |
 | 1 | Core Commerce MVP | **In flight — six of seven exit criteria met and verified against a real database and a real Redis; admin MFA landed end-to-end; remaining work is UI (wizard, admin screens, mobile storefront) plus the throughput run** | ~80% |
-| 2 | Commercial Engine | **In flight — P1–P11 landed (engine, pricing, schemes, stock ledger, credit, payments, invoicing, prescriptions, outbox relay, notifications and six admin screens), verified against a real database: `test:all` 568/568, coverage gate passed. Only the invoice PDF is deferred** | ~85% |
+| 2 | Commercial Engine | **In flight — P1–P11 landed (engine, pricing, schemes, stock ledger, credit, payments, invoicing + PDF, prescriptions, outbox relay, notifications and six admin screens), verified against a real database: `test:all` 568/568, coverage gate passed** | ~90% |
 | 3 | Fulfilment & Finance | Not started | 0% |
 | 4 | Scale & Mobile GA | Not started | 0% |
 | 5 | Intelligence | Not started | 0% |
