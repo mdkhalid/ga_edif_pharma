@@ -1,6 +1,6 @@
 # 20 — Shortfalls, Estimates and Future Work
 
-> **Last updated:** 2026-11-25 · **Branch:** `main` (`7d546a3`) ·
+> **Last updated:** 2026-11-25 · **Branch:** `main` (`93fa68e`) ·
 > **Purpose:** the honest backlog for work that is *not done yet*. This file
 > records gaps found during the 2026-11-25 pass, rough estimates, blockers, and
 > the order I recommend taking them in.
@@ -25,8 +25,9 @@ from scratch every session.
 
 ## Scope A — design, documentation and verification shortfalls
 
-**Estimated total: 7–15 working days** for one developer, excluding review/PR
-cycles and waiting on external access. Blockers are called out per row; a
+**Estimated total: 8–18 working days** for one developer, excluding review/PR
+cycles and waiting on external access. The range grew on 2026-11-25 after CI run
+57 exposed two more red gates (A9, A10). Blockers are called out per row; a
 blocked item does not consume effort until unblocked.
 
 | ID | Item | Current state | Why it matters | Estimate | Blocked by | Status |
@@ -39,10 +40,34 @@ blocked item does not consume effort until unblocked.
 | **A6** | Saga orchestration, one real flow | Listed in `docs/11-design-patterns-and-solid.md` as used; no saga exists | Needed when a multi-step Phase 3 flow (payment + stock + fulfilment) must compensate on failure | 1–2 d | A concrete flow to orchestrate — do not build it speculatively | [ ] |
 | **A7** | Circuit breaker + bulkhead for outbound transports | Email, SMS and push have transports and best-effort/strict paths, but no breaker or resource isolation | Useful only once real providers are reachable; without them this is complexity with no consumer | 1–2 d | A real SMTP/SMS/push provider and defined failure budgets | [ ] |
 | **A8** | Anti-corruption layer for gateway payloads | Raw gateway responses are not translated behind a domain-shaped port | Needed before Razorpay/SMSG91 payload shapes leak into domain code | 1–2 d | A concrete gateway integration to wrap | [ ] |
+| **A9** | Clear the dependency-audit gate | Run 57's *Dependency audit* failed; `npm run check:audit` reports **23 blocking advisories** (Next 16 RCE/SSRF group, node-forge ×8, sharp, zod, grpc-js, shell-quote, source-map-js, systeminformation, proxy-addr, body-parser, decode-uri-component) beyond the three accepted `multer` entries | No completion claim is trustworthy while the gate is red. The last dependency change was months ago, so these are newly published advisories, not this session's code | 1–3 d | Registry access for version bumps; NO `npm install` inside the sandbox — its cleanup is unreliable | [ ] |
+| **A10** | Clear the container-scan gate | Run 57's *Container scan (Trivy)* failed at *Build*, while *Build backend image* itself passed | Same shape as A9: likely newly published base-image CVEs, not a Dockerfile change from this session | 0.5–2 d | Trivy binary or CI job log to see which image/package is flagged; not installed locally | [ ] |
 
-**Recommended order:** A1 → A2 → A4 (unblock first, since it gates every
-"green" claim) → A3 → A5 → A6–A8 only when their consumers exist. A1 and A2
-are about one day together and are fully doable in this environment.
+**Recommended order:** A1 → A2 → A4/A9/A10 (the three red CI gates; unblock
+first, since they gate every "green" claim) → A3 → A5 → A6–A8 only when their
+consumers exist. A1 and A2 are about one day together and are fully doable in
+this environment.
+
+### CI observation that changed this file (2026-11-25)
+
+Immediately after pushing `7d546a3`, run 57 finished with three failures; run 56
+(the starting commit) was already red. Per-job results:
+
+| Job | Step | Result |
+|---|---|---|
+| Lint · Typecheck · Boundaries | — | ✅ |
+| Tests + coverage | — | ✅ |
+| Build | npm build / OpenAPI / contract drift / backend image | ✅ |
+| Build | **Container scan (Trivy)** | ❌ |
+| Security scans | Secret scan (gitleaks) | ✅ |
+| Security scans | **Dependency audit** | ❌ |
+| Mobile auth (live API) | **Mobile auth flow** | ❌ (pre-existing since run 36) |
+
+Check-run annotations contained only "Process completed with exit code 1" and
+Node 20 deprecation notices, so the exact failing package/CVE needs the job log
+(authenticated) or local tooling. `npm run check:audit` reproduced A9 locally;
+Trivy is not installed here, so A10 is inferred from the failed step name, not
+diagnosed. **Do not re-estimate these as code regressions without evidence.**
 
 ---
 
@@ -57,7 +82,7 @@ silently folded into "finish the design".
 | **B2 — Admin modules** | Payments, logistics, returns, prescriptions queue, reports, users/roles, audit logs, jobs, support, pricing simulator. Phase 2 screens are done | 10–20 d | [ ] |
 | **B3 — Phases 3–6** | Fulfilment & Finance, Scale & Mobile GA, Intelligence, Compliance & Multi-tenant | Not estimated — whole phases, not shortfalls | [ ] |
 
-**Combined view:** Scope A ≈ 7–15 d; Scope B (B1+B2) ≈ 18–35 d; Phases 3–6
+**Combined view:** Scope A ≈ 8–18 d; Scope B (B1+B2) ≈ 18–35 d; Phases 3–6
 are a separate programme and are deliberately not estimated here.
 
 ---

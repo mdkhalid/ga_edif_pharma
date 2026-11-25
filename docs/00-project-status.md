@@ -15,12 +15,17 @@
 > API, push-token registry + dispatcher) landed on 2026-11-24, after the P10 outbox
 > relay that gives notification delivery durable retry. The database is up locally
 > and seeded; the database-backed suites run. Phase 1 stands as recorded below (§7) ·
-> **CI:** 🔴 **red on `main` at run 43**, on the
-> pre-existing *Mobile auth flow* failure — still undiagnosed, and it needs the job's
-> API log artifact, which needs auth. **Run 46 observed: every other job green**, so
-> the dependency audit broken by `brace-expansion` advisories published after run 44
-> (fixed in `a311bae`) is confirmed resolved and *Mobile auth (live API)* is now the
-> only red job on `main`.
+> **CI:** 🔴 **red on `main` at run 57** — three jobs failed: *Mobile auth (live
+> API)* at *Mobile auth flow* (the pre-existing, undiagnosed one), *Security scans*
+> at *Dependency audit*, and *Build* at *Container scan (Trivy)*. Lint/typecheck,
+> tests and OpenAPI/contract-drift steps passed. `npm run check:audit` locally
+> reports **23 blocking advisories** (Next 16, node-forge, sharp, zod, grpc-js,
+> shell-quote and others) on top of the three accepted `multer` entries. Nothing
+> in the 2026-11-25 pass changed a dependency or Dockerfile, so this is the same
+> pattern as run 45: advisories published after the last green run, not a regression
+> from this work. Trivy could not be re-run locally (binary not installed). Run 57
+> predates the docs-only commit `93fa68e`; run 58 was still in progress. Do not
+> inherit green from run 46.
 
 **What the 2026-09-30 pass changed, in one line:** the two claims this file and
 `19-development-plan-phase2.md` had carried for three sessions — that the scheme and

@@ -13,10 +13,14 @@
 > first response, and one of my own reconciliation assertions had the round-off
 > sign backwards. Details in the session log below.
 >
-> **Run 46 (the audit fix, `e48fc36`) observed: *Security scans* ✅.** So every job
-> this work could affect is now green, and the only red left on `main` is the
-> pre-existing mobile-e2e failure — undiagnosed since run 36, needing an artifact this
-> environment cannot fetch.
+> **CI, run 57 (2026-11-25): 🔴 three jobs red** — *Mobile auth (live API)*
+> (pre-existing since run 36, still needing an authenticated log artifact),
+> *Security scans* at *Dependency audit* (23 blocking advisories locally), and
+> *Build* at *Container scan (Trivy)*. Lint/typecheck/boundaries, tests and
+> OpenAPI/contract-drift steps passed. None of this session's commits changed a
+> dependency or Dockerfile. These are tracked as A4/A9/A10 in
+> [20-shortfalls-and-estimates.md](20-shortfalls-and-estimates.md). Run 46's green
+> audit is stale; do not inherit it.
 >
 > Working plan for Phase 2. Phase 1 backend is landed and verified; the remaining
 > Phase 1 UI (website storefront, onboarding wizard/upload, mobile) is tracked in
