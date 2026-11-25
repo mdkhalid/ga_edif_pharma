@@ -1,6 +1,6 @@
 import type { OffsetPaginated, SchemeSummary } from '@medichain/shared-types';
 
-import { unwrap, unwrapVoid, type MediChainClient } from '../client';
+import { unwrap, unwrapPage, unwrapVoid, type MediChainClient } from '../client';
 import type { components } from '../generated/schema';
 
 /**
@@ -33,7 +33,7 @@ export interface SchemesApi {
 export function createSchemesApi(client: MediChainClient): SchemesApi {
   return {
     async list(options = {}) {
-      return unwrap<OffsetPaginated<SchemeSummary>>(
+      return unwrapPage<OffsetPaginated<SchemeSummary>>(
         await client.GET('/schemes', { params: { query: options } }),
       );
     },

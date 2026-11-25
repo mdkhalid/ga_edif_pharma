@@ -11,7 +11,14 @@
  *   npm run generate --workspace=@medichain/api-client
  */
 
-export { createApiClient, unwrap, unwrapVoid, type ApiClientOptions, type MediChainClient } from './client';
+export {
+  createApiClient,
+  unwrap,
+  unwrapPage,
+  unwrapVoid,
+  type ApiClientOptions,
+  type MediChainClient,
+} from './client';
 export { ApiError, toApiError } from './error';
 
 /*

@@ -5,7 +5,7 @@ import type {
   InvoiceStatus,
 } from '@medichain/shared-types';
 
-import { unwrap, type MediChainClient } from '../client';
+import { unwrap, unwrapPage, type MediChainClient } from '../client';
 import type { components } from '../generated/schema';
 
 /**
@@ -49,7 +49,7 @@ export function createInvoicesApi(client: MediChainClient): InvoicesApi {
     },
 
     async list(options = {}) {
-      return unwrap<InvoicePage>(await client.GET('/invoices', { params: { query: options } }));
+      return unwrapPage<InvoicePage>(await client.GET('/invoices', { params: { query: options } }));
     },
 
     async getById(id) {

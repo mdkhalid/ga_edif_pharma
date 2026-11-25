@@ -5,7 +5,7 @@ import type {
   ScheduleClass,
 } from '@medichain/shared-types';
 
-import { unwrap, type MediChainClient } from '../client';
+import { unwrap, unwrapPage, type MediChainClient } from '../client';
 import type { components } from '../generated/schema';
 
 /**
@@ -43,7 +43,7 @@ export interface CatalogApi {
 export function createCatalogApi(client: MediChainClient): CatalogApi {
   return {
     async list(options = {}) {
-      return unwrap<ProductPage>(
+      return unwrapPage<ProductPage>(
         await client.GET('/catalog/products', { params: { query: options } }),
       );
     },

@@ -1,6 +1,6 @@
 import type { SaltSearchPage, ScheduleClass } from '@medichain/shared-types';
 
-import { unwrap, type MediChainClient } from '../client';
+import { unwrapPage, type MediChainClient } from '../client';
 
 /**
  * Salt-combination search.
@@ -26,7 +26,7 @@ export interface SearchApi {
 export function createSearchApi(client: MediChainClient): SearchApi {
   return {
     async products(options) {
-      return unwrap<SaltSearchPage>(
+      return unwrapPage<SaltSearchPage>(
         await client.GET('/search/products', { params: { query: options } }),
       );
     },

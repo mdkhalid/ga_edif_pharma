@@ -6,7 +6,7 @@ import type {
   OrderTransitionResult,
 } from '@medichain/shared-types';
 
-import { unwrap, type MediChainClient } from '../client';
+import { unwrap, unwrapPage, type MediChainClient } from '../client';
 import type { components } from '../generated/schema';
 
 /**
@@ -75,7 +75,7 @@ export function createOrdersApi(client: MediChainClient): OrdersApi {
     },
 
     async list(options = {}) {
-      return unwrap<OrderPage>(await client.GET('/orders', { params: { query: options } }));
+      return unwrapPage<OrderPage>(await client.GET('/orders', { params: { query: options } }));
     },
 
     async getById(id) {

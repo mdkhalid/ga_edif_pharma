@@ -1,8 +1,8 @@
 # 19 — Development Plan (Phase 2 — Commercial Engine)
 
-> **Last updated:** 2026-09-30 · **Branch:** `main` (`a311bae`, pushed) ·
-> **Status: P7 is now closed except the invoice PDF, which is deliberately
-> deferred. Resume at P8.**
+> **Last updated:** 2026-11-25 · **Branch:** `main` ·
+> **Status: P8–P10 delivered, P11 in flight (scheme and template screens).
+> Resume at the remaining P11 viewer screens.**
 >
 > What changed this pass: the database is up locally for the first time, both
 > never-applied migrations are applied and seeded, and P7's DB-backed tests exist
@@ -30,6 +30,35 @@
 > against, and it is pure/testable with zero infrastructure.
 
 ## Where we are (session log)
+
+- **2026-11-25 — resumed at P11; found a contract defect before writing the first
+  viewer screen.**
+
+  The resume point said to build the price-list, stock, credit and invoice viewer
+  screens on top of the read APIs landed with the first two P11 screens. Reading
+  the client before consuming those APIs found a defect that already affects the
+  catalogue, salt search, orders, invoices and schemes screens:
+
+  **Every paginated endpoint was being unwrapped as a single resource.**
+  `TransformInterceptor` deliberately does not wrap everything: a collection is
+  `{ data: [...], meta: {...} }`, while a single resource is `{ data: resource }`.
+  `unwrap()` tests for a `data` key and returns its value, so on a page it handed
+  callers the bare rows array and dropped `meta`. A screen reading `result.meta`
+  (catalogue, salt search, schemes) would have crashed on the first live render;
+  one reading `result.data` would have been empty. Nothing in the typecheck could
+  catch it — both shapes are asserted as the same generic type.
+
+  Fixed by adding `unwrapPage()` to `@medichain/api-client`, which returns the
+  whole body after checking it really is `{ data: array, meta: object }`, and
+  switching the five paginated endpoints (catalogue, search, orders, invoices,
+  schemes) to it. Verified at runtime against a stubbed 200 response:
+  `unwrap()` → `[{id:'1'}]`, `unwrapPage()` → `{data:[…],meta:{…}}`.
+  `npm run build:shared` and `npm run build --workspace=@medichain/api-client`
+  pass. The new viewers will use `unwrapPage()` from the outset.
+
+  **Still not verified:** no browser render of any admin screen in this
+  environment (no live API with seeded data and no headless browser run); the
+  contract fix is checked at the client boundary, not end to end.
 
 - **2026-09-30 — closed P7's verification gap. Two real defects, and one of mine.**
 
@@ -589,7 +618,7 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
 | P8 Prescriptions | done — domain, schema + migration, service, controller, tenant scoping, order-side gate, dispensing counter; 8 unit + 3 integration tests green. File storage + reuse caps remain Phase 3 |
 | P9 Notifications | done (backend) — in-app centre, preferences, templates + admin API, push-token registry + dispatcher; provider push transport waits on FCM/APNs credentials |
 | P10 Outbox relay | done — enqueue, SKIP LOCKED claim, dispatch, retry/backoff, dead-letter; order.placed durable. 2 integration tests green |
-| P11 Admin UI | partial — scheme + notification-template screens landed; read APIs now exist for price lists, stock and credit, so those viewer screens are unblocked |
+| P11 Admin UI | partial — scheme + notification-template screens landed; read APIs now exist for price lists, stock and credit, so those viewer screens are unblocked. 2026-11-25: paginated client responses were unwrapped as single resources (`meta` lost); fixed with `unwrapPage()` across all five existing paged endpoints before adding viewers |
 | P12 Mobile | pending |
 
 ## Resume point

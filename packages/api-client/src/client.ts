@@ -95,6 +95,45 @@ export async function unwrap<T>(result: {
   throw await toApiError(result.response, result.error);
 }
 
+/**
+ * Returns a paginated response whole: `{ data: [...], meta }`.
+ *
+ * `unwrap()` cannot be used here. A page already *has* a `data` key, so unwrap
+ * would hand a caller the bare rows array and drop `meta` — pagination then
+ * reads as a single page with no counts, and screens that render `result.meta`
+ * crash. The API convention (docs/07 §5, `TransformInterceptor`) is:
+ *
+ * - single resource → `{ data: resource }`, use `unwrap()`;
+ * - collection → `{ data: rows, meta }`, use `unwrapPage()`;
+ * - void → 204, use `unwrapVoid()`.
+ *
+ * The shape is checked rather than cast blindly: a 200 with a different body is
+ * a contract break, and failing loudly here is cheaper than a screen showing an
+ * empty table.
+ */
+export async function unwrapPage<T>(result: {
+  data?: unknown;
+  error?: unknown;
+  response: Response;
+}): Promise<T> {
+  if (result.response.ok) {
+    const body = result.data;
+    if (
+      typeof body === 'object' &&
+      body !== null &&
+      'data' in body &&
+      Array.isArray(body.data) &&
+      'meta' in body &&
+      typeof body.meta === 'object' &&
+      body.meta !== null
+    ) {
+      return body as T;
+    }
+    throw new Error('Malformed paginated response: expected { data: [...], meta: {...} }.');
+  }
+  throw await toApiError(result.response, result.error);
+}
+
 /** Unwraps a `void` success (204) or throws. */
 export async function unwrapVoid(result: {
   data?: unknown;
