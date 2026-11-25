@@ -110,3 +110,8 @@ export {
   type ListStockOptions,
   type StockApi,
 } from './endpoints/stock';
+export {
+  createCreditApi,
+  type CreditApi,
+  type ListCreditOptions,
+} from './endpoints/credit';
