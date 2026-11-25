@@ -39,6 +39,7 @@ const NAV_ITEMS: readonly NavItem[] = [
   { href: '/onboarding', label: 'Onboarding', capability: Capability.ONBOARDING_READ },
   { href: '/catalog', label: 'Catalogue', capability: Capability.CATALOG_READ },
   { href: '/schemes', label: 'Schemes', capability: Capability.SCHEME_WRITE },
+  { href: '/price-lists', label: 'Price lists', capability: Capability.PRICING_READ },
   { href: '/orders', label: 'Orders', capability: Capability.ORDER_READ },
   { href: '/notifications/templates', label: 'Notifications', capability: Capability.SETTINGS_READ },
   { href: '/settings', label: 'Settings', capability: Capability.SETTINGS_READ },

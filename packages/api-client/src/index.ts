@@ -100,3 +100,8 @@ export {
   type NotificationTemplatesApi,
   type UpsertNotificationTemplateRequest,
 } from './endpoints/notification-templates';
+export {
+  createPriceListsApi,
+  type ListPriceListsOptions,
+  type PriceListsApi,
+} from './endpoints/price-lists';
