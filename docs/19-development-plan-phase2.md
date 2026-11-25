@@ -1,8 +1,8 @@
 # 19 — Development Plan (Phase 2 — Commercial Engine)
 
 > **Last updated:** 2026-11-25 · **Branch:** `main` ·
-> **Status: P8–P10 delivered, P11 in flight (scheme and template screens).
-> Resume at the remaining P11 viewer screens.**
+> **Status: P8–P11 delivered (P11's invoice PDF remains deferred).
+> Resume at the invoice PDF or P12 Mobile.**
 >
 > What changed this pass: the database is up locally for the first time, both
 > never-applied migrations are applied and seeded, and P7's DB-backed tests exist
@@ -83,6 +83,17 @@
   caught an unused filter state I had left behind; fixed before committing.
   Verified: api-client build ✅, admin typecheck ✅, admin lint 0 problems ✅,
   `next build` ✅ — 20 routes, including `/credit`.
+
+  Fourth viewer, and the last one: **`/invoices`**. It reuses the existing
+  `createInvoicesApi` factory — the one defect fix at the start of this pass was
+  what made its paged list usable. The screen filters by status and order id and
+  expands to the stored line tax (CGST/SGST/IGST shown separately, so an
+  intra-state line is not misread as half-taxed) and reconciled totals. Issue and
+  cancel stay out of the UI: both are money-path mutations that deserve their own
+  workflow. P11's viewer scope is now complete. Verified: admin typecheck ✅,
+  admin lint 0 problems ✅, `next build` ✅ — 21 routes, including `/invoices`.
+  Still deferred: the invoice PDF (presentation, not a money-path risk) and P12
+  mobile.
 
 - **2026-09-30 — closed P7's verification gap. Two real defects, and one of mine.**
 
@@ -607,7 +618,7 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
   `OrderService.place` now records `order.placed` in the outbox instead of
   notifying best-effort. `NotificationService` gained `sendOrderPlacedStrict`
   so the relay can detect failures. 2 integration tests green.
-- [~] **P11 — Admin UI** — first two screens delivered 2026-11-24:
+- [x] **P11 — Admin UI** — first two screens delivered 2026-11-24:
   `/schemes` (browse with status/kind filters, create, edit, archive) and
   `/notifications/templates` (browse, create-or-replace, delete). Both call
   real backend APIs through typed `createSchemesApi` /
@@ -617,10 +628,9 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
   response shapes moved into `@medichain/shared-types` (`SchemeSummary`,
   `NotificationTemplateSummary`) and the scheme DTO's nullable fields were
   given explicit Swagger types so generated TS clients are usable.
-  Remaining: the invoice viewer (the read API already exists). The price-list,
-  stock and credit viewers landed 2026-11-25 (`/price-lists`, `/stock`, `/credit`).
-  Added
-  alongside the screens: three read-only backend APIs — `/price-lists`,
+  The remaining viewers landed 2026-11-25 (`/price-lists`, `/stock`, `/credit`,
+  `/invoices`); P11 is complete apart from the deferred invoice PDF. The first
+  two screens came with three read-only backend APIs — `/price-lists`,
   `/inventory/stock`, `/credit/summary` (each list + get, offset pagination,
   decimals as strings, ISO dates, gated on `PRICING_READ`/`INVENTORY_READ`/
   `CREDIT_READ`) — with new `InventoryModule` and `CreditModule`, shared response
@@ -643,17 +653,18 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
 | P8 Prescriptions | done — domain, schema + migration, service, controller, tenant scoping, order-side gate, dispensing counter; 8 unit + 3 integration tests green. File storage + reuse caps remain Phase 3 |
 | P9 Notifications | done (backend) — in-app centre, preferences, templates + admin API, push-token registry + dispatcher; provider push transport waits on FCM/APNs credentials |
 | P10 Outbox relay | done — enqueue, SKIP LOCKED claim, dispatch, retry/backoff, dead-letter; order.placed durable. 2 integration tests green |
-| P11 Admin UI | partial — scheme + notification-template screens landed; read APIs now exist for price lists, stock and credit, so those viewer screens are unblocked. 2026-11-25: paginated client responses were unwrapped as single resources (`meta` lost); fixed with `unwrapPage()` across all five existing paged endpoints before adding viewers |
+| P11 Admin UI | complete apart from the deferred invoice PDF — scheme + notification-template screens, then price-list, stock, credit and invoice viewers (`/schemes`, `/notifications/templates`, `/price-lists`, `/stock`, `/credit`, `/invoices`); 21 admin routes build. 2026-11-25 also fixed a contract defect: paginated responses were unwrapped as single resources (`meta` lost), now `unwrapPage()` across all five pre-existing paged endpoints |
 | P12 Mobile | pending |
 
 ## Resume point
 
-P8 (Prescriptions), P9 (Notifications) and P10 (Outbox relay) are delivered,
-and P11 (Admin UI) has started: the scheme and notification-template screens are
-live, and the backend read APIs for price lists, stock and credit are in place.
-Next *development* task is the remaining P11 viewer screen (invoices), or the
-deferred invoice PDF, which can reuse the typed API-client pattern established
-here. The price-list, stock and credit viewers are done.
+P8 (Prescriptions), P9 (Notifications), P10 (Outbox relay) and P11 (Admin UI)
+are delivered. P11's screens are `/schemes`, `/notifications/templates`,
+`/price-lists`, `/stock`, `/credit` and `/invoices`. The next *development*
+task is the deferred invoice PDF, or P12 (Mobile) — push, barcode scan, reorder
+and prescription upload. Neither has started. P11's screens have not been
+rendered in a browser in this environment: every claim above rests on typecheck,
+lint and `next build`, not on a live render against seeded data.
 
 ### 1. ~~Bring the database up and apply the migrations~~ — done 2026-09-30
 

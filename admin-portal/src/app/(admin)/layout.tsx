@@ -42,6 +42,7 @@ const NAV_ITEMS: readonly NavItem[] = [
   { href: '/price-lists', label: 'Price lists', capability: Capability.PRICING_READ },
   { href: '/stock', label: 'Stock', capability: Capability.INVENTORY_READ },
   { href: '/credit', label: 'Credit', capability: Capability.CREDIT_READ },
+  { href: '/invoices', label: 'Invoices', capability: Capability.INVOICE_READ },
   { href: '/orders', label: 'Orders', capability: Capability.ORDER_READ },
   { href: '/notifications/templates', label: 'Notifications', capability: Capability.SETTINGS_READ },
   { href: '/settings', label: 'Settings', capability: Capability.SETTINGS_READ },
