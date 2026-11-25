@@ -50,6 +50,9 @@ over the backend HTTP/event API:
 | 15 | [Testing Strategy](docs/15-testing-strategy.md) | Test pyramid, Testcontainers, contract tests |
 | 16 | [Non-Functional Requirements](docs/16-non-functional-requirements.md) | SLOs, capacity targets, budgets |
 | 17 | [Domain Model & Glossary](docs/17-domain-model-and-glossary.md) | Ubiquitous language, ER overview |
+| 18 | [Development Plan — Phase 1 UI](docs/18-development-plan.md) | Remaining Phase 1 client screens |
+| 19 | [Development Plan — Phase 2](docs/19-development-plan-phase2.md) | **Current plan** — where to resume |
+| 20 | [Shortfalls & Future Work](docs/20-shortfalls-and-estimates.md) | Honest gaps, estimates and blockers |
 
 ---
 

@@ -22,6 +22,8 @@
 > Phase 1 UI (website storefront, onboarding wizard/upload, mobile) is tracked in
 > `18-development-plan.md`. Where this file and `00-project-status.md` disagree,
 > this file is the current *plan*; `00` remains the status record.
+> Gaps and estimates for work beyond this plan live in
+> [20-shortfalls-and-estimates.md](20-shortfalls-and-estimates.md).
 >
 > **Updated as work proceeds.** Each task flips from `[ ]` to `[x]` and the Status
 > table is kept current so a future session can resume from the first `[ ]`.
