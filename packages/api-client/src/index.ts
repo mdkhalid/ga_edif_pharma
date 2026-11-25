@@ -105,3 +105,8 @@ export {
   type ListPriceListsOptions,
   type PriceListsApi,
 } from './endpoints/price-lists';
+export {
+  createStockApi,
+  type ListStockOptions,
+  type StockApi,
+} from './endpoints/stock';

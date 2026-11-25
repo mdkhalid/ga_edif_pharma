@@ -68,6 +68,13 @@
   Verified: api-client build ✅ · admin typecheck ✅ · admin lint 0 problems ✅ ·
   `next build` ✅ — 18 routes, including `/price-lists`. Not rendered in a browser.
 
+  Second viewer: **`/stock`**. `createStockApi` wraps the two inventory read
+  endpoints; the screen filters by exact product/warehouse id and shows batch,
+  expiry, on-hand, reserved and the DB-derived available quantity as decimal
+  strings. Stock moves only through transactions, so the screen is read-only.
+  Verified the same four gates: api-client build ✅, admin typecheck ✅, admin
+  lint 0 problems ✅, `next build` ✅ — 19 routes, including `/stock`.
+
 - **2026-09-30 — closed P7's verification gap. Two real defects, and one of mine.**
 
   The pass started with the thing three previous sessions said to do first: bring
@@ -601,9 +608,9 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
   response shapes moved into `@medichain/shared-types` (`SchemeSummary`,
   `NotificationTemplateSummary`) and the scheme DTO's nullable fields were
   given explicit Swagger types so generated TS clients are usable.
-  Remaining: stock and credit viewer screens (their read APIs now
-  exist) and the invoice viewer (the invoice read API already exists). The
-  price-list viewer landed 2026-11-25 (`/price-lists`). Added
+  Remaining: credit viewer screen and the invoice viewer (the read APIs already
+  exist). The price-list and stock viewers landed 2026-11-25 (`/price-lists`,
+  `/stock`). Added
   alongside the screens: three read-only backend APIs — `/price-lists`,
   `/inventory/stock`, `/credit/summary` (each list + get, offset pagination,
   decimals as strings, ISO dates, gated on `PRICING_READ`/`INVENTORY_READ`/
@@ -635,9 +642,9 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
 P8 (Prescriptions), P9 (Notifications) and P10 (Outbox relay) are delivered,
 and P11 (Admin UI) has started: the scheme and notification-template screens are
 live, and the backend read APIs for price lists, stock and credit are in place.
-Next *development* task is the remaining P11 viewer screens (stock, credit,
-invoices), or the deferred invoice PDF, which can reuse the typed
-API-client pattern established here. The price-list viewer is done.
+Next *development* task is the remaining P11 viewer screens (credit, invoices),
+or the deferred invoice PDF, which can reuse the typed API-client pattern
+established here. The price-list and stock viewers are done.
 
 ### 1. ~~Bring the database up and apply the migrations~~ — done 2026-09-30
 
