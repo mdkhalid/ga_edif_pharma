@@ -13,8 +13,16 @@ export type AuthStackParamList = {
   Otp: { identifier: string } | undefined;
 };
 
+export type CatalogStackParamList = {
+  Catalog: undefined;
+  SaltSearch: undefined;
+  ProductDetail: { productId: string };
+};
+
 export type AppTabParamList = {
   Home: undefined;
+  Catalog: undefined;
+  Cart: undefined;
   Orders: undefined;
   Account: undefined;
 };

@@ -1,8 +1,9 @@
 # 19 — Development Plan (Phase 2 — Commercial Engine)
 
 > **Last updated:** 2026-11-25 · **Branch:** `main` ·
-> **Status: P1–P11 delivered, including the invoice PDF; P12 Mobile started
-> with order history + reorder. Resume at the remaining P12 features.**
+> **Status: P1–P11 delivered, including the invoice PDF; P12 Mobile now has
+> order history + reorder, catalogue browse, salt search, product detail, cart
+> and checkout. Resume at push, barcode scan and prescription upload.**
 >
 > What changed this pass: the database is up locally for the first time, both
 > never-applied migrations are applied and seeded, and P7's DB-backed tests exist
@@ -685,8 +686,11 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
   shapes in `@medichain/shared-types`, and 3 integration tests. Credit is read
   from `Organisation.creditLimit/currentExposure`; a persisted ledger table does
   not exist yet.
-- [~] **P12 — Mobile** (push, barcode scan, reorder, prescription upload) —
-  order history + reorder landed 2026-11-25; the other three need native modules.
+- [~] **P12 — Mobile** (push, barcode scan, reorder, prescription upload,
+  catalogue, salt search, cart/checkout) — order history + reorder landed
+  2026-11-25; catalogue, salt search, product detail, cart and checkout landed
+  2026-11-26 using the typed client only. Push, barcode scan and prescription
+  upload still need native modules that are not installed here.
 
 ## Status
 
@@ -703,16 +707,17 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
 | P9 Notifications | done (backend) — in-app centre, preferences, templates + admin API, push-token registry + dispatcher; provider push transport waits on FCM/APNs credentials |
 | P10 Outbox relay | done — enqueue, SKIP LOCKED claim, dispatch, retry/backoff, dead-letter; order.placed durable. 2 integration tests green |
 | P11 Admin UI | complete — scheme + notification-template screens, then price-list, stock, credit and invoice viewers with PDF download (`/schemes`, `/notifications/templates`, `/price-lists`, `/stock`, `/credit`, `/invoices`); 21 admin routes build. 2026-11-25 also fixed a contract defect: paginated responses were unwrapped as single resources (`meta` lost), now `unwrapPage()` across all five pre-existing paged endpoints |
-| P12 Mobile | started — order history + reorder tab; typecheck/lint green. Push, barcode scan and prescription upload pending on native modules |
+| P12 Mobile | partial — auth, home, order history/reorder, catalogue browse, salt search, product detail, cart and checkout; typecheck/lint green, cart quantity unit tests pass. Push, barcode scan and prescription upload pending on native modules; no device render |
 
 ## Resume point
 
 P1–P11 are delivered, including the invoice PDF. P11's screens are `/schemes`,
 `/notifications/templates`, `/price-lists`, `/stock`, `/credit` and `/invoices`.
 The next *development* task is the rest of **P12 (Mobile)**: push, barcode scan
-and prescription upload. Reorder and order history landed in the same session;
-the remaining three need native modules (notifications, camera/scanner, document
-picker) that are not installed in this workspace. P11's screens have not been rendered in a
+and prescription upload. Order history/reorder, then catalogue, salt search,
+product detail, cart and checkout landed without native modules; the remaining
+three need notifications, camera/scanner and document-picker modules that are
+not installed in this workspace. P11's screens have not been rendered in a
 browser in this environment: every claim above rests on typecheck, lint and
 `next build`, not on a live render against seeded data. The PDF route has not
 been exercised over HTTP; its bytes were verified with `pypdf`.

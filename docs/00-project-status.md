@@ -1,13 +1,15 @@
 # 00 — Project Status
 
-> **Last updated:** 2026-11-25 · **Branch:** `main` ·
+> **Last updated:** 2026-11-26 · **Branch:** `main` ·
 > **Phase in flight:** Phase 2 — **P1–P11 complete, including the invoice PDF;
-> P12 Mobile started** with order history + reorder.
+> P12 Mobile partial** (order history/reorder, catalogue, salt search, cart and
+> checkout; push, barcode and prescription upload remain).
 > The four remaining admin viewers — price lists, stock, credit and invoices —
 > and the PDF landed 2026-11-25, alongside a fix to the typed client that had
-> been dropping pagination `meta` on every paged endpoint. The mobile app gained
-> an Orders tab that reorders past lines into the cart, typechecked and linted but
-> not rendered on a device. Backend unit tests are
+> been dropping pagination `meta` on every paged endpoint. On 2026-11-26 the
+> mobile app gained catalogue, salt-search, product-detail, cart and checkout
+> screens plus 55 api-client contract tests; none of the mobile screens has been
+> rendered on a device. Backend unit tests are
 > **462/462**; `test:all` was **568/568 across 49 suites** before this pass.
 > P11 screens are verified by typecheck, lint and `next build`, not by a browser
 > render; the PDF bytes were verified independently with `pypdf`.

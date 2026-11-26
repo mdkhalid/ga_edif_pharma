@@ -47,9 +47,11 @@ eas build --profile development --platform ios
 
 ## Navigation
 
-The tree below is the **target** navigator. Today the app has the auth flow,
-home, profile and the Orders tab (list + one-tap reorder); the catalogue, cart,
-checkout, scan and remaining account screens are still P12 scope.
+The tree below is still partly **target**. Implemented today: the auth flow,
+home, the Catalogue tab (browse, salt search, product detail, add to cart), the
+Cart tab (quantity/remove and checkout), Orders (history + one-tap reorder) and
+Profile. Barcode scan, push notifications and prescription upload have not landed
+— their native modules are not installed here.
 
 ```
 RootNavigator
@@ -203,11 +205,11 @@ is unhelpful.
 
 ## Testing
 
-The only suite today is the headless auth flow:
-`npm run test:integration --workspace=@medichain/mobile` (7 cases against a live
-API). There is no component-test script, React Native Testing Library or Detox,
-and no screen has been rendered on a device or simulator here.
+`npm run test:integration --workspace=@medichain/mobile` runs the headless auth
+flow (7 cases against a live API) plus pure cart-quantity cases (11). There is no
+component-test script, React Native Testing Library or Detox, and no screen has
+been rendered on a device or simulator here.
 
-Critical flows still to automate: salt search, add to cart, place order, barcode
-scan to reorder, view invoice, upload prescription, receive and open a push
-notification.
+Critical flows still to automate: rendered catalogue/salt-search/cart/checkout
+screens on a device, barcode scan to reorder, view invoice, upload prescription,
+receive and open a push notification.
