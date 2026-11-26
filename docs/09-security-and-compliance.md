@@ -402,10 +402,10 @@ logging a sensitive field is explicit and reviewed.
 
 | Control | Implementation |
 |---|---|
-| Lockfile committed | `pnpm-lock.yaml` is the single source of dependency truth |
+| Lockfile committed | `package-lock.json` is the single source of dependency truth (ADR-016) |
 | No floating versions | Exact pins in `package.json` |
-| Automated updates | Renovate, grouped, weekly |
-| Vulnerability scanning | `pnpm audit` + Dependabot alerts, CI-blocking on high/critical |
+| Automated updates | Renovate, grouped, weekly (target intent — not configured yet) |
+| Vulnerability scanning | `npm run check:audit` in CI (currently red — A9 in the backlog), plus Trivy |
 | Install scripts | `ignore-scripts=true` where feasible; any exception is reviewed |
 | Container scanning | Trivy on every image build |
 | Base images | Distroless / alpine, pinned by digest |
@@ -418,7 +418,7 @@ logging a sensitive field is explicit and reviewed.
 | Type | When | Tooling |
 |---|---|---|
 | SAST | Every PR | CodeQL / Semgrep |
-| Dependency audit | Every PR | `pnpm audit`, Trivy |
+| Dependency audit | Every PR | `npm run check:audit`, Trivy (both currently blocking in CI — A9/A10) |
 | Secret scan | Every commit + PR | gitleaks |
 | DAST | Nightly on staging | OWASP ZAP |
 | Tenant isolation suite | Every PR | Custom automated test suite |

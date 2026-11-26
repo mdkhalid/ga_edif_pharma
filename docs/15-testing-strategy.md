@@ -19,7 +19,7 @@ tests, not just unit tests.
                     ┌─────────────────────┐
                     │   Manual / UAT      │   ~10 scenarios per release
                     ├─────────────────────┤
-                    │   E2E (Playwright)  │   ~40 critical paths
+                    │   E2E — NOT BUILT   │   ~40 target paths; no runner
                     ├─────────────────────┤
                     │ Contract tests      │   OpenAPI conformance
                     ├─────────────────────┤
@@ -37,8 +37,12 @@ tests, not just unit tests.
 | Concurrency | ~60 | < 3 min | **Every PR (blocking)** |
 | Tenant isolation | ~80 | < 2 min | **Every PR (blocking)** |
 | Contract | ~120 | < 1 min | Every PR |
-| E2E | ~40 | < 15 min | Every PR (against staging) |
+| E2E | ~40 target; 0 today | — | **Not implemented** — no Playwright/Vitest runner ([A3](20-shortfalls-and-estimates.md)) |
 | Load | ~10 | < 60 min | Weekly + pre-release |
+
+The counts and runtimes above are **targets**, not measurements. The gates that
+actually run are Jest-based: unit, integration, concurrency, isolation, the
+coverage ratchet and the mobile headless auth suite.
 
 ---
 
@@ -143,6 +147,12 @@ provably correct rather than anecdotally correct.
 
 ## 4. Integration tests — real infrastructure
 
+> **Illustrative code.** The example below uses the Testcontainers API, which is
+> not a dependency here. The implemented suites in `backend/test/support/database.ts`
+> connect to a real, migrated and seeded Postgres through `DATABASE_URL` (a Docker
+> container locally, a CI service container in the pipeline). The principle — a real
+> database, never SQLite or `pg-mem` — is the same.
+
 ```ts
 describe('OrderRepository (integration)', () => {
   let container: StartedPostgreSqlContainer;
@@ -180,7 +190,8 @@ describe('OrderRepository (integration)', () => {
 });
 ```
 
-**Testcontainers, not an in-memory database.** The behaviours we need to test —
+**A real database, not an in-memory one** (Testcontainers in the illustration;
+`DATABASE_URL` against Postgres in the implementation). The behaviours we need to test —
 `FOR UPDATE` locking, `SKIP LOCKED`, partial indexes, `NUMERIC` precision, `jsonb`
 operators, array containment — either do not exist or behave differently in SQLite or
 `pg-mem`. A test that passes against a fake database proves nothing about production.

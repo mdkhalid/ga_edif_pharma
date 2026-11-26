@@ -3,7 +3,9 @@
 The customer-facing application for distributors, wholesalers and retail pharmacies.
 
 **Stack:** Next.js 16 (App Router) · React 19 · TypeScript · TailwindCSS 4 ·
-shadcn/ui · TanStack Query v5 · Zustand · React Hook Form + Zod
+TanStack Query v5 · Zustand · Zod. UI primitives come from `@medichain/ui`;
+forms use plain React state and tables are plain HTML — shadcn/ui, React Hook
+Form, TanStack Table and Recharts are not installed.
 
 ---
 
@@ -11,8 +13,8 @@ shadcn/ui · TanStack Query v5 · Zustand · React Hook Form + Zod
 
 ```bash
 cp .env.example .env.local
-pnpm install          # from the repo root
-pnpm --filter @medichain/website dev
+npm install                                   # from the repo root
+npm run dev --workspace=@medichain/website
 ```
 
 Runs at http://localhost:3000. Requires the backend at http://localhost:3001.
@@ -61,7 +63,7 @@ features/orders/
 | Server data | **TanStack Query** | Caching, retries, background refetch, optimistic updates |
 | Cart | **Zustand** + server sync | Instant UI; the server remains authoritative |
 | Auth session | **Zustand** + `HttpOnly` cookie | Access token in memory, refresh token in a cookie |
-| Form state | **React Hook Form** | Uncontrolled inputs, minimal re-renders |
+| Form state | **Plain React state** + Zod where validated | No React Hook Form dependency; the server revalidates everything |
 | URL state | **Search params** | Filters and pagination must be shareable and bookmarkable |
 
 **The rule that matters:** the cart is optimistic in the UI but **the server
@@ -96,7 +98,7 @@ request. A user who manipulates client state sees a broken UI, not unauthorised 
 | `next/image` | Optimised, lazy-loaded images |
 | ISR on public catalogue pages | Static speed with periodic freshness |
 | TanStack Query cache | Instant back-navigation, fewer API calls |
-| Virtualised tables | Large order and stock grids without freezing |
+| Plain HTML tables | Large grids are not virtualised yet (no TanStack Table dependency) |
 | Prefetch on hover | Perceived instant navigation |
 | Bundle budget in CI | Fails the build if the bundle grows past the limit |
 
@@ -106,12 +108,13 @@ Budgets: LCP < 2.5 s, INP < 200 ms, first-load JS < 200 KB gzipped per route.
 
 ## Testing
 
-```bash
-pnpm test        # Vitest — unit + component
-pnpm test:e2e    # Playwright — critical user journeys
-```
+The website has **no test script, Vitest or Playwright installation**. It is
+verified by `npm run typecheck --workspace=@medichain/website`,
+`npm run lint --workspace=@medichain/website` and a production build; pages are
+also probed over HTTP for auth redirects. Browser-level e2e is an open gap
+([A3 in the backlog](../docs/20-shortfalls-and-estimates.md)).
 
-Critical journeys covered by E2E:
+Critical journeys **planned** for e2e (not yet automated):
 
 1. Register → verify → login
 2. Apply to join → admin approves → buyer logs in
@@ -128,8 +131,10 @@ Critical journeys covered by E2E:
 
 ## Internationalisation
 
-`next-intl` with English and Hindi at launch. All user-facing strings live in
-`public/locales/<lang>/`. Currency and number formatting are locale-driven.
+**Planned, not installed:** `next-intl` with English and Hindi at launch, with
+user-facing strings in `public/locales/<lang>/`. There is no i18n dependency
+today; number and money formatting already use decimal strings rather than
+JavaScript numbers.
 
 **Money is always formatted from a decimal string**, never from a JavaScript number —
 `formatMoney("1234.5600")`, never `formatMoney(1234.56)`.

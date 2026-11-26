@@ -5,6 +5,12 @@
 The complete target tree for every application, with the reason each folder exists.
 Annotations explain **why**, not just **what**.
 
+> **Target, not current.** Many folders and tools named here do not exist yet:
+> there is no Playwright/Vitest runner, no TanStack Table, MMKV, FlashList or
+> shadcn/ui dependency, and most service-specific workflows below are unwritten.
+> The workspace uses **npm** (ADR-016); see
+> [20-shortfalls-and-estimates.md](20-shortfalls-and-estimates.md) for the gaps.
+
 ---
 
 ## 1. Repository root
@@ -31,7 +37,7 @@ GA_Edif_pharma/
 ├── docs/                        # This documentation set
 ├── scripts/                     # Repo-level developer scripts
 ├── .github/workflows/           # CI/CD pipelines
-├── pnpm-workspace.yaml
+├── pnpm-workspace.yaml          #   kept for pnpm-based tooling; npm is source of truth
 ├── turbo.json
 ├── package.json
 ├── .gitignore
@@ -40,7 +46,7 @@ GA_Edif_pharma/
 
 **Why the apps are top-level rather than under `apps/`:** the brief names them as
 first-class separate applications. Keeping them at the root makes that explicit while
-still allowing pnpm workspaces to share packages. Deployment is fully independent —
+npm workspaces share packages. Deployment is fully independent —
 nothing is shared at runtime, only at build time.
 
 **Why a monorepo at all:** the four apps share DTOs, enums, validation schemas and a
@@ -256,7 +262,7 @@ backend/
 │
 ├── test/
 │   ├── unit/                            #   domain logic, no I/O
-│   ├── integration/                     #   repositories + transactions (Testcontainers)
+│   ├── integration/                     #   repositories + transactions (real Postgres via DATABASE_URL)
 │   ├── e2e/                             #   full HTTP flows
 │   ├── contract/                        #   OpenAPI conformance
 │   ├── concurrency/                     #   money-path race tests — run on every PR
@@ -372,10 +378,10 @@ website/
 │   │   └── loading.tsx
 │   │
 │   ├── components/                      # ── presentational, reusable ──
-│   │   ├── ui/                          #   shadcn/ui primitives (owned, not a dependency)
+│   │   ├── ui/                          #   @medichain/ui primitives (no shadcn/ui dependency)
 │   │   ├── layout/{header,sidebar,footer,mobile-nav}.tsx
 │   │   ├── forms/                       #   form field wrappers
-│   │   ├── data-table/                  #   TanStack Table wrapper
+│   │   ├── data-table/                  #   target: TanStack Table wrapper; plain HTML today
 │   │   ├── charts/
 │   │   └── feedback/{toast,modal,skeleton,empty-state}.tsx
 │   │
@@ -419,7 +425,7 @@ website/
 │   ├── images/
 │   ├── icons/
 │   └── locales/{en,hi}/
-├── e2e/                                 # Playwright
+├── e2e/                                 # target: Playwright; no runner or specs today
 ├── Dockerfile
 ├── next.config.ts
 ├── tailwind.config.ts
@@ -541,7 +547,7 @@ mobile/
 │   │
 │   ├── app/                             # ── app-level setup ──
 │   │   ├── providers/
-│   │   │   ├── QueryProvider.tsx        #   TanStack Query + MMKV persister
+│   │   │   ├── QueryProvider.tsx        #   target: TanStack Query + MMKV persister; no persister installed
 │   │   │   ├── AuthProvider.tsx
 │   │   │   ├── ThemeProvider.tsx
 │   │   │   ├── NotificationProvider.tsx
@@ -645,7 +651,7 @@ mobile/
 | Tokens in `expo-secure-store` / Keychain, **never** AsyncStorage | AsyncStorage is unencrypted plaintext on disk |
 | `metro.config.js` configured for the monorepo | Metro does not resolve workspace packages by default; without `watchFolders` and `nodeModulesPaths` the shared packages fail to resolve |
 | `FlashList` for all long lists | `FlatList` drops frames past a few hundred items |
-| Cart persisted in MMKV, server authoritative | Offline-first UX without trusting the client |
+| Cart persisted locally (target: MMKV), server authoritative | Offline-first UX without trusting the client; not implemented yet |
 | Silent token refresh on 401 | Users must not be logged out mid-session |
 | Deep links in `linking.ts` | Push notification taps must open the right screen |
 | `X-App-Version` header on every request | Enables the server-side version gate |
@@ -775,6 +781,9 @@ infra/
 
 ## 8. CI/CD
 
+Only `ci.yml` and `load-test.yml` exist today; the remaining files below are
+target intent, and their gates are either folded into `ci.yml` or still open.
+
 ```
 .github/workflows/
 ├── ci.yml                 # lint → typecheck → test → build (every PR)
@@ -790,9 +799,10 @@ infra/
 └── reindex-search.yml     # manual trigger
 ```
 
-**The two blocking workflows that matter most:** `concurrency.yml` and
-`tenant-isolation.yml`. The first prevents overselling and double-crediting; the
-second prevents cross-tenant data leakage. Neither is reliably caught by code review,
+**The two blocking suites that matter most** are `test:concurrency` and
+`test:isolation`, run today as jobs/steps in `ci.yml` (dedicated workflows are
+target intent). The first prevents overselling and double-crediting; the second
+prevents cross-tenant data leakage. Neither is reliably caught by code review,
 so both are automated gates.
 
 ---

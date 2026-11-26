@@ -178,7 +178,7 @@ Built and verified (backend). Everything below typechecks (`tsc --noEmit`), buil
 | Health | Done — liveness vs readiness, 503 on required-dependency failure |
 | Observability | Done — structured Pino logs; Prometheus `/metrics`; OpenTelemetry traces started from a preload; Sentry error reporting wired through the exception filter via an `ErrorReporter` port |
 | Infra | `docker-compose`, `backend.Dockerfile` (multi-stage, non-root, tini, healthcheck), `website.Dockerfile`, `admin.Dockerfile` and `.dockerignore`. All three images were **built for the first time** in this pass — which is how both web images turned out to be unbuildable (no `backend/prisma` for the backend workspace's `postinstall`, and a `COPY` of a `public/` directory that does not exist) and both web containers permanently unhealthy (Next binds to Docker's `HOSTNAME`). Fixed — see [00-project-status.md](00-project-status.md) §5. Terraform and k8s are placeholders |
-| CI/CD | Workflow rewritten for npm; runs lint and typecheck across every workspace, module boundaries, every test suite, coverage gate, dependency audit, secret scan, build, container scan, OpenAPI generation and a contract-drift check, and has a deploy-to-`dev` job gated on `DEV_DATABASE_URL` / `KUBE_CONFIG`. **Green on `main`** — see the criterion above. A `mobile-e2e` job added alongside it starts the API and runs the mobile auth suite; it has not yet run on a runner |
+| CI/CD | Workflow rewritten for npm; runs lint and typecheck across every workspace, module boundaries, every test suite, coverage gate, dependency audit, secret scan, build, container scan, OpenAPI generation and a contract-drift check, and has a deploy-to-`dev` job gated on `DEV_DATABASE_URL` / `KUBE_CONFIG`. **Red on `main` at run 57** — mobile auth flow, dependency audit and Trivy scan; see `00-project-status.md` §5. A `mobile-e2e` job starts the API and runs the mobile auth suite; it has run in CI and has failed at *Mobile auth flow* since run 36 |
 | Docs / OpenAPI | Done — `src/scripts/generate-openapi.ts` writes `backend/openapi.json` from the same document definition the server serves; CI generates and uploads it |
 | Testing | 331 tests across 22 suites — unit, integration, concurrency and isolation — run together by `npm run test:all`. The `test/e2e` config exists and no specs do. The mobile app adds its own 7-case auth suite (`mobile/`), run against a live API |
 | Load testing | `loadtest/run-local.mjs` (autocannon, proven locally) and `loadtest/k6/auth-baseline.js` (k6, for CI and staging), with the `load-test` workflow |
@@ -196,8 +196,8 @@ extension applies *inside a transaction* — Prisma builds a separate client for
 which is why it needed a database. All three client applications are built and verified
 as recorded above, and the load testing is built. **One** Phase 0 outcome is
 outstanding: the deploy-to-`dev` job, blocked on credentials rather than on code. The CI
-criterion above is green, and the `mobile-e2e` job added alongside this pass has not yet
-run on a runner.
+criterion is **not** met — `main` is red at run 57 (see `00-project-status.md` §5), and the
+`mobile-e2e` job has run in CI but fails at *Mobile auth flow*.
 
 ---
 
@@ -546,7 +546,7 @@ should join by phase 2 at the latest. Most of the requirements in modules 6, 10,
 | Deferred | Until | Why |
 |---|---|---|
 | Microservice extraction | Phase 4 | No measured scaling pressure before then |
-| Kafka | Phase 4 | Outbox + BullMQ is sufficient and far simpler |
+| Kafka | Phase 4 | Outbox relay is sufficient today; BullMQ is target intent |
 | OpenSearch | Phase 4 | Postgres FTS is adequate below ~200k SKUs |
 | Full AI suite | Phase 5 | Needs a stable catalogue and real usage data to be useful |
 | Multi-tenant enablement | Phase 6 | One customer today; columns are already in place |

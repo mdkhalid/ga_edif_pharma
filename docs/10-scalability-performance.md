@@ -424,7 +424,7 @@ Anything not needed in the response is a job:
 
 | Property | Implementation |
 |---|---|
-| Queue | BullMQ on Redis (phase 1–3), Kafka for streams (phase 4+) |
+| Queue | Outbox relay today; BullMQ on Redis is target intent, Kafka for streams (phase 4+) |
 | Concurrency | Per-queue, tuned to the dependency's capacity |
 | Retries | Exponential backoff, 5 attempts, then dead-letter |
 | Idempotency | Every job is idempotent; retries are safe by construction |
@@ -450,17 +450,17 @@ queueing unboundedly. Unbounded queues convert a slowdown into an outage.
 | `next/image` with a CDN | Optimised, lazy-loaded images |
 | ISR for public catalogue pages | Static speed with periodic freshness |
 | TanStack Query caching | Fewer API calls, instant back-navigation |
-| Virtualised tables | 10,000-row grids without freezing |
+| Virtualised tables | Target intent only — plain HTML tables today |
 | Prefetch on hover | Perceived instant navigation |
-| Bundle budget in CI | Fails the build if the bundle grows past the limit |
+| Bundle budget in CI | Target intent — no bundle budget check today |
 
 ### Mobile (React Native)
 
 | Technique | Effect |
 |---|---|
-| FlashList for all long lists | 60 fps with thousands of items |
-| `react-native-mmkv` cache | Instant cold-start from cache |
-| TanStack Query persistence | Offline browse works |
+| FlashList for long lists | Target intent — not installed; flat lists today |
+| `react-native-mmkv` cache | Target intent — not installed |
+| TanStack Query persistence | Target intent — no persister installed |
 | Hermes engine | Faster startup, lower memory |
 | Image caching + resizing | Less bandwidth, no jank |
 | Interaction manager for heavy work | Keeps the JS thread responsive |
@@ -513,8 +513,9 @@ quietly become the new baseline — that is how performance debt accumulates inv
 **The concurrency tests are correctness tests, not performance tests.** They are the
 ones that catch the money bugs. They run on every PR, not only during load testing.
 
-Tooling: k6 for API load, Playwright for browser-level, custom Node scripts for
-concurrency correctness.
+Tooling today: k6 and autocannon for API load, Jest/custom Node suites for
+concurrency correctness. Browser-level load tooling (the design intent was
+Playwright) is not installed — see [the backlog](20-shortfalls-and-estimates.md).
 
 ---
 

@@ -81,8 +81,8 @@ mistake impossible.
 **Generated from the OpenAPI spec. Never hand-edited.**
 
 ```bash
-pnpm --filter @medichain/backend openapi:generate
-pnpm --filter @medichain/api-client generate
+npm run openapi:generate
+npm run api-client:generate
 ```
 
 ```
@@ -104,11 +104,12 @@ The generated client is committed, so a contract change is always reviewable.
 
 ## `@medichain/ui`
 
-Design-system primitives for the web apps: buttons, inputs, cards, badges, modals,
-sheets, tables, empty states, skeletons. Built on Tailwind and shadcn/ui.
+Design-system primitives for the web apps: buttons, inputs, labels and cards
+(the other primitives are target scope). Built on Tailwind. There is **no shadcn/ui
+dependency** — it is the "components you own" philosophy applied at package scope.
 
-Components are **copied in and owned**, not consumed from a versioned dependency. That
-means no version lock-in and no waiting for an upstream fix.
+Components are **owned here**, not consumed from a versioned dependency. That means
+no version lock-in and no waiting for an upstream fix.
 
 The mobile app does **not** use this package — React Native cannot render DOM
 components. Mobile has its own primitives in `mobile/src/components/ui/`, sharing only
@@ -155,9 +156,9 @@ option to extract a service later — the entire premise of ADR-000 — is quiet
 ## Development
 
 ```bash
-pnpm --filter @medichain/shared-types build
-pnpm --filter @medichain/shared-utils test
-pnpm --filter @medichain/api-client generate
+npm run build:shared
+npm run test --workspace=@medichain/shared-utils
+npm run api-client:generate
 ```
 
 Packages are consumed as TypeScript source in development (via path mappings) and as

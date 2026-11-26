@@ -659,17 +659,19 @@ paths, and a stale key means a product that is invisible to combination search.
 
 ### Rebuild tooling
 
-```bash
-# Recompute every key from composition rows. Idempotent, safe to re-run.
-pnpm --filter @medichain/backend salt:rebuild-keys
+**Target tooling, not implemented.** Neither script exists in the backend's
+`package.json` today; the design intent was:
 
-# Verify no key disagrees with its composition rows. Run nightly.
-pnpm --filter @medichain/backend salt:verify-keys
+```bash
+# npm, not pnpm (ADR-016) — once these scripts exist
+npm run salt:rebuild-keys --workspace=@medichain/backend
+npm run salt:verify-keys --workspace=@medichain/backend
 ```
 
-The verifier is a **scheduled job with an advisory lock** (so N replicas do not all
-run it) that compares every stored key against a freshly computed one and alerts on
-any mismatch. This is the safety net that catches a bug in the normaliser.
+The intended verifier is a **scheduled job with an advisory lock** (so N replicas
+do not all run it) that compares every stored key against a freshly computed one
+and alerts on any mismatch. The normaliser itself is covered by unit tests in
+`packages/shared-utils`; the scheduled verifier remains scope.
 
 ---
 

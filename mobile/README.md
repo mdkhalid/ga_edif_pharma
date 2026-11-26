@@ -3,8 +3,10 @@
 The MediChain mobile application for **Android and iOS**, built with React Native and
 Expo.
 
-**Stack:** React Native 0.86.3 (New Architecture) · Expo SDK 57 · React 19.2 ·
-TypeScript · React Navigation 7 · TanStack Query v5 · Zustand · MMKV · EAS Build
+**Stack:** React Native 0.86.3 · Expo SDK 57 · React 19.2 · TypeScript · React
+Navigation 7 · TanStack Query v5 · Zustand · `expo-secure-store` · EAS Build.
+MMKV, FlashList, push and camera modules are **not installed** — those rows below
+are target design, not current behaviour.
 
 ---
 
@@ -28,11 +30,10 @@ Flutter's marginally better rendering performance.
 
 ```bash
 cp .env.example .env
-pnpm install
-pnpm --filter @medichain/mobile start       # Expo dev server
-
-pnpm --filter @medichain/mobile android
-pnpm --filter @medichain/mobile ios
+npm install
+npm run start --workspace=@medichain/mobile        # Expo dev server
+npm run android --workspace=@medichain/mobile
+npm run ios --workspace=@medichain/mobile
 ```
 
 For a native build (required for push notifications and some native modules):
@@ -45,6 +46,10 @@ eas build --profile development --platform ios
 ---
 
 ## Navigation
+
+The tree below is the **target** navigator. Today the app has the auth flow,
+home, profile and the Orders tab (list + one-tap reorder); the catalogue, cart,
+checkout, scan and remaining account screens are still P12 scope.
 
 ```
 RootNavigator
@@ -81,9 +86,9 @@ the right screen rather than the home screen.
 |---|---|---|
 | Access token | **In memory only** | — |
 | Refresh token | `expo-secure-store` (Keychain / Keystore) | ❌ AsyncStorage |
-| Cart | MMKV (synced to the server) | — |
-| Cached catalogue | MMKV via TanStack Query persister | — |
-| User preferences | MMKV | — |
+| Cart | In-memory today; MMKV sync is planned (not installed) | — |
+| Cached catalogue | No local cache today; MMKV + Query persister planned | — |
+| User preferences | Not persisted today; MMKV planned | — |
 | Prescription images | Uploaded to S3, only the reference cached | ❌ Local copies |
 
 **Tokens go in the Keychain / Keystore, never AsyncStorage.** AsyncStorage is
@@ -93,6 +98,9 @@ device backup — an AsyncStorage token is a full account compromise.
 ---
 
 ## Offline behaviour
+
+**Target behaviour — not implemented.** No offline cache, persister or queued
+orders exist today; the rules below are the design intent for P12.
 
 | Feature | Offline behaviour |
 |---|---|
@@ -113,9 +121,9 @@ must be online to pay.
 
 | Technique | Purpose |
 |---|---|
-| **FlashList** for all long lists | 60 fps with thousands of products |
-| MMKV cache | Instant cold start from cached data |
-| TanStack Query persistence | Offline browsing works |
+| FlashList for long lists | Planned — not installed; uses flat lists today |
+| MMKV cache | Planned — not installed |
+| TanStack Query persistence | Planned — no persister installed |
 | Hermes engine | Faster startup, lower memory |
 | Image caching + server-side resizing | Less bandwidth, no jank |
 | `InteractionManager` for heavy work | Keeps the JS thread responsive |
@@ -127,6 +135,9 @@ Budget: cold start < 2 s, 60 fps scrolling, < 30 MB baseline memory.
 ---
 
 ## Push notifications
+
+**Planned — `expo-notifications` is not installed.** No push token registry or
+delivery exists in the app today.
 
 | Event | Notification |
 |---|---|
@@ -192,10 +203,11 @@ is unhelpful.
 
 ## Testing
 
-```bash
-pnpm test           # Jest + React Native Testing Library
-pnpm test:e2e       # Detox (phase 4)
-```
+The only suite today is the headless auth flow:
+`npm run test:integration --workspace=@medichain/mobile` (7 cases against a live
+API). There is no component-test script, React Native Testing Library or Detox,
+and no screen has been rendered on a device or simulator here.
 
-Critical flows: login with OTP, salt search, add to cart, place order, barcode scan
-to reorder, view invoice, upload prescription, receive and open a push notification.
+Critical flows still to automate: salt search, add to cart, place order, barcode
+scan to reorder, view invoice, upload prescription, receive and open a push
+notification.

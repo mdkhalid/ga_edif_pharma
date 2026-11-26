@@ -47,7 +47,7 @@ over the backend HTTP/event API:
 | 12 | [Folder Structures](docs/12-folder-structures.md) | Full tree for backend, website, admin, mobile |
 | 13 | [Runtime Configuration](docs/13-runtime-configuration.md) | Runtime AI provider/key switching, feature flags |
 | 14 | [Deployment, DevOps & Observability](docs/14-deployment-devops-observability.md) | CI/CD, environments, monitoring |
-| 15 | [Testing Strategy](docs/15-testing-strategy.md) | Test pyramid, Testcontainers, contract tests |
+| 15 | [Testing Strategy](docs/15-testing-strategy.md) | Test pyramid, real Postgres/Redis, coverage gates — e2e is an open gap |
 | 16 | [Non-Functional Requirements](docs/16-non-functional-requirements.md) | SLOs, capacity targets, budgets |
 | 17 | [Domain Model & Glossary](docs/17-domain-model-and-glossary.md) | Ubiquitous language, ER overview |
 | 18 | [Development Plan — Phase 1 UI](docs/18-development-plan.md) | Remaining Phase 1 client screens |
@@ -78,6 +78,16 @@ distributed-transaction tax before you have the traffic that justifies it.
 > assuming pnpm; the implementation uses npm workspaces + Turborepo. See
 > [ADR-016](docs/03-architecture-decisions.md#adr-016--npm-workspaces-instead-of-pnpm)
 > for why, and use `npm` everywhere a doc says `pnpm`.
+>
+> **Reality check on the design docs.** Several target-stack choices were never
+> installed: TanStack Table/Recharts/shadcn/ui, React Hook Form, next-intl,
+> FlashList, MMKV, Testcontainers, Kysely, BullMQ, and Playwright/Vitest. The web
+> apps use plain HTML tables and plain forms; testing is Jest (backend suites and
+> the headless mobile auth suite), and there is no browser e2e runner yet. The
+> versions actually pinned are in
+> [ADR-017](docs/03-architecture-decisions.md#adr-017--client-apps-pin-the-current-stable-frontend-stack).
+> Design docs state intent; `package.json` and
+> [the backlog](docs/20-shortfalls-and-estimates.md) state reality.
 
 ```bash
 # 1. Prerequisites: Node 22+, Docker Desktop
@@ -132,10 +142,13 @@ change (CI fails on drift between the two).
 
 ## 5. Status
 
-🟢 **CI is green on `main`** — run 26 passes every job. Worth stating because it is new:
-the pipeline had failed all 23 of its runs and had never reached the test step. Four
-defects had to be fixed, none of them a failing test; the sequence is in
-[§5 of the status file](docs/00-project-status.md).
+🔴 **CI is red on `main` at run 57** — *Mobile auth (live API)*, *Dependency audit*
+and *Container scan (Trivy)* failed; lint/typecheck, tests and OpenAPI checks
+passed. The mobile failure is pre-existing; the two security failures are newly
+published advisories/base-image CVEs, not a regression from the latest work. See
+[the status file](docs/00-project-status.md) for evidence and
+[A4/A9/A10 in the backlog](docs/20-shortfalls-and-estimates.md) for the tracked
+gates. Do not inherit "green" from this file — check the run.
 
 **Phase 0: 9 of 10 criteria verified, 1 open.**
 

@@ -614,8 +614,8 @@ dead-letter with an admin alert. Delivery attempts are visible in the admin port
 ## 10. Contract testing and client generation
 
 ```bash
-pnpm --filter @medichain/backend openapi:generate   # → openapi.json
-pnpm --filter @medichain/api-client generate        # → typed client
+npm run openapi:generate    # → backend/openapi.json (needs a backend build)
+npm run api-client:generate # → typed client from that document
 ```
 
 **CI gates**

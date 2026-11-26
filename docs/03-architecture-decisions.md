@@ -247,8 +247,9 @@ does more.
 Define `SearchPort` now. Ship a **Postgres adapter** in phase 1. Add an
 **OpenSearch adapter** in phase 4, selected by `SEARCH_USE_OPENSEARCH`.
 
-**The index is a projection.** It is rebuildable from Postgres at any time via
-`pnpm search:reindex`. Search never becomes a source of truth.
+**The index is a projection.** It is rebuildable from Postgres at any time; the
+reindex command is target scope (`npm run search:reindex` once implemented, with
+npm — see ADR-016). Search never becomes a source of truth.
 
 **Why this ordering:** the salt-combination search that the brief specifically
 wants is fundamentally a **normalisation + join** problem, not a full-text problem.
@@ -598,11 +599,11 @@ commit, and verify `pnpm install --frozen-lockfile` locally first.
 
 ### Context
 
-[02-tech-stack.md](02-tech-stack.md) pins Next.js 15, React 19, TailwindCSS 4,
+[02-tech-stack.md](02-tech-stack.md) originally pinned Next.js 15, React 19,
 React Native 0.76 and Expo SDK 52. Those were current when the design documents
-were written. By the time the Phase 0 client applications were built, the
-ecosystem had shipped Next 16, React 19.3, TailwindCSS 4.3, React Native 0.86/0.87
-and Expo SDK 57 — the table was behind by a full major version in two places.
+were written; the table has since been reconciled to the implemented versions
+below, but was behind by a full major version in two places when the Phase 0
+client applications were built.
 
 ### Decision
 

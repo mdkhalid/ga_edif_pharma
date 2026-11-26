@@ -53,40 +53,40 @@ review reliably misses.
 
 ### Image build
 
-```dockerfile
-# infra/docker/backend.Dockerfile — multi-stage, distroless runtime
-FROM node:22-alpine AS base
-RUN corepack enable && corepack prepare pnpm@9 --activate
-WORKDIR /app
+The committed `infra/docker/backend.Dockerfile` is the source of truth. Its shape
+(abridged) is:
 
-FROM base AS deps
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
-COPY backend/package.json backend/
-COPY packages/shared-types/package.json packages/shared-types/
-COPY packages/shared-utils/package.json packages/shared-utils/
-RUN pnpm install --frozen-lockfile --prod=false
+```dockerfile
+FROM node:${NODE_VERSION}-alpine AS deps
+WORKDIR /repo
+COPY package.json package-lock.json ./
+COPY backend/package.json ./backend/
+COPY backend/prisma ./backend/prisma          # postinstall runs prisma generate
+COPY packages/config/package.json ./packages/config/
+COPY packages/shared-types/package.json ./packages/shared-types/
+COPY packages/shared-utils/package.json ./packages/shared-utils/
+RUN npm ci
 
 FROM deps AS build
-COPY . .
-RUN pnpm --filter @medichain/backend build
-RUN pnpm --filter @medichain/backend deploy --prod /app/out
+COPY packages ./packages
+COPY backend ./backend
+RUN npm run build:shared \
+ && npm run db:generate --workspace=@medichain/backend \
+ && npm run build --workspace=@medichain/backend
 
-FROM gcr.io/distroless/nodejs22-debian12 AS runtime
-WORKDIR /app
-COPY --from=build /app/out ./
-ENV NODE_ENV=production APP_ROLE=api PORT=3001
-EXPOSE 3001
-USER nonroot
-CMD ["dist/main.js"]
+FROM node:${NODE_VERSION}-alpine AS runtime    # Alpine + tini, non-root user
+# node_modules symlinks are preserved in /repo so workspace links resolve
+ENTRYPOINT ["/sbin/tini", "--"]
+CMD ["node", "-r", "./dist/infra/observability/tracing-preload.js", "dist/main.js"]
 ```
 
-**Why distroless:** no shell, no package manager, no `curl`. An attacker who achieves
-RCE has almost nothing to pivot with. It also removes an entire class of CVE from the
-image scan.
+**Why the runtime is Alpine + `tini`, not distroless:** the entrypoint and the
+health check need a shell and `tini` reaps zombies and forwards SIGTERM to the
+graceful-shutdown handler. The package manager itself is removed from the image.
 
-**Why `--frozen-lockfile`:** the build fails if the lockfile is out of sync with
-`package.json`, instead of silently resolving different versions than the developer
-tested.
+**Why `npm ci`:** the build fails if `package-lock.json` is out of sync with any
+workspace `package.json`, instead of silently resolving different versions than the
+developer tested (ADR-016).
 
 ### Release strategy
 
@@ -324,23 +324,27 @@ cluster to serve 40,000 SKUs is a design problem, not a budget problem.
 ## 9. Local development experience
 
 ```bash
-# One command to a working environment
-pnpm bootstrap      # install + docker up + migrate + seed
-pnpm dev            # turbo runs backend + website + admin concurrently
-pnpm dev:mobile     # expo start
+# npm workspaces (ADR-016); there is no `bootstrap` script yet
+npm install
+docker compose -f infra/docker/docker-compose.yml up -d
+npm run build:shared
+npm run db:migrate && npm run db:seed
+npm run dev          # turbo runs backend + website + admin concurrently
+npm run dev:mobile   # expo start
 ```
 
 | Concern | Approach |
 |---|---|
 | Hot reload | NestJS watch mode; Next.js Fast Refresh; Metro fast refresh |
 | Database | Docker Postgres with extensions pre-installed |
-| Test isolation | Testcontainers spins a real Postgres per test suite |
+| Test isolation | Database-backed Jest suites use a real Postgres via `DATABASE_URL` (CI supplies a service container; no Testcontainers dependency) |
 | Seeded data | Realistic pharma catalogue, salts, organisations, orders |
 | Mail/SMS | MailHog UI for email; console provider for SMS |
 | API docs | Swagger at `http://localhost:3001/docs` |
 | Type safety | Shared types mean a backend change breaks the client build immediately |
 
-**Testcontainers over an in-memory database.** `pg-mem` and SQLite do not reproduce
+**A real Postgres over an in-memory database** (CI service container / local
+Docker, not the Testcontainers library). `pg-mem` and SQLite do not reproduce
 Postgres behaviour — no `FOR UPDATE` semantics, no real locking, no `jsonb`, no
 partial indexes, no `NUMERIC` precision. The money-path tests are precisely the tests
 that need real Postgres behaviour, so a fake database would make the most important

@@ -1,6 +1,6 @@
 # 20 — Shortfalls, Estimates and Future Work
 
-> **Last updated:** 2026-11-25 · **Branch:** `main` (`93fa68e`) ·
+> **Last updated:** 2026-11-26 · **Branch:** `main` (A1 closed; see commit on row) ·
 > **Purpose:** the honest backlog for work that is *not done yet*. This file
 > records gaps found during the 2026-11-25 pass, rough estimates, blockers, and
 > the order I recommend taking them in.
@@ -32,7 +32,7 @@ blocked item does not consume effort until unblocked.
 
 | ID | Item | Current state | Why it matters | Estimate | Blocked by | Status |
 |---|---|---|---|---:|---|---|
-| **A1** | Reconcile docs with the code | READMEs and design docs still say pnpm, Next 15, TanStack Table, Recharts, Vitest, Playwright. Reality: npm workspaces, Next 16, plain HTML tables, Jest, no e2e runner. ADR-016 reconciles pnpm; the rest is unrecorded drift | A document that asserts what is not true is worse than no document — it is what a reader trusts instead of checking | 0.5–1 d | — | [ ] |
+| **A1** | Reconcile docs with the code | Closed 2026-11-26: all READMEs and docs 01/02/03/05/07/08/09/10/12/14/15 now use npm (ADR-016) and state reality — Next 16 (ADR-017), plain HTML tables, Jest, no e2e runner; TanStack Table, Recharts, shadcn/ui, React Hook Form, next-intl, FlashList, MMKV, BullMQ/Kysely, Testcontainers and Playwright/Vitest are marked as target intent or absent. The root README's stale 🟢 CI claim now points at the red run 57 | A document that asserts what is not true is worse than no document — it is what a reader trusts instead of checking | 0.5–1 d | — | [x] — ~0.5 d actual (commit: pending) |
 | **A2** | Contract-level tests for `@medichain/api-client` | No tests in that workspace. The pagination defect fixed this session (`unwrap()` returning bare rows and dropping `meta`) passed every existing gate; the PDF `Blob` path has no test either | The client is the seam between a correct backend and a working screen; it is currently unverified | 0.5–1 d | — | [ ] |
 | **A3** | Playwright e2e for admin key journeys | No e2e specs or runner. Admin screens are verified by typecheck, lint and `next build` only — no browser has rendered them here | A build proves compilation, not that a table shows rows or a PDF button downloads | 2–4 d | Seeded DB + staff fixture with the right capabilities | [ ] |
 | **A4** | Diagnose the red `mobile-e2e` CI job | Failed at *Mobile auth flow* since run 36; never diagnosed. Run 56 was red before this session's push; run 57 was still in progress at the time of writing | `main` is not green, so no completion claim is trustworthy | 0.5–2 d | **Hard blocker:** the `mobile-e2e-api-log` artifact and job logs need an authenticated GitHub request (`gh` is not installed and no token is available here). Do not guess from the step name — the base URL/port is already ruled out | [ ] |

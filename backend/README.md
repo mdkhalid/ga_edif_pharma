@@ -28,13 +28,13 @@ dependency tree.
 |---|---|
 | Framework | NestJS 11 |
 | Language | TypeScript 5.7 (strict) |
-| Database | PostgreSQL 17 via Prisma 6 (+ Kysely for complex reads) |
-| Cache / queue / rate limit | Redis 7 + BullMQ 5 |
+| Database | PostgreSQL 17 via Prisma 6 (raw SQL where needed; Kysely is not installed) |
+| Cache / queue / rate limit | Redis 7 for rate limiting, idempotency and token state (no BullMQ dependency yet) |
 | Search | PostgreSQL FTS (`pg_trgm`) → OpenSearch (phase 4) |
 | Validation | class-validator / class-transformer |
 | Docs | OpenAPI 3.1 via `@nestjs/swagger` |
 | Logging | Pino (structured, redacted) |
-| Testing | Jest + Supertest + Testcontainers |
+| Testing | Jest + Supertest against real PostgreSQL 17 / Redis 7 (no Testcontainers dependency; the e2e config has no specs) |
 
 ---
 
@@ -42,12 +42,12 @@ dependency tree.
 
 ```bash
 cp .env.example .env          # then fill in the secrets
-pnpm install                  # from the repo root
+npm install                   # from the repo root
 docker compose -f ../infra/docker/docker-compose.yml up -d
 
-pnpm db:migrate
-pnpm db:seed
-pnpm dev                      # watch mode
+npm run db:migrate
+npm run db:seed
+npm run dev                   # watch mode
 ```
 
 | URL | What |
@@ -61,24 +61,31 @@ pnpm dev                      # watch mode
 
 ## Scripts
 
+Commands below are workspace-scoped; from the repo root they also work without
+`--workspace` where a root script delegates to the backend.
+
 | Command | Purpose |
 |---|---|
-| `pnpm dev` | Watch mode |
-| `pnpm build` | Compile to `dist/` |
-| `pnpm start:prod` | Run the compiled build |
-| `pnpm test` | Unit tests |
-| `pnpm test:integration` | Integration tests (Testcontainers) |
-| `pnpm test:concurrency` | **Money-path race tests — blocking in CI** |
-| `pnpm test:isolation` | **Cross-tenant access tests — blocking in CI** |
-| `pnpm test:e2e` | End-to-end HTTP flows |
-| `pnpm db:migrate` | Apply migrations |
-| `pnpm db:migrate:create` | Create a new migration |
-| `pnpm db:seed` | Seed reference data |
-| `pnpm openapi:generate` | Emit `openapi.json` |
-| `pnpm salt:rebuild-keys` | Recompute all composition keys |
-| `pnpm salt:verify-keys` | Assert keys match their compositions |
-| `pnpm stock:verify` | Assert stock ledger invariants |
-| `pnpm lint` / `pnpm typecheck` | Static checks |
+| `npm run dev --workspace=@medichain/backend` | Watch mode |
+| `npm run build --workspace=@medichain/backend` | Compile to `dist/` |
+| `npm start --workspace=@medichain/backend` | Run the compiled API (`npm run start:worker` for the worker role) |
+| `npm run test --workspace=@medichain/backend` | Default Jest config |
+| `npm run test:unit --workspace=@medichain/backend` | Unit tests |
+| `npm run test:all --workspace=@medichain/backend` | Every suite: unit + integration + concurrency + isolation |
+| `npm run test:integration --workspace=@medichain/backend` | Database-backed integration tests (migrated + seeded PostgreSQL) |
+| `npm run test:concurrency --workspace=@medichain/backend` | **Money-path race tests — blocking in CI** |
+| `npm run test:isolation --workspace=@medichain/backend` | **Cross-tenant access tests — blocking in CI** |
+| `npm run test:e2e --workspace=@medichain/backend` | E2E config — present, but no specs yet |
+| `npm run db:migrate --workspace=@medichain/backend` | Apply migrations (`prisma migrate deploy`) |
+| `npm run db:migrate:dev --workspace=@medichain/backend` | Create a migration in dev |
+| `npm run db:reset --workspace=@medichain/backend` | Reset and re-seed the database |
+| `npm run db:seed --workspace=@medichain/backend` | Seed reference data |
+| `npm run openapi:generate --workspace=@medichain/backend` | Emit `openapi.json` (needs a build first) |
+| `npm run load:orders --workspace=@medichain/backend` | Order-placement load harness |
+| `npm run lint --workspace=@medichain/backend` / `npm run typecheck --workspace=@medichain/backend` | Static checks |
+
+The design documents also mention `salt:rebuild-keys`, `salt:verify-keys` and
+`stock:verify`; those scripts do not exist in this workspace yet.
 
 ---
 

@@ -1,6 +1,12 @@
 # 01 — High-Level Design
 
 > **Status:** Approved · **Owner:** Solution Architecture · **Last updated:** 2026-09-11
+>
+> **Implementation note:** this is target design. Components drawn here that do
+> not exist yet include BullMQ (durable outbox relay today), OpenSearch (Phase 4),
+> Kafka and the extraction targets. See
+> [20-shortfalls-and-estimates.md](20-shortfalls-and-estimates.md) and
+> [ADR-016](03-architecture-decisions.md#adr-016--npm-workspaces-instead-of-pnpm).
 
 ---
 

@@ -15,19 +15,19 @@ stated trade-offs is a stack nobody thought about.
 | Runtime | **Node.js** | 22 LTS |
 | Package manager | **npm** workspaces + **Turborepo** (ADR-016) | 10 / 2 |
 | Backend framework | **NestJS** | 11 |
-| ORM / query builder | **Prisma** (+ Kysely for complex reads) | 6 |
+| ORM / query builder | **Prisma** (raw SQL for complex reads; Kysely is target intent) | 6 |
 | Primary database | **PostgreSQL** | 17 |
 | Cache / rate limit / queue | **Redis** (Valkey-compatible) | 7 |
 | Search engine | **OpenSearch** (Postgres FTS fallback) | 2.17 |
-| Job queue | **BullMQ** | 5 |
+| Job queue | Target intent: **BullMQ** (not a dependency yet; outbox relay today) | 5 |
 | Event streaming | **Kafka** (phase 4+); outbox in Postgres before that | 3.7 |
 | Object storage | **S3-compatible** (MinIO local, S3/Spaces prod) | — |
 | API contract | **OpenAPI 3.0** (as emitted by Swagger) + generated client (ADR-017) | — |
 | Website framework | **Next.js** (App Router) | 16 |
-| UI library | **React** + Tailwind + shadcn/ui | 19 |
+| UI library | **React** + Tailwind + in-repo `@medichain/ui` primitives (no shadcn/ui dependency) | 19 |
 | Mobile framework | **React Native** + **Expo** | 0.86 / SDK 57 |
 | Validation | **class-validator** (server), **Zod** (client + env) | — |
-| Testing | **Vitest/Jest**, **Supertest**, **Testcontainers**, **Playwright** | — |
+| Testing | **Jest** (backend suites + mobile auth), **Supertest**, real PostgreSQL/Redis; no Vitest, Testcontainers or Playwright installed | — |
 | Observability | **Pino**, **OpenTelemetry**, **Prometheus**, **Grafana**, **Sentry** | — |
 | Container / orchestration | **Docker**, **Kubernetes** (or ECS Fargate) | — |
 | IaC | **Terraform** | 1.9 |
@@ -39,6 +39,14 @@ stated trade-offs is a stack nobody thought about.
 > [ADR-017](03-architecture-decisions.md#adr-017--client-apps-pin-the-current-stable-frontend-stack)
 > for the reasoning, and [ADR-016](03-architecture-decisions.md#adr-016--npm-workspaces-instead-of-pnpm)
 > for the package manager.
+>
+> **Implementation reality:** this document describes the target stack. Several
+> named libraries were never installed — TanStack Table, Recharts, shadcn/ui,
+> React Hook Form, next-intl, FlashList, MMKV, Testcontainers, Kysely, BullMQ,
+> Vitest and Playwright. Web tables are plain HTML, tests run under Jest, and
+> there is no browser e2e runner. Where a row below says otherwise it is design
+> intent; check `package.json` and
+> [20-shortfalls-and-estimates.md](20-shortfalls-and-estimates.md) for what exists.
 
 ---
 
@@ -98,15 +106,15 @@ the transactional guarantees that the money paths depend on.
 requires real operational skill. Mitigated by read replicas, then table partitioning,
 then context extraction — in that order.
 
-### 2.3 Prisma 6 + Kysely — data access
+### 2.3 Prisma 6 — data access (Kysely is target intent)
 
 **Prisma for 90% of the code:** generated types that are derived from the schema, so
 a schema change surfaces every affected call site at compile time. Migrations are
 versioned SQL files under `backend/src/database/migrations`.
 
-**Kysely for the other 10%:** reporting queries, dynamic filters, and anything
-needing window functions or CTEs. Prisma's query builder fights those; raw SQL with
-a typed builder does not.
+**Target intent — Kysely for the other 10%:** reporting queries, dynamic filters
+and window functions. Kysely is not installed; raw SQL is used where needed.
+Prisma's query builder fights those queries; a typed builder would not.
 
 **Critical rule:** hot money paths use `$queryRaw` with explicit `FOR UPDATE`, not
 `findOne` + `save`. Prisma's default read-modify-write is exactly the lost-update
@@ -127,7 +135,8 @@ Four jobs, one dependency:
 2. **Rate limiting** — sliding-window counters per principal/IP/route.
 3. **Session & token state** — refresh token rotation, revocation lists, device
    registry, OTP storage.
-4. **BullMQ queues** — background jobs (email, SMS, indexing, invoice PDF).
+4. **Durable outbox relay** — background delivery today; BullMQ queues are target
+   intent, not a dependency.
 
 **Why not Memcached:** we need data structures (sorted sets for sliding windows,
 hashes for sessions), persistence, and a queue. Redis does all four.
@@ -147,19 +156,21 @@ customer purchase history, and faceted filtering at catalogue scale. Postgres
 `pg_trgm` gets us to maybe 60% of that quality; OpenSearch gets the rest.
 
 **Trade-off:** an index is a **projection, never a source of truth**. It can be
-rebuilt from Postgres at any time (`pnpm search:reindex`). Search results are
+rebuilt from Postgres at any time (a reindex script is still scope; the
+design intent was `npm run search:reindex`). Search results are
 therefore always "approximately current", which is acceptable for discovery and
 unacceptable for price and stock — those are always re-read from Postgres before an
 order is confirmed.
 
-### 2.6 BullMQ + transactional outbox — asynchronous work
+### 2.6 Transactional outbox — asynchronous work (BullMQ is target intent)
 
-**Phase 1–3:** BullMQ (Redis-backed) for jobs. Postgres `outbox_event` table for
-domain events, with a relay worker polling every second.
+**Phase 1–3:** Postgres `outbox_event` records domain events in the placement
+transaction; a relay retries with backoff and dead-letters exhausted events.
+BullMQ (Redis-backed) is the target job queue, not an installed dependency.
 
 **Phase 4+:** add Kafka for event streaming when we need retention, replay, or
-multiple independent consumers. The outbox relay simply gains a Kafka publisher
-alongside the BullMQ one — no domain code changes.
+multiple independent consumers. The outbox relay gains a Kafka publisher alongside
+the current one — no domain code changes.
 
 **Why this order:** Kafka is operationally expensive (ZooKeeper/KRaft, partitions,
 consumer groups, schema registry). The outbox pattern already gives us
@@ -178,8 +189,12 @@ at-least-once delivery with atomicity; Kafka adds throughput and replay on top.
 | PDF | `puppeteer` (invoice render) | HTML template → PDF |
 | Excel | `exceljs` | Bulk import/export |
 | Barcode | `bwip-js` | Product barcodes, labels |
-| Scheduler | `@nestjs/schedule` | Always paired with an advisory lock |
+| Scheduler | Target intent: `@nestjs/schedule`, not installed | Always paired with an advisory lock |
 | Config schema | `zod` | Fail fast on boot if env is malformed |
+
+The rest of this table is target intent too: `jose`, `opossum`, `puppeteer`,
+`exceljs` and `bwip-js` are not dependencies today. `package.json` is the
+authoritative installed set.
 
 ---
 
@@ -187,16 +202,16 @@ at-least-once delivery with atomicity; Kafka adds throughput and replay on top.
 
 | Concern | Choice | Why |
 |---|---|---|
-| Framework | **Next.js 15**, App Router | SSR for SEO on public catalogue pages; server components reduce client bundle; API routes for BFF-style aggregation |
+| Framework | **Next.js 16**, App Router (ADR-017) | SSR for SEO on public catalogue pages; server components reduce client bundle; API routes for BFF-style aggregation |
 | Language | TypeScript strict | Same types as backend via `packages/shared-types` |
-| Styling | **TailwindCSS 4** + **shadcn/ui** | Utility-first, copy-in components we own, no version lock-in |
+| Styling | **TailwindCSS 4** + `@medichain/ui` | Utility-first, components we own; no shadcn/ui dependency |
 | Server state | **TanStack Query v5** | Caching, retries, background refetch, optimistic updates |
 | Client state | **Zustand** | Cart, UI preferences, filters — small and unopinionated |
-| Forms | **React Hook Form** + **Zod** | Zod schemas shared with the API client |
-| Tables | **TanStack Table** | Virtualised large order/stock grids |
-| Charts | **Recharts** | Sales and outstanding dashboards |
-| i18n | **next-intl** | EN + HI at launch |
-| Testing | **Vitest** + **Playwright** | Unit + E2E |
+| Forms | Plain React state + **Zod** where validated | React Hook Form is target intent, not installed |
+| Tables | Plain HTML tables | TanStack Table and virtualisation are target intent, not installed |
+| Charts | None installed | Recharts is target intent |
+| i18n | None installed | next-intl (EN + HI) is target intent |
+| Testing | None in this workspace | Typecheck/lint/build only; no Vitest or Playwright |
 
 **Why Next.js over a plain SPA:** public product pages need to be indexable and
 fast on first paint for buyers searching "Paracetamol 500mg supplier". SSR gives
@@ -225,18 +240,18 @@ Shared code (design system, API client, types) comes from `packages/`.
 
 | Concern | Choice | Why |
 |---|---|---|
-| Framework | **React Native 0.76** (New Architecture) | One codebase for Android + iOS, as the brief requires |
-| Toolchain | **Expo SDK 52** + EAS Build | Removes 80% of native build pain; OTA updates; managed signing |
+| Framework | **React Native 0.86.3** (ADR-017) | One codebase for Android + iOS, as the brief requires |
+| Toolchain | **Expo SDK 57** + EAS Build | Removes 80% of native build pain; OTA updates; managed signing |
 | Navigation | **React Navigation 7** | Native stack + tabs |
 | Server state | **TanStack Query** | Same mental model as web |
 | Client state | **Zustand** | Cart, auth, preferences |
-| Persistence | **MMKV** | Fast synchronous key-value, encrypted variant available |
-| Secure storage | **expo-secure-store** / **react-native-keychain** | Tokens in Keychain/Keystore, never AsyncStorage |
-| Forms | **React Hook Form** + **Zod** | Reuses web validation schemas |
-| Lists | **FlashList** | Virtualised lists at 60 fps with 1000+ products |
-| Push | **expo-notifications** + FCM/APNs | Order status, dispatch, payment reminders |
-| Camera | **expo-camera** + **expo-barcode-scanner** | Prescription upload, barcode reorder |
-| Offline | **TanStack Query persister** + MMKV | Cart and catalogue browse work offline |
+| Persistence | None installed; **MMKV** is target intent | No local cache today |
+| Secure storage | **expo-secure-store** | Refresh tokens in Keychain/Keystore, never AsyncStorage |
+| Forms | Plain React state; React Hook Form is target intent | No form library installed |
+| Lists | Flat lists; **FlashList** is target intent | No virtualised-list dependency |
+| Push | Not installed; **expo-notifications** + FCM/APNs is target intent | No push delivery today |
+| Camera | Not installed; **expo-camera** / barcode scanning is target intent | No scan or prescription upload today |
+| Offline | Not implemented; TanStack Query persister + MMKV is target intent | No offline cache or queued orders |
 | Build / release | **EAS Build** + **EAS Submit** | CI-driven store submission |
 | OTA updates | **EAS Update** | Ship JS fixes without store review |
 
@@ -290,11 +305,13 @@ Fargate, SQS/EventBridge. A team of 4–6 can run this comfortably.
 
 ## 8. Version pinning policy
 
-- All versions are pinned exactly in `package.json` (`"next": "15.1.3"`, not `^15`).
+- All versions are pinned exactly in `package.json` (`"next": "16.3.5"`, not `^16`).
 - Renovate opens grouped dependency PRs weekly; security patches are auto-merged
-  after CI passes.
-- Node version pinned in `.nvmrc` and in the Dockerfile base image.
-- A `pnpm-lock.yaml` is committed and is the single source of dependency truth.
+  after CI passes (target intent — no Renovate config in this repository yet).
+- Node version pinned in `package.json` `engines` and the Dockerfile base image;
+  no `.nvmrc` yet.
+- `package-lock.json` is committed and is the single source of dependency truth
+  (ADR-016).
 
 **Why:** floating ranges mean two developers can build different applications from
 the same commit. That is how "works on my machine" bugs are born.

@@ -4,7 +4,8 @@ The back-office application for pharma staff: onboarding review, catalogue, pric
 inventory, credit, invoicing, logistics, reports and platform configuration.
 
 **Stack:** Next.js 16 (App Router) · React 19 · TypeScript · TailwindCSS 4 ·
-shadcn/ui · TanStack Query v5 · TanStack Table · Recharts
+TanStack Query v5. UI primitives come from `@medichain/ui`; tables are plain
+HTML — shadcn/ui, TanStack Table and Recharts are not installed.
 
 ---
 
@@ -27,8 +28,8 @@ Shared code — the design system, API client and types — comes from `packages
 
 ```bash
 cp .env.example .env.local
-pnpm install
-pnpm --filter @medichain/admin-portal dev
+npm install
+npm run dev --workspace=@medichain/admin-portal
 ```
 
 Runs at http://localhost:3002.
@@ -36,6 +37,12 @@ Runs at http://localhost:3002.
 ---
 
 ## Modules
+
+The table below is the **target** module list. Screens that exist today are the
+dashboard, onboarding, catalog, orders (+ order detail), price lists, schemes,
+stock, credit, invoices, notification templates and settings. The rest are still
+scope — see [the Phase 2 plan](../docs/19-development-plan-phase2.md) and
+[project status](../docs/00-project-status.md).
 
 | Route | Purpose |
 |---|---|
@@ -110,7 +117,7 @@ fulfilled. See [docs/13-runtime-configuration.md](../docs/13-runtime-configurati
 | Sorting | Always includes a unique tiebreaker so pagination is stable |
 | Filters | Persisted in URL search params so a view is shareable |
 | Exports | Always a **background job** with a download link — never a blocking request |
-| Large tables | Virtualised via TanStack Table |
+| Large tables | Plain HTML tables, paginated server-side (no virtualisation yet) |
 | Empty states | Explain what would appear here and how to make it appear |
 
 **Why exports are always async:** a 200,000-row export would hold an HTTP connection
@@ -121,12 +128,13 @@ Generating it as a job and emailing a link is the only approach that scales.
 
 ## Testing
 
-```bash
-pnpm test        # Vitest
-pnpm test:e2e    # Playwright
-```
+The admin portal has **no test script, Vitest or Playwright installation**. It
+is verified by `npm run typecheck --workspace=@medichain/admin-portal`,
+`npm run lint --workspace=@medichain/admin-portal` and a production build; no
+browser has rendered these screens here. Browser-level e2e is an open gap
+([A3 in the backlog](../docs/20-shortfalls-and-estimates.md)).
 
-Critical journeys:
+Critical journeys **planned** for e2e (not yet automated):
 
 1. Review and approve an onboarding application
 2. Approve an order pending approval
