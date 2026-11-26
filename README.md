@@ -165,6 +165,10 @@ Outstanding, stated rather than buried:
 - **The Docker images** were built for the first time in this pass, which is how both web
   images turned out to be unbuildable and both web containers permanently unhealthy. All
   three build now, and both web images report `healthy`.
+- **P6 Payments is not end to end**, despite being marked done in the Phase 2 plan:
+  the module holds only the pure domain files, with no gateway, persistence or API.
+  Tracked as [A11](docs/20-shortfalls-and-estimates.md); the related Swagger DTO
+  type gap is A12.
 
 What the clients implement today: the **application shell and the full auth flow** (sign
 in, register, verify a contact, reset a password, silent token refresh, RBAC-aware admin

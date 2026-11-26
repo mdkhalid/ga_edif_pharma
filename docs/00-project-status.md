@@ -266,6 +266,8 @@ something that matters:
 | 6 | **Admin MFA — closed 2026-09-22** | Landed: backend TOTP enrolment + second-factor sign-in (`203f16f`), wired through the admin BFF/login UI, website challenge handling and mobile guard (`221b3ce`) | — |
 | 7 | **The remaining `test-concurrency` money-path cases** | The oversell case is covered. Credit limits, the stock-ledger invariant and duplicate-webhook credit are not | `backend/test/concurrency/` |
 | 8 | **The `contract` and `test-e2e` jobs** | The OpenAPI diff and regenerated client are enforced inside the Build job; breaking-change detection and consumer-driven tests are still owed, and `test/e2e` has no specs | parked block in `ci.yml` |
+| 9 | **P6 Payments is not end to end (A11)** | `docs/19` marks it `[x]`, but the module is domain-only: no gateway adapter (only `.gitkeep`), no `Payment` model, no `/payments` API. Found by checking code on 2026-11-26, not by reading the plan | `backend/src/modules/payments/`, `backend/openapi.json`, `docs/20` A11 |
+| 10 | **Audit Swagger DTOs for untyped optional fields (A12)** | Prescription fields emitted `type: object` and generated `Record<string, never>` clients; fixed there, not yet audited elsewhere | `docs/20` A12 |
 
 ### How CI regressed to red — and why nobody saw it
 

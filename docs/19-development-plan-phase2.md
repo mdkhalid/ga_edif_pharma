@@ -1,27 +1,31 @@
 # 19 — Development Plan (Phase 2 — Commercial Engine)
 
-> **Last updated:** 2026-11-25 · **Branch:** `main` ·
-> **Status: P1–P11 delivered, including the invoice PDF; P12 Mobile now has
-> order history + reorder, catalogue browse, salt search, product detail, cart
-> and checkout. Resume at push, barcode scan and prescription upload.**
+> **Last updated:** 2026-11-26 · **Branch:** `main` (pushed through `a0b40dd`) ·
+> **Status: P1–P11 delivered in the plan, but P6 Payments is domain-only (A11);
+> P12 Mobile has order history/reorder, catalogue, salt search, product detail,
+> cart and checkout; B2 admin has a prescriptions queue. Resume at the remaining
+> B2 screens and at A11, not at the blocked Scope A gates.**
 >
-> What changed this pass: the database is up locally for the first time, both
-> never-applied migrations are applied and seeded, and P7's DB-backed tests exist
-> and are green — `test:all` **539/539 across 39 suites**, coverage gate **passed**
-> (53.18% statements, every critical file ≥96%). Writing them found **three real
-> defects**, all fixed: concurrent issuing of one order produced five tax
-> documents, an idempotent replay returned a differently-formatted total than the
-> first response, and one of my own reconciliation assertions had the round-off
-> sign backwards. Details in the session log below.
+> What changed on 2026-11-26: A1 reconciled the docs with the implementation;
+> A2 added 55 contract tests to `@medichain/api-client` (61 after the
+> prescriptions work), wired into CI; the mobile app gained a storefront slice;
+> the admin portal gained a pharmacist queue. Building that queue exposed a real
+> contract defect — untyped optional prescription DTO fields generated as
+> `Record<string, never>` — fixed and regenerated. See the session log below.
 >
-> **CI, run 57 (2026-11-25): 🔴 three jobs red** — *Mobile auth (live API)*
-> (pre-existing since run 36, still needing an authenticated log artifact),
-> *Security scans* at *Dependency audit* (23 blocking advisories locally), and
-> *Build* at *Container scan (Trivy)*. Lint/typecheck/boundaries, tests and
-> OpenAPI/contract-drift steps passed. None of this session's commits changed a
-> dependency or Dockerfile. These are tracked as A4/A9/A10 in
-> [20-shortfalls-and-estimates.md](20-shortfalls-and-estimates.md). Run 46's green
-> audit is stale; do not inherit it.
+> The earlier 2026-11-25 pass applied both never-run migrations and found **three
+> real defects** in P7 (concurrent double-issue, replay total scale, my own
+> round-off assertion), all fixed; `test:all` was **539/539 across 39 suites** and
+> the coverage gate passed there.
+>
+> **CI: 🔴 — run 57 and run 59 both failed; run 60 (`af67c2a`) was still
+> `in_progress` at the last public check.** The known red steps are *Mobile auth
+> flow* (pre-existing since run 36, needs an authenticated log artifact),
+> *Dependency audit* (23 advisories locally) and *Container scan (Trivy)*.
+> These are A4/A9/A10 in
+> [20-shortfalls-and-estimates.md](20-shortfalls-and-estimates.md). Nothing in
+> these passes changed a dependency or Dockerfile. Do not inherit green from run
+> 46 or from a document.
 >
 > Working plan for Phase 2. Phase 1 backend is landed and verified; the remaining
 > Phase 1 UI (website storefront, onboarding wizard/upload, mobile) is tracked in
@@ -37,6 +41,35 @@
 > against, and it is pure/testable with zero infrastructure.
 
 ## Where we are (session log)
+
+- **2026-11-26 — reconciliation, client tests, a storefront slice and a
+  pharmacist queue.** Four commits pairs, all pushed through `a0b40dd`:
+  - `db825fe` / `8701424` — **A1**: READMEs and docs 01/02/03/05/07/08/09/10/12/14/15
+    now say npm, Next 16, plain HTML tables and Jest; uninstalled stack choices
+    are marked target intent. The root README's stale 🟢 run-26 claim became the
+    red run-57 status.
+  - `c3dfcc1` / `af67c2a` — **A2**: 55 contract tests in `packages/api-client/test`
+    (injected fetch, no live API), wired into CI's Tests + coverage job.
+    Reintroducing the `unwrap()` pagination defect makes them fail; it was
+    verified by temporarily breaking `catalog.list` and reverting.
+  - `0a211b3` / `cde4bc6` — **P12 slice**: catalogue browse, salt search, product
+    detail with add-to-cart, cart quantity/remove and checkout, all on the typed
+    client. Mobile typecheck (both configs), lint and 11 new pure cart tests pass.
+  - `b67f63b` / `a0b40dd` — **B2 slice**: `/prescriptions` admin queue with
+    status filter, paging and approve/reject (rejection needs a reason), plus a
+    typed `createPrescriptionsApi`. Its tests found that optional prescription
+    DTO fields had no Swagger type and generated as `Record<string, never>`;
+    DTO annotations were fixed, `openapi.json` and the client regenerated, and
+    the diff verified to contain only those fields.
+
+  Verified locally: api-client **61/61** tests, api-client/admin/backend
+  typechecks, admin lint (0 errors), admin `next build` (22 routes), backend lint
+  (21-warning baseline), `git diff --check` clean. **Not verified:** no browser
+  render of any admin screen, no device render of any mobile screen, and no
+  DB-backed suite run here (Docker daemon unavailable). Per-job CI results need
+  an authenticated request. An audit of the code also found that **P6 Payments
+  is marked `[x]` in the plan but is domain-only** — recorded as A11 in the
+  backlog rather than silently carried forward as done.
 
 - **2026-11-25 (later still) — started P12 with the one feature that needs no
   native module: order history + reorder.** `callAuthed` previously accepted only
@@ -615,8 +648,11 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
   - `Σ(stock_ledger) = stock_on_hand` invariant test (exit criterion).
 - [x] **P5 — Credit module** (limits, exposure, hold/release, append-only ledger)
   - Concurrent credit-limit test with row locking (exit criterion).
-- [x] **P6 — Payments** (gateway abstraction, fail-closed webhooks, idempotency)
-  - Duplicate-webhook credits ledger once; invalid signature → 4xx, not 500.
+- [~] **P6 — Payments** — **re-opened 2026-11-26 (A11)**: the pure domain
+  (state machine, ledger, HMAC signature helper) and its unit tests exist, but
+  there is no gateway adapter, persistence, webhook endpoint or API route. The
+  original `[x]` claim was false.
+  - Target: duplicate-webhook credits the ledger once; invalid signature → 4xx.
 - [x] **P7 — Invoicing** (tax invoice, gapless numbering, CGST/SGST/IGST, HSN,
   round-off, PDF) + 1,000-order reconcile-to-paisa test + DB-backed verification —
   complete.
@@ -701,7 +737,7 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
 | P3 Scheme scoping/free-goods | complete — engine + persistence; 3 engine defects found by the tests and fixed; **migration now applied and seeded**; admin UI deferred (a screen, not a money-path risk) |
 | P4 Stock ledger | done — `Quantity` VO, `Batch` types, immutable `StockLedger` with `Σ(entries) = on_hand` invariant, FEFO allocation; 24 tests green |
 | P5 Credit | done — immutable `CreditLedger` with hold/release, `availableCredit = limit − consumed − held`; 17 tests green |
-| P6 Payments | done — Payment state machine, idempotency keys, HMAC-SHA256 webhook verification; 22 tests green |
+| P6 Payments | **partial — re-opened (A11)** — pure domain + unit tests only; no gateway, persistence or API despite the old `[x]` |
 | P7 Invoicing | done — domain, service, API, contract, client, PDF, plus 26 integration + 7 concurrency tests; 2 real defects found by them and fixed (concurrent double-issue, replay total scale). The `gstRate` "not set" gap was closed 2026-11-24: nullable column + fail-closed invoicing; PDF landed 2026-11-25 |
 | P8 Prescriptions | done — domain, schema + migration, service, controller, tenant scoping, order-side gate, dispensing counter; 8 unit + 3 integration tests green. File storage + reuse caps remain Phase 3 |
 | P9 Notifications | done (backend) — in-app centre, preferences, templates + admin API, push-token registry + dispatcher; provider push transport waits on FCM/APNs credentials |
@@ -711,13 +747,27 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
 
 ## Resume point
 
-P1–P11 are delivered, including the invoice PDF. P11's screens are `/schemes`,
-`/notifications/templates`, `/price-lists`, `/stock`, `/credit` and `/invoices`.
-The next *development* task is the rest of **P12 (Mobile)**: push, barcode scan
-and prescription upload. Order history/reorder, then catalogue, salt search,
-product detail, cart and checkout landed without native modules; the remaining
-three need notifications, camera/scanner and document-picker modules that are
-not installed in this workspace. P11's screens have not been rendered in a
+P1–P11 are delivered in the plan, including the invoice PDF, but **P6 Payments
+must be re-opened** (A11): its module has only `domain/payment-ledger.ts`,
+`domain/webhook-signature.ts` and `index.ts`; `infra/payment-gateways/` is a
+`.gitkeep`, there is no `Payment` model in `schema.prisma` and no `/payments`
+route in `openapi.json`. The plan's "done" claim was false.
+
+P11's screens are `/schemes`, `/notifications/templates`, `/price-lists`,
+`/stock`, `/credit`, `/invoices` and, since 2026-11-26, `/prescriptions`.
+
+The next *unblocked* development work is the remaining **B2 admin modules**:
+payments, logistics, returns, reports, users/roles, audit logs, jobs, support and
+pricing simulator. Their backend modules are currently empty placeholders, so a
+screen usually needs its read API and typed client factory first — the
+prescriptions slice is the template to follow.
+
+P12's remaining push, barcode scan and prescription upload are **blocked** on
+native modules that are not installed here. Scope A's remaining gates are also
+blocked: A4 needs authenticated CI logs, A9 registry access for version bumps,
+A10 a Trivy binary or job log, A3 a Playwright runner plus a seeded database and
+staff fixture, A5 a device, and A6–A8 a concrete consumer. Do not re-estimate
+those as local code work without unblocking them. P11's screens have not been rendered in a
 browser in this environment: every claim above rests on typecheck, lint and
 `next build`, not on a live render against seeded data. The PDF route has not
 been exercised over HTTP; its bytes were verified with `pypdf`.
