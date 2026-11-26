@@ -78,7 +78,7 @@ silently folded into "finish the design".
 
 | Item | What remains | Estimate | Status |
 |---|---|---:|---|
-| **B1 — Mobile P12** | Remaining: push, barcode scan, prescription upload (native modules absent). Landed 2026-11-26: catalogue browse, salt search, product detail, cart quantity/remove and checkout; order history + reorder predates it. Typecheck/lint and 11 pure cart-quantity tests pass; no device render | 8–15 d (partial) | [ ] — partially closed |
+| **B1 — Mobile P12** | Remaining: push, barcode scan, prescription upload (native modules absent). Landed 2026-11-26: catalogue browse, salt search, product detail, cart quantity/remove and checkout; order history + reorder predates it. Typecheck/lint and 11 pure cart-quantity tests pass; no device render | 8–15 d (partial) | [ ] — partially closed (`0a211b3`) |
 | **B2 — Admin modules** | Payments, logistics, returns, prescriptions queue, reports, users/roles, audit logs, jobs, support, pricing simulator. Phase 2 screens are done | 10–20 d | [ ] |
 | **B3 — Phases 3–6** | Fulfilment & Finance, Scale & Mobile GA, Intelligence, Compliance & Multi-tenant | Not estimated — whole phases, not shortfalls | [ ] |
 
