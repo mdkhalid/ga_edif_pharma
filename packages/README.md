@@ -100,6 +100,12 @@ visible in a diff and in the type checker.
 
 The generated client is committed, so a contract change is always reviewable.
 
+**Verified at the seam:** `npm run test --workspace=@medichain/api-client` runs
+contract-level tests with an injected fetch — pagination `meta` on every paged
+endpoint, idempotency keys and path/query serialisation, problem → `ApiError`
+mapping and the invoice PDF `Blob` path — with no live API or database. CI runs
+them in the Tests + coverage job.
+
 ---
 
 ## `@medichain/ui`

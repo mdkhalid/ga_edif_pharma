@@ -189,6 +189,12 @@ jobs:
       - name: Tests
         run: npm run test:all --workspace=@medichain/backend
 
+      # The client is the seam between a correct backend and a working screen.
+      # It had no tests: a dropped pagination `meta` passed every other gate.
+      # These run against an injected fetch — no live API is needed.
+      - name: API client contract tests
+        run: npm run test --workspace=@medichain/api-client
+
       - name: Enforce coverage floors
         run: npm run check:coverage
 
@@ -404,10 +410,10 @@ jobs:
   #                       redelivery, ledger balance equals ledger sum, stock
   #                       ledger invariant, advisory-locked cron runs exactly
   #                       once. The oversell case is covered today.
-  #   contract          → Phase 1. The OpenAPI diff + regenerated client are now
-  #                       enforced in the Build job; a dedicated contract job
-  #                       (breaking-change detection, consumer-driven tests) is
-  #                       still owed.
+  #   contract          → The OpenAPI diff + regenerated client are enforced in
+  #                       the Build job, and the client's own contract tests now
+  #                       run in the Tests + coverage job. A dedicated
+  #                       breaking-change detection job is still owed.
   #   test-e2e          → the config exists and no specs do.
   # ─────────────────────────────────────────────────────────────
 
