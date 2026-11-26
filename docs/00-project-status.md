@@ -8,7 +8,8 @@
 > and the PDF landed 2026-11-25, alongside a fix to the typed client that had
 > been dropping pagination `meta` on every paged endpoint. On 2026-11-26 the
 > mobile app gained catalogue, salt-search, product-detail, cart and checkout
-> screens plus 55 api-client contract tests; none of the mobile screens has been
+> screens, and the admin portal gained a prescriptions queue with approve/reject;
+> the api-client now has 61 contract tests. None of the mobile screens has been
 > rendered on a device. Backend unit tests are
 > **462/462**; `test:all` was **568/568 across 49 suites** before this pass.
 > P11 screens are verified by typecheck, lint and `next build`, not by a browser

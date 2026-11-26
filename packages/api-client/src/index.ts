@@ -115,3 +115,10 @@ export {
   type CreditApi,
   type ListCreditOptions,
 } from './endpoints/credit';
+export {
+  createPrescriptionsApi,
+  type CreatePrescriptionRequest,
+  type ListPrescriptionsOptions,
+  type PrescriptionsApi,
+  type VerifyPrescriptionRequest,
+} from './endpoints/prescriptions';

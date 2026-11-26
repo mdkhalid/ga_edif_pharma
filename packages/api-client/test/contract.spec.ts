@@ -35,6 +35,8 @@ const routes: ReadonlyArray<{
   { path: '/price-lists', method: 'get' },
   { path: '/inventory/stock', method: 'get' },
   { path: '/credit/summary', method: 'get' },
+  { path: '/prescriptions', method: 'get' },
+  { path: '/prescriptions/{id}/verify', method: 'post' },
 ];
 
 describe('committed contract', () => {

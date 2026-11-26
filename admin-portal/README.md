@@ -40,9 +40,9 @@ Runs at http://localhost:3002.
 
 The table below is the **target** module list. Screens that exist today are the
 dashboard, onboarding, catalog, orders (+ order detail), price lists, schemes,
-stock, credit, invoices, notification templates and settings. The rest are still
-scope — see [the Phase 2 plan](../docs/19-development-plan-phase2.md) and
-[project status](../docs/00-project-status.md).
+stock, credit, invoices, prescriptions, notification templates and settings. The
+rest are still scope — see [the Phase 2 plan](../docs/19-development-plan-phase2.md)
+and [project status](../docs/00-project-status.md).
 
 | Route | Purpose |
 |---|---|

@@ -9,41 +9,44 @@ export class CreatePrescriptionDto {
   @IsUUID()
   organisationId!: string;
 
-  @ApiPropertyOptional({ example: 'John Doe' })
+  // Explicit `type` and `nullable` matter: an @ApiPropertyOptional with only an
+  // example emits a schema with no type, and openapi-typescript turns that into
+  // `Record<string, never>` — a typed client that cannot send a string here.
+  @ApiPropertyOptional({ type: String, nullable: true, example: 'John Doe' })
   @IsOptional()
   @IsString()
   @MaxLength(200)
   patientRef?: string | null;
 
-  @ApiPropertyOptional({ example: 'Dr. Smith' })
+  @ApiPropertyOptional({ type: String, nullable: true, example: 'Dr. Smith' })
   @IsOptional()
   @IsString()
   @MaxLength(200)
   doctorName?: string | null;
 
-  @ApiPropertyOptional({ example: 'RX-12345' })
+  @ApiPropertyOptional({ type: String, nullable: true, example: 'RX-12345' })
   @IsOptional()
   @IsString()
   @MaxLength(100)
   referenceNumber?: string | null;
 
-  @ApiPropertyOptional({ example: '2026-01-01T00:00:00Z' })
+  @ApiPropertyOptional({ type: String, nullable: true, example: '2026-01-01T00:00:00Z' })
   @IsOptional()
   @IsString()
   validFrom?: string | null;
 
-  @ApiPropertyOptional({ example: '2026-12-31T23:59:59Z' })
+  @ApiPropertyOptional({ type: String, nullable: true, example: '2026-12-31T23:59:59Z' })
   @IsOptional()
   @IsString()
   validTo?: string | null;
 
-  @ApiPropertyOptional({ example: 's3://bucket/key' })
+  @ApiPropertyOptional({ type: String, nullable: true, example: 's3://bucket/key' })
   @IsOptional()
   @IsString()
   @MaxLength(500)
   attachmentKey?: string | null;
 
-  @ApiPropertyOptional({ example: 'image/jpeg' })
+  @ApiPropertyOptional({ type: String, nullable: true, example: 'image/jpeg' })
   @IsOptional()
   @IsString()
   @MaxLength(100)
@@ -63,7 +66,7 @@ export class VerifyPrescriptionDto {
   @IsEnum(['APPROVE', 'REJECT'])
   decision!: VerificationDecision;
 
-  @ApiPropertyOptional({ example: 'Illegible handwriting' })
+  @ApiPropertyOptional({ type: String, nullable: true, example: 'Illegible handwriting' })
   @IsOptional()
   @IsString()
   @MaxLength(500)

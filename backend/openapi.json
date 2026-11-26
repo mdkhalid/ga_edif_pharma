@@ -3118,31 +3118,38 @@
             "example": "org-uuid"
           },
           "patientRef": {
-            "type": "object",
+            "type": "string",
+            "nullable": true,
             "example": "John Doe"
           },
           "doctorName": {
-            "type": "object",
+            "type": "string",
+            "nullable": true,
             "example": "Dr. Smith"
           },
           "referenceNumber": {
-            "type": "object",
+            "type": "string",
+            "nullable": true,
             "example": "RX-12345"
           },
           "validFrom": {
-            "type": "object",
+            "type": "string",
+            "nullable": true,
             "example": "2026-01-01T00:00:00Z"
           },
           "validTo": {
-            "type": "object",
+            "type": "string",
+            "nullable": true,
             "example": "2026-12-31T23:59:59Z"
           },
           "attachmentKey": {
-            "type": "object",
+            "type": "string",
+            "nullable": true,
             "example": "s3://bucket/key"
           },
           "attachmentMimeType": {
-            "type": "object",
+            "type": "string",
+            "nullable": true,
             "example": "image/jpeg"
           },
           "maxDispensings": {
@@ -3165,7 +3172,8 @@
             ]
           },
           "reason": {
-            "type": "object",
+            "type": "string",
+            "nullable": true,
             "example": "Illegible handwriting"
           }
         },

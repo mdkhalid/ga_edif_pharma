@@ -12,6 +12,7 @@ import {
   createInvoicesApi,
   createOrdersApi,
   createPriceListsApi,
+  createPrescriptionsApi,
   createSchemesApi,
   createSearchApi,
   createStockApi,
@@ -49,6 +50,11 @@ const pagedRoutes: ReadonlyArray<{
   { name: 'priceLists.list', path: '/api/v1/price-lists', list: (c) => createPriceListsApi(c).list() },
   { name: 'stock.list', path: '/api/v1/inventory/stock', list: (c) => createStockApi(c).list() },
   { name: 'credit.list', path: '/api/v1/credit/summary', list: (c) => createCreditApi(c).list() },
+  {
+    name: 'prescriptions.list',
+    path: '/api/v1/prescriptions',
+    list: (c) => createPrescriptionsApi(c).list(),
+  },
 ];
 
 describe('paged endpoints', () => {
@@ -137,6 +143,24 @@ describe('single-resource endpoints', () => {
 
     expect(error).toBeInstanceOf(ApiError);
     expect((error as ApiError).code).toBe('NOT_FOUND');
+  });
+});
+
+describe('prescriptions.verify', () => {
+  it('posts the decision to the right path and unwraps the id', async () => {
+    const harness = createHarness(() => jsonResponse({ data: { id: 'rx-1' } }));
+    const result = await createPrescriptionsApi(harness.client).verify('rx-1', {
+      decision: 'REJECT',
+      reason: 'Illegible handwriting',
+    });
+
+    expect(result).toEqual({ id: 'rx-1' });
+    expect(harness.requests[0]?.method).toBe('POST');
+    expect(harness.requests[0]?.url.pathname).toBe('/api/v1/prescriptions/rx-1/verify');
+    expect(JSON.parse(harness.requests[0]?.body ?? '{}')).toMatchObject({
+      decision: 'REJECT',
+      reason: 'Illegible handwriting',
+    });
   });
 });
 

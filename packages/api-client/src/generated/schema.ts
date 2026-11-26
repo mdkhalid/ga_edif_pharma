@@ -1367,19 +1367,19 @@ export interface components {
             /** @example org-uuid */
             organisationId: string;
             /** @example John Doe */
-            patientRef?: Record<string, never>;
+            patientRef?: string | null;
             /** @example Dr. Smith */
-            doctorName?: Record<string, never>;
+            doctorName?: string | null;
             /** @example RX-12345 */
-            referenceNumber?: Record<string, never>;
+            referenceNumber?: string | null;
             /** @example 2026-01-01T00:00:00Z */
-            validFrom?: Record<string, never>;
+            validFrom?: string | null;
             /** @example 2026-12-31T23:59:59Z */
-            validTo?: Record<string, never>;
+            validTo?: string | null;
             /** @example s3://bucket/key */
-            attachmentKey?: Record<string, never>;
+            attachmentKey?: string | null;
             /** @example image/jpeg */
-            attachmentMimeType?: Record<string, never>;
+            attachmentMimeType?: string | null;
             /** @example 0 */
             maxDispensings?: number;
         };
@@ -1387,7 +1387,7 @@ export interface components {
             /** @enum {string} */
             decision: "APPROVE" | "REJECT";
             /** @example Illegible handwriting */
-            reason?: Record<string, never>;
+            reason?: string | null;
         };
         IssueInvoiceDto: {
             /** @example 3f3c8c4e-9f2a-4b6d-8e1f-2a3b4c5d6e7f */
