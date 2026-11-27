@@ -14,6 +14,56 @@ interface OpenApiDocument {
   readonly paths: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
 }
 
+interface SchemaNode {
+  readonly type?: unknown;
+  readonly items?: unknown;
+  readonly properties?: unknown;
+  readonly additionalProperties?: unknown;
+  readonly allOf?: unknown;
+  readonly oneOf?: unknown;
+  readonly anyOf?: unknown;
+  readonly $ref?: unknown;
+}
+
+/** A schema is usable if it names a type or points at a definition. */
+function hasDefinition(node: SchemaNode, includeType = true): boolean {
+  return (
+    (includeType && typeof node.type === 'string') ||
+    node.properties !== undefined ||
+    node.additionalProperties !== undefined ||
+    node.allOf !== undefined ||
+    node.oneOf !== undefined ||
+    node.anyOf !== undefined ||
+    node.$ref !== undefined
+  );
+}
+
+/**
+ * `@ApiPropertyOptional` on a union such as `string | null` reflects as
+ * `Object`, so Swagger emits `type: object` with no shape and the generated
+ * client gets `Record<string, never>` — a field no caller can send. Walk the
+ * whole document so a future DTO cannot reintroduce that silently.
+ */
+function untypedProperties(node: unknown, location: string, found: string[]): string[] {
+  if (!node || typeof node !== 'object') return found;
+  if (Array.isArray(node)) {
+    node.forEach((child, index) => untypedProperties(child, `${location}[${index}]`, found));
+    return found;
+  }
+  const schema = node as SchemaNode;
+  // `type: object` alone is not a shape: every field is then `Record<string, never>`.
+  if (schema.type === 'object' && !hasDefinition(schema, false)) {
+    found.push(`${location}: object without a shape`);
+  }
+  if (schema.type === 'array' && !hasDefinition((schema.items ?? {}) as SchemaNode)) {
+    found.push(`${location}: array without an item type`);
+  }
+  for (const [key, child] of Object.entries(node)) {
+    untypedProperties(child, `${location}.${key}`, found);
+  }
+  return found;
+}
+
 const document = JSON.parse(
   readFileSync(join(__dirname, '../../../backend/openapi.json'), 'utf8'),
 ) as OpenApiDocument;
@@ -46,6 +96,19 @@ describe('committed contract', () => {
 
   it.each(routes)('generates a client path for $method $path', ({ path }) => {
     expect(generated).toContain(`"${path}": {`);
+  });
+
+  it('gives every documented object and array a usable shape', () => {
+    expect(untypedProperties(document, 'openapi', [])).toEqual([]);
+  });
+
+  it('does not generate Record<string, never> for a field', () => {
+    // The only legitimate empty records are the generator's top-level stubs.
+    const offenders = generated
+      .split(/\r?\n/)
+      .filter((line) => line.includes('Record<string, never>'))
+      .filter((line) => !/^export type (webhooks|\$defs) =/.test(line.trim()));
+    expect(offenders).toEqual([]);
   });
 
   it('documents the PDF endpoint as a binary body, not a JSON envelope', () => {
