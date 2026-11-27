@@ -23,9 +23,11 @@
 > the 2026-09-30 pass; **Docker was unavailable on 2026-11-27**, so the payment
 > migration and its DB-backed suite are unverified against Postgres. Phase 1
 > stands as recorded below (§7) ·
-> **CI:** 🔴 **run 61 (head `ba830aa`) failed; run 62 (head `1265f24`) was
-> `in_progress` when observed after the 2026-11-27 push.** Do not inherit green
-> from any file — check the newest run on the public API. Historically red
+> **CI:** 🔴 **run 62 (head `1265f24`, the payments code) failed** — *Tests +
+> coverage* ✅ and *Lint + Typecheck + Boundaries* ✅, but *Build* ❌ (container
+> scan), *Security scans* ❌ (dependency audit) and *Mobile auth (live API)* ❌
+> (pre-existing); *Deploy to dev* skipped. Run 63 (docs-only) was pending.
+> Do not inherit green from any file — check the newest run. Historically red
 > gates: *Mobile auth (live API)* at *Mobile auth flow* (pre-existing since run
 > 36), *Security scans* at *Dependency audit* (23 blocking advisories locally,
 > beyond the three accepted `multer` entries), and *Build* at *Container scan

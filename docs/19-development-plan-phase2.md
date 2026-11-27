@@ -798,7 +798,10 @@ Everything below is pushed on 2026-11-27 (the payments code commit is
    previous run (61, on `ba830aa`) failed. **Never inherit green from a file.**
    Use the public list endpoint, then read the newest run's conclusion:
    `https://api.github.com/repos/mdkhalid/ga_edif_pharma/actions/runs?per_page=5`.
-   Per-job results need an authenticated request this environment cannot make.
+   Per-job conclusions are also public (no token needed) at
+   `https://api.github.com/repos/mdkhalid/ga_edif_pharma/commits/<head-sha>/check-runs?per_page=20`
+   — run 62 on `1265f24` failed with Build/Security/Mobile red and Tests/Lint
+   green; run 63 (docs-only) was pending.
 2. **First unblocked feature task: the read-only B2 admin payments screen
    (`/payments`).** The backend read API and typed client already exist, so this
    is a UI slice only. Follow the prescriptions queue (`admin-portal/src/app/(admin)/prescriptions/`,

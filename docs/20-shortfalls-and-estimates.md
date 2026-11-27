@@ -53,9 +53,16 @@ only when their consumers exist. Everything remaining in Scope A is blocked by
 access, tooling or a missing consumer — do not re-estimate those as local code
 work. The next unblocked *feature* work is B2's admin modules (payments first).
 
-**CI after the 2026-11-27 push:** run 62 (head `1265f24`) was `in_progress`
-when observed; run 61 (head `ba830aa`) failed, as did runs 57–60. No green claim
-is made here — check the newest run on the public API before relying on it.
+**CI after the 2026-11-27 push:** run 62 (head `1265f24`) **failed**, but the
+two jobs this work can affect passed: *Tests + coverage* ✅ and
+*Lint + Typecheck + Boundaries* ✅. Red: *Build* ❌ (container scan),
+*Security scans* ❌ (dependency audit — 23 blocking advisories confirmed
+locally), *Mobile auth (live API)* ❌ (pre-existing since run 36). *Deploy to
+dev* skipped. Run 63 (docs-only) was pending. Per-job conclusions are readable
+without auth at
+`https://api.github.com/repos/mdkhalid/ga_edif_pharma/commits/<head-sha>/check-runs?per_page=20`;
+the list endpoint at `/actions/runs` shows run number/status. No green claim is
+made here — check the newest run before relying on it.
 
 ### CI observation that changed this file (2026-11-25)
 
