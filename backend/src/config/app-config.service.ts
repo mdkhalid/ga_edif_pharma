@@ -219,6 +219,28 @@ export class AppConfigService {
     } as const;
   }
 
+  // ------------------------------------------------------- payments
+
+  get payments(): {
+    readonly defaultProvider: Env['PAYMENT_DEFAULT_PROVIDER'];
+    readonly razorpay: {
+      readonly keyId: string;
+      readonly keySecret: string;
+      readonly webhookSecret: string;
+    };
+    readonly webhookSecret: string;
+  } {
+    return {
+      defaultProvider: this.raw.PAYMENT_DEFAULT_PROVIDER,
+      razorpay: {
+        keyId: this.raw.RAZORPAY_KEY_ID,
+        keySecret: this.raw.RAZORPAY_KEY_SECRET,
+        webhookSecret: this.raw.RAZORPAY_WEBHOOK_SECRET,
+      },
+      webhookSecret: this.raw.PAYMENT_WEBHOOK_SECRET,
+    } as const;
+  }
+
   // ------------------------------------------------------ observability
 
   get observability() {

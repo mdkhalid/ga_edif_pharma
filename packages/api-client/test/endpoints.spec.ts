@@ -11,6 +11,7 @@ import {
   createCreditApi,
   createInvoicesApi,
   createOrdersApi,
+  createPaymentsApi,
   createPriceListsApi,
   createPrescriptionsApi,
   createSchemesApi,
@@ -54,6 +55,11 @@ const pagedRoutes: ReadonlyArray<{
     name: 'prescriptions.list',
     path: '/api/v1/prescriptions',
     list: (c) => createPrescriptionsApi(c).list(),
+  },
+  {
+    name: 'payments.list',
+    path: '/api/v1/payments',
+    list: (c) => createPaymentsApi(c).list(),
   },
 ];
 
@@ -115,6 +121,11 @@ describe('single-resource endpoints', () => {
         path: '/api/v1/invoices/issue',
         call: (c) => createInvoicesApi(c).issue({ orderId: 'o-1', roundToWholeRupee: true }, 'idem-i'),
       },
+      {
+        name: 'payments.createIntent',
+        path: '/api/v1/payments/intents',
+        call: (c) => createPaymentsApi(c).createIntent({ orderId: 'o-1' }, 'idem-p'),
+      },
     ];
 
     for (const mutation of mutations) {
@@ -124,7 +135,7 @@ describe('single-resource endpoints', () => {
       const request = harness.requests[0];
       expect(request?.method).toBe('POST');
       expect(request?.url.pathname).toBe(mutation.path);
-      expect(request?.headers.get('idempotency-key')).toMatch(/^idem-[coi]$/);
+      expect(request?.headers.get('idempotency-key')).toMatch(/^idem-[coip]$/);
     }
   });
 
@@ -161,6 +172,44 @@ describe('prescriptions.verify', () => {
       decision: 'REJECT',
       reason: 'Illegible handwriting',
     });
+  });
+});
+
+describe('payments', () => {
+  it('sends the signature and provider headers and reads the raw webhook acknowledgement', async () => {
+    const harness = createHarness(() =>
+      jsonResponse({ received: true, duplicate: true }),
+    );
+
+    const result = await createPaymentsApi(harness.client).submitWebhook(
+      { eventId: 'evt_1', paymentId: 'p-1', type: 'CAPTURED' },
+      'signed',
+      'mock',
+    );
+
+    expect(result).toEqual({ received: true, duplicate: true });
+    const request = harness.requests[0];
+    expect(request?.method).toBe('POST');
+    expect(request?.url.pathname).toBe('/api/v1/payments/webhooks');
+    expect(request?.headers.get('x-payment-signature')).toBe('signed');
+    expect(request?.headers.get('x-payment-provider')).toBe('mock');
+    // The webhook route is @RawResponse(): there is no `{ data }` envelope to unwrap.
+    expect(JSON.parse(request?.body ?? '{}')).toEqual({
+      eventId: 'evt_1',
+      paymentId: 'p-1',
+      type: 'CAPTURED',
+    });
+  });
+
+  it('unwraps a payment summary and substitutes the path id', async () => {
+    const harness = createHarness(() =>
+      jsonResponse({ data: { id: 'pay-1', amount: '236.00', status: 'CAPTURED' } }),
+    );
+
+    const payment = await createPaymentsApi(harness.client).getById('pay-1');
+
+    expect(payment).toEqual({ id: 'pay-1', amount: '236.00', status: 'CAPTURED' });
+    expect(harness.requests[0]?.url.pathname).toBe('/api/v1/payments/pay-1');
   });
 });
 

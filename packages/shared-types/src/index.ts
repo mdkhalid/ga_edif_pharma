@@ -21,3 +21,4 @@ export * from './price-lists';
 export * from './stock';
 export * from './credit';
 export * from './prescriptions';
+export * from './payments';

@@ -143,6 +143,12 @@ export const envSchema = z
     RAZORPAY_KEY_ID: z.string().default(''),
     RAZORPAY_KEY_SECRET: z.string().default(''),
     RAZORPAY_WEBHOOK_SECRET: z.string().default(''),
+    /**
+     * HMAC secret for the normalised webhook the mock gateway posts. Empty by
+     * default: a webhook route with no secret must fail closed, not verify
+     * against an empty string and accept whatever arrives.
+     */
+    PAYMENT_WEBHOOK_SECRET: z.string().default(''),
 
     // --------------------------------------------------------------- ai
     // Bootstrap defaults only. Admins add and switch providers live from

@@ -70,6 +70,11 @@ export const TENANT_SCOPED_MODELS = [
   'Invoice',
   'InvoiceLine',
   'InvoiceSequence',
+  // Phase 2 payments (P6/A11). Both tables carry a non-null tenant_id; the
+  // event table is append-only and carries its own copy so the extension can
+  // filter it directly rather than relying on a join through `payment`.
+  'Payment',
+  'PaymentEvent',
   // Phase 2 prescriptions (P8).
   'Prescription',
   // Phase 2 notifications (P9).

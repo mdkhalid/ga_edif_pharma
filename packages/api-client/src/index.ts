@@ -122,3 +122,11 @@ export {
   type PrescriptionsApi,
   type VerifyPrescriptionRequest,
 } from './endpoints/prescriptions';
+export {
+  createPaymentsApi,
+  type CreatePaymentRequest,
+  type ListPaymentsOptions,
+  type PaymentWebhookRequest,
+  type PaymentsApi,
+  type RefundPaymentRequest,
+} from './endpoints/payments';

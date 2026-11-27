@@ -2241,6 +2241,236 @@
         ]
       }
     },
+    "/payments/intents": {
+      "post": {
+        "operationId": "paymentCreateIntent",
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Client-generated unique key (a UUID). A retry with the same key and body replays the original response instead of performing the operation a second time; reusing a key with a different body is rejected with 409 IDEMPOTENCY_KEY_REUSED.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePaymentIntentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a payment intent for an order",
+        "tags": [
+          "payments"
+        ]
+      }
+    },
+    "/payments": {
+      "get": {
+        "operationId": "paymentList",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "organisationId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "orderId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List payments (own organisation, or all for staff)",
+        "tags": [
+          "payments"
+        ]
+      }
+    },
+    "/payments/{id}": {
+      "get": {
+        "operationId": "paymentGetById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get a payment by id",
+        "tags": [
+          "payments"
+        ]
+      }
+    },
+    "/payments/{id}/refund": {
+      "post": {
+        "operationId": "paymentRefund",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefundPaymentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Initiate a refund for a captured payment",
+        "tags": [
+          "payments"
+        ]
+      }
+    },
+    "/payments/webhooks": {
+      "post": {
+        "operationId": "paymentWebhook",
+        "parameters": [
+          {
+            "name": "x-payment-signature",
+            "in": "header",
+            "description": "HMAC-SHA256, hex encoded, of the exact request body bytes.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-payment-provider",
+            "in": "header",
+            "description": "Gateway sending the callback. Defaults to the configured provider.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentWebhookDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Signed payment webhook from a configured gateway",
+        "tags": [
+          "payments"
+        ]
+      }
+    },
     "/invoices/issue": {
       "post": {
         "operationId": "invoiceIssue",
@@ -3179,6 +3409,82 @@
         },
         "required": [
           "decision"
+        ]
+      },
+      "CreatePaymentIntentDto": {
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "example": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+            "format": "uuid"
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "mock",
+              "razorpay",
+              "stripe",
+              "payu"
+            ],
+            "description": "Defaults to the provider configured for this deployment."
+          },
+          "organisationId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Required for staff callers; buyers are scoped to their own organisation."
+          }
+        },
+        "required": [
+          "orderId"
+        ]
+      },
+      "RefundPaymentDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "example": "Buyer cancelled the order.",
+            "maxLength": 200
+          }
+        }
+      },
+      "PaymentWebhookDto": {
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "example": "evt_12345"
+          },
+          "paymentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "AUTHORIZED",
+              "CAPTURED",
+              "FAILED",
+              "REFUNDED"
+            ]
+          },
+          "gatewayReference": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "string",
+            "example": "236.00"
+          },
+          "currency": {
+            "type": "string",
+            "example": "INR"
+          }
+        },
+        "required": [
+          "eventId",
+          "paymentId",
+          "type"
         ]
       },
       "IssueInvoiceDto": {

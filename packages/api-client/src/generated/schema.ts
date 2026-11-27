@@ -1007,6 +1007,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/payments/intents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create a payment intent for an order */
+        post: operations["paymentCreateIntent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List payments (own organisation, or all for staff) */
+        get: operations["paymentList"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/payments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a payment by id */
+        get: operations["paymentGetById"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/payments/{id}/refund": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Initiate a refund for a captured payment */
+        post: operations["paymentRefund"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/payments/webhooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Signed payment webhook from a configured gateway */
+        post: operations["paymentWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/invoices/issue": {
         parameters: {
             query?: never;
@@ -1388,6 +1473,40 @@ export interface components {
             decision: "APPROVE" | "REJECT";
             /** @example Illegible handwriting */
             reason?: string | null;
+        };
+        CreatePaymentIntentDto: {
+            /**
+             * Format: uuid
+             * @example 3fa85f64-5717-4562-b3fc-2c963f66afa6
+             */
+            orderId: string;
+            /**
+             * @description Defaults to the provider configured for this deployment.
+             * @enum {string}
+             */
+            provider?: "mock" | "razorpay" | "stripe" | "payu";
+            /**
+             * Format: uuid
+             * @description Required for staff callers; buyers are scoped to their own organisation.
+             */
+            organisationId?: string;
+        };
+        RefundPaymentDto: {
+            /** @example Buyer cancelled the order. */
+            reason?: string;
+        };
+        PaymentWebhookDto: {
+            /** @example evt_12345 */
+            eventId: string;
+            /** Format: uuid */
+            paymentId: string;
+            /** @enum {string} */
+            type: "AUTHORIZED" | "CAPTURED" | "FAILED" | "REFUNDED";
+            gatewayReference?: string;
+            /** @example 236.00 */
+            amount?: string;
+            /** @example INR */
+            currency?: string;
         };
         IssueInvoiceDto: {
             /** @example 3f3c8c4e-9f2a-4b6d-8e1f-2a3b4c5d6e7f */
@@ -2957,6 +3076,122 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["VerifyPrescriptionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    paymentCreateIntent: {
+        parameters: {
+            query?: never;
+            header: {
+                "idempotency-key": string;
+                /** @description Client-generated unique key (a UUID). A retry with the same key and body replays the original response instead of performing the operation a second time; reusing a key with a different body is rejected with 409 IDEMPOTENCY_KEY_REUSED. */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePaymentIntentDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    paymentList: {
+        parameters: {
+            query?: {
+                status?: string;
+                organisationId?: string;
+                orderId?: string;
+                page?: number;
+                pageSize?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    paymentGetById: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    paymentRefund: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefundPaymentDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    paymentWebhook: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description HMAC-SHA256, hex encoded, of the exact request body bytes. */
+                "x-payment-signature": string;
+                /** @description Gateway sending the callback. Defaults to the configured provider. */
+                "x-payment-provider"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PaymentWebhookDto"];
             };
         };
         responses: {

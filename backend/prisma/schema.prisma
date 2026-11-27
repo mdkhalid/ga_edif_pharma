@@ -103,6 +103,8 @@ model Tenant {
   notificationPreferences NotificationPreference[]
   notificationTemplates NotificationTemplate[]
   pushTokens PushToken[]
+  payments   Payment[]
+  paymentEvents PaymentEvent[]
 
   @@map("tenant")
 }
@@ -155,6 +157,7 @@ model Organisation {
   customerOrders CustomerOrder[]
   invoices Invoice[]
   prescriptions Prescription[]
+  payments Payment[]
 
   @@unique([tenantId, gstin])
   @@index([tenantId, status])
@@ -792,6 +795,7 @@ model CustomerOrder {
   orderItems OrderItem[]
   statusHistory OrderStatusHistory[]
   invoices Invoice[]
+  payments Payment[]
   prescription Prescription? @relation(fields: [prescriptionId], references: [id], onDelete: SetNull)
 
   tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -1230,4 +1234,73 @@ model PushToken {
   @@unique([userId, token])
   @@index([tenantId, userId])
   @@map("push_token")
+}
+
+// ===========================================================================
+// Phase 2 — Payments (P6 / A11)
+//
+// A payment is created against an order, not against a client-supplied amount:
+// the money comes from the order's persisted total. The append-only
+// `payment_event` table is the ledger that drives the status; `payment.status`
+// is a projection of its latest event. A duplicate gateway webhook is rejected
+// by the unique `gateway_event_id` constraint, so the same event can never be
+// credited to the ledger twice — including under concurrency.
+// ===========================================================================
+
+model Payment {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Uuid
+  organisationId String   @map("organisation_id") @db.Uuid
+  orderId        String   @map("order_id") @db.Uuid
+
+  status   String  @default("PENDING") @db.VarChar(20)
+  amount   Decimal @db.Decimal(18, 4)
+  currency String  @default("INR") @db.VarChar(3)
+  provider String  @db.VarChar(20)
+
+  /// Gateway's identifier for the payment intent, once it has been requested.
+  gatewayReference String? @map("gateway_reference") @db.VarChar(200)
+  /// Caller's key: a retry with the same key returns the same payment.
+  idempotencyKey String @map("idempotency_key") @db.VarChar(160)
+
+  events PaymentEvent[]
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  organisation Organisation  @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  order        CustomerOrder @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId, organisationId])
+  @@index([tenantId, orderId])
+  @@index([tenantId, status])
+  @@map("payment")
+}
+
+model PaymentEvent {
+  id        String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String @map("tenant_id") @db.Uuid
+  paymentId String @map("payment_id") @db.Uuid
+
+  type   String  @db.VarChar(40)
+  status String  @db.VarChar(20)
+  amount Decimal @db.Decimal(18, 4)
+
+  gatewayReference String? @map("gateway_reference") @db.VarChar(200)
+  /// `provider:eventId`. Nullable because locally-originated events have no
+  /// gateway event id; Postgres treats NULLs as distinct, as intended.
+  gatewayEventId String? @map("gateway_event_id") @db.VarChar(160)
+  idempotencyKey String? @map("idempotency_key") @db.VarChar(160)
+  metadata       Json?
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([gatewayEventId])
+  @@index([tenantId, paymentId, createdAt])
+  @@map("payment_event")
 }

@@ -87,6 +87,11 @@ const routes: ReadonlyArray<{
   { path: '/credit/summary', method: 'get' },
   { path: '/prescriptions', method: 'get' },
   { path: '/prescriptions/{id}/verify', method: 'post' },
+  { path: '/payments', method: 'get' },
+  { path: '/payments/intents', method: 'post' },
+  { path: '/payments/{id}', method: 'get' },
+  { path: '/payments/{id}/refund', method: 'post' },
+  { path: '/payments/webhooks', method: 'post' },
 ];
 
 describe('committed contract', () => {

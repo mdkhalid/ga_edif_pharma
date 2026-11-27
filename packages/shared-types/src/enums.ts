@@ -347,6 +347,7 @@ export type PaymentMethod = (typeof PaymentMethod)[keyof typeof PaymentMethod];
 
 export const PaymentStatus = {
   PENDING: 'PENDING',
+  PROCESSING: 'PROCESSING',
   AUTHORIZED: 'AUTHORIZED',
   CAPTURED: 'CAPTURED',
   FAILED: 'FAILED',

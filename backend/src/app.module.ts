@@ -33,6 +33,7 @@ import { NotificationsModule } from './modules/notifications';
 import { OnboardingModule } from './modules/onboarding-kyc';
 import { OutboxModule } from './modules/outbox';
 import { OrdersModule } from './modules/orders';
+import { PaymentsModule } from './modules/payments';
 import { PrescriptionsModule } from './modules/prescriptions';
 import { PricingModule } from './modules/pricing';
 import { SaltEngineModule } from './modules/salt-engine';
@@ -105,6 +106,7 @@ import { SearchModule } from './modules/search';
     CreditModule,
     CartModule,
     OrdersModule,
+    PaymentsModule,
     PrescriptionsModule,
     InvoicingModule,
   ],
