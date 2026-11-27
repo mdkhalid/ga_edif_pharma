@@ -1,6 +1,6 @@
 # 20 — Shortfalls, Estimates and Future Work
 
-> **Last updated:** 2026-11-27 · **Branch:** `main` (A1, A2 and A12 closed; see commits on rows) ·
+> **Last updated:** 2026-11-27 · **Branch:** `main` (local HEAD `926b287`; A1, A2, A11 and A12 closed) ·
 > **Purpose:** the honest backlog for work that is *not done yet*. This file
 > records gaps found during the 2026-11-25 pass, rough estimates, blockers, and
 > the order I recommend taking them in.
@@ -29,7 +29,7 @@ from scratch every session.
 cycles and waiting on external access. The range grew on 2026-11-25 after CI run
 57 exposed two more red gates (A9, A10), and again on 2026-11-26 when the P6
 payments claim was found to be false (A11) and an unaudited Swagger DTO class of
-defect was recorded (A12). A1, A2 and A12 are closed. Blockers are called out per row;
+defect was recorded (A12). A1, A2, A11 and A12 are closed. Blockers are called out per row;
 a blocked item does not consume effort until unblocked.
 
 | ID | Item | Current state | Why it matters | Estimate | Blocked by | Status |
@@ -44,14 +44,14 @@ a blocked item does not consume effort until unblocked.
 | **A8** | Anti-corruption layer for gateway payloads | Raw gateway responses are not translated behind a domain-shaped port | Needed before Razorpay/SMSG91 payload shapes leak into domain code | 1–2 d | A concrete gateway integration to wrap | [ ] |
 | **A9** | Clear the dependency-audit gate | Run 57's *Dependency audit* failed; `npm run check:audit` reports **23 blocking advisories** (Next 16 RCE/SSRF group, node-forge ×8, sharp, zod, grpc-js, shell-quote, source-map-js, systeminformation, proxy-addr, body-parser, decode-uri-component) beyond the three accepted `multer` entries | No completion claim is trustworthy while the gate is red. The last dependency change was months ago, so these are newly published advisories, not this session's code | 1–3 d | Registry access for version bumps; NO `npm install` inside the sandbox — its cleanup is unreliable | [ ] |
 | **A10** | Clear the container-scan gate | Run 57's *Container scan (Trivy)* failed at *Build*, while *Build backend image* itself passed | Same shape as A9: likely newly published base-image CVEs, not a Dockerfile change from this session | 0.5–2 d | Trivy binary or CI job log to see which image/package is flagged; not installed locally | [ ] |
-| **A11** | Re-open the P6 Payments "done" claim | `docs/19` marks P6 done, but `backend/src/modules/payments/` has only `index.ts` + two domain files; `infra/payment-gateways/` is `.gitkeep`; no `Payment` model in `schema.prisma`; no `/payments` in `openapi.json` | Payments is a money path — a false "done" is worse than a known gap, and the admin/website have no payment screen | 2–4 d to implement end to end; 0.25 d to reconcile the docs if deferred | None for the code, but DB-backed tests need a running Postgres (Docker daemon unavailable here) | [ ] — newly found 2026-11-26 |
+| **A11** | Re-open the P6 Payments "done" claim | Closed 2026-11-27 (`926b287`): `Payment`/`PaymentEvent` models + hand-written migration, tenant-scoping registration, repository port + Prisma adapter, mock gateway adapter, `PaymentService` (order-priced intent, replay by key, signed webhooks, refund), controller with five routes (`/payments/intents`, `/payments`, `/payments/{id}`, `/payments/{id}/refund`, `/payments/webhooks`), typed `createPaymentsApi`, shared response shapes. Duplicate webhooks are rejected by a unique `gateway_event_id` index inside the same transaction that appends the ledger row; invalid signatures → 400, no DB read. Contract 65 paths / 32 schemas; backend unit 472/472, api-client 76/76; typecheck/lint/build/boundaries green. **Not verified:** no DB-backed suite (Docker daemon unavailable), so the unique-index behaviour is asserted at the service seam only, and no admin payment screen yet (that is B2 scope) | Payments is a money path — a false "done" is worse than a known gap, and the admin/website have no payment screen | 2–4 d to implement end to end; 0.25 d to reconcile the docs if deferred | None for the code, but DB-backed tests need a running Postgres (Docker daemon unavailable here) | [x] — ~1 d actual (`926b287`) |
 | **A12** | Audit Swagger DTOs for untyped optional fields | Closed 2026-11-27: audited all 13 backend DTO files and the whole committed OpenAPI document. No further untyped optional fields: every union/array field already carries an explicit `type`/`nullable`/`enum` (or reflects to a usable array type), and no object or array schema lacks a shape. Two contract tests in `packages/api-client/test/contract.spec.ts` now scan the document and the generated client; both were verified to fail when the defect is reintroduced. api-client 63/63 tests, typecheck ✅ | The same defect makes a typed client unable to send a value, and looks like a client bug rather than an API description bug | 0.5–1 d | — | [x] — ~0.5 d actual (`b7aeedc`) |
 
-**Recommended order:** A1 → A2 → A12 (done) → **A11** (local, unblocked) →
-A4/A9/A10 (the three red CI gates; unblock first, since they gate every "green"
-claim) → A3 → A5 → A6–A8 only when their consumers exist. Everything after A11
-is currently blocked by access, tooling or a missing consumer — do not
-re-estimate those as local code work.
+**Recommended order:** A1 → A2 → A12 → A11 (done) → **A4/A9/A10** (the three red
+CI gates; unblock first, since they gate every "green" claim) → A3 → A5 → A6–A8
+only when their consumers exist. Everything remaining in Scope A is blocked by
+access, tooling or a missing consumer — do not re-estimate those as local code
+work. The next unblocked *feature* work is B2's admin modules (payments first).
 
 ### CI observation that changed this file (2026-11-25)
 
@@ -84,7 +84,7 @@ silently folded into "finish the design".
 | Item | What remains | Estimate | Status |
 |---|---|---:|---|
 | **B1 — Mobile P12** | Remaining: push, barcode scan, prescription upload (native modules absent). Landed 2026-11-26: catalogue browse, salt search, product detail, cart quantity/remove and checkout; order history + reorder predates it. Typecheck/lint and 11 pure cart-quantity tests pass; no device render | 8–15 d (partial) | [ ] — partially closed (`0a211b3`) |
-| **B2 — Admin modules** | Remaining: payments, logistics, returns, reports, users/roles, audit logs, jobs, support, pricing simulator. Landed 2026-11-26: pharmacist prescriptions queue (filter, approve/reject with reason) via a new typed client factory; fixing its Swagger DTO types also repaired a real contract defect (`Record<string, never>` → `string | null`). 63 api-client contract tests pass; admin typecheck/lint/build (22 routes) green | 10–20 d (partial) | [ ] — partially closed (`b67f63b`) |
+| **B2 — Admin modules** | Remaining: payments screen (backend landed 2026-11-27 via A11), logistics, returns, reports, users/roles, audit logs, jobs, support, pricing simulator. Landed 2026-11-26: pharmacist prescriptions queue (filter, approve/reject with reason) via a new typed client factory; fixing its Swagger DTO types also repaired a real contract defect (`Record<string, never>` → `string | null`). 63 api-client contract tests pass; admin typecheck/lint/build (22 routes) green | 10–20 d (partial) | [ ] — partially closed (`b67f63b`) |
 | **B3 — Phases 3–6** | Fulfilment & Finance, Scale & Mobile GA, Intelligence, Compliance & Multi-tenant | Not estimated — whole phases, not shortfalls | [ ] |
 
 **Combined view:** Scope A ≈ 8–18 d; Scope B (B1+B2) ≈ 18–35 d; Phases 3–6

@@ -165,10 +165,11 @@ Outstanding, stated rather than buried:
 - **The Docker images** were built for the first time in this pass, which is how both web
   images turned out to be unbuildable and both web containers permanently unhealthy. All
   three build now, and both web images report `healthy`.
-- **P6 Payments is not end to end**, despite being marked done in the Phase 2 plan:
-  the module holds only the pure domain files, with no gateway, persistence or API.
-  Tracked as [A11](docs/20-shortfalls-and-estimates.md). The related Swagger DTO
-  type gap (A12) was audited and closed on 2026-11-27 with two contract-test guards.
+- **P6 Payments was not end to end** until 2026-11-27, despite being marked done
+  in the Phase 2 plan. Both gaps are now closed: [A11](docs/20-shortfalls-and-estimates.md)
+  added the gateway, persistence, API and typed client; A12 added two contract-test
+  guards after auditing the Swagger DTOs. A DB-backed webhook suite and an admin
+  payment screen remain owed.
 
 What the clients implement today: the **application shell and the full auth flow** (sign
 in, register, verify a contact, reset a password, silent token refresh, RBAC-aware admin

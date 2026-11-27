@@ -1,11 +1,12 @@
 # 19 — Development Plan (Phase 2 — Commercial Engine)
 
-> **Last updated:** 2026-11-27 · **Branch:** `main` (local HEAD `b7aeedc`;
+> **Last updated:** 2026-11-27 · **Branch:** `main` (local HEAD `926b287`;
 > remote `ba830aa`) ·
-> **Status: P1–P11 delivered in the plan, but P6 Payments is domain-only (A11);
-> P12 Mobile has order history/reorder, catalogue, salt search, product detail,
-> cart and checkout; B2 admin has a prescriptions queue. A12 is closed. Resume
-> at A11 and the remaining B2 screens, not at the blocked Scope A gates.**
+> **Status: P1–P11 delivered in the plan, including P6 Payments end to end
+> (A11 closed 2026-11-27); P12 Mobile has order history/reorder, catalogue,
+> salt search, product detail, cart and checkout; B2 admin has a prescriptions
+> queue. A12 is closed too. Resume at the remaining B2 screens, not at the
+> blocked Scope A gates.**
 >
 > What changed on 2026-11-26: A1 reconciled the docs with the implementation;
 > A2 added 55 contract tests to `@medichain/api-client` (61 after the
@@ -42,6 +43,30 @@
 > against, and it is pure/testable with zero infrastructure.
 
 ## Where we are (session log)
+
+- **2026-11-27 — closed A11: P6 Payments end to end.** Code commit `926b287`.
+  The earlier `[x]` was false — the module held only its two pure domain files.
+  It now has: `Payment` + `PaymentEvent` models and migration
+  `20261127000000_payments` (both classes registered in the tenant-scoping
+  extension); `PaymentRepository` port + Prisma adapter; a mock gateway adapter
+  behind `PaymentGateway` (no credentials, no network); `PaymentService` that
+  prices the intent from the persisted order total, replays the same payment on
+  a repeated idempotency key, verifies webhook HMACs before any database read,
+  maps gateway events through the pure ledger, and initiates refunds only from
+  `CAPTURED`. Five routes: `/payments/intents`, `/payments`, `/payments/{id}`,
+  `/payments/{id}/refund` and the public signed `/payments/webhooks`.
+  The duplicate-webhook guarantee is a unique `gateway_event_id` index inside
+  the same transaction that appends the ledger row, so two deliveries cannot
+  credit twice; a bad signature is a 400 and never touches the database.
+  Contract regenerated (65 paths / 32 schemas), `createPaymentsApi` added,
+  shared `PaymentSummary`/`PaymentPage` shapes, and a `PROCESSING` state added
+  to the existing shared `PaymentStatus` enum. Verified: backend unit
+  **472/472** (10 new payment-service cases), api-client **76/76** (13 new),
+  `prisma validate`, full typecheck/lint/build (21-warning baseline), module
+  boundaries (201 files), `git diff --check`. **Not verified:** no DB-backed
+  suite ran — Docker is unavailable here, so the unique-index behaviour is
+  asserted at the service seam, not against Postgres; no admin payment screen
+  (B2 scope); no webhook exercised over HTTP against a live API.
 
 - **2026-11-27 — closed A12 (Swagger DTO audit).** Code commit `b7aeedc`, docs
   update to follow: audited all 13 backend DTO files and the whole committed OpenAPI
@@ -665,11 +690,12 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
   - `Σ(stock_ledger) = stock_on_hand` invariant test (exit criterion).
 - [x] **P5 — Credit module** (limits, exposure, hold/release, append-only ledger)
   - Concurrent credit-limit test with row locking (exit criterion).
-- [~] **P6 — Payments** — **re-opened 2026-11-26 (A11)**: the pure domain
-  (state machine, ledger, HMAC signature helper) and its unit tests exist, but
-  there is no gateway adapter, persistence, webhook endpoint or API route. The
-  original `[x]` claim was false.
-  - Target: duplicate-webhook credits the ledger once; invalid signature → 4xx.
+- [x] **P6 — Payments** — **closed 2026-11-27 (`926b287`)**: pure domain +
+  gateway adapter (mock), `Payment`/`PaymentEvent` persistence + migration,
+  `PaymentService`, five HTTP routes, typed client and shared response shapes.
+  - Target: duplicate-webhook credits the ledger once (unique index in the
+    append transaction + service seam test); invalid signature → 400 with no
+    database read. DB-backed confirmation still owed (blocked on Docker).
 - [x] **P7 — Invoicing** (tax invoice, gapless numbering, CGST/SGST/IGST, HSN,
   round-off, PDF) + 1,000-order reconcile-to-paisa test + DB-backed verification —
   complete.
@@ -754,7 +780,7 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
 | P3 Scheme scoping/free-goods | complete — engine + persistence; 3 engine defects found by the tests and fixed; **migration now applied and seeded**; admin UI deferred (a screen, not a money-path risk) |
 | P4 Stock ledger | done — `Quantity` VO, `Batch` types, immutable `StockLedger` with `Σ(entries) = on_hand` invariant, FEFO allocation; 24 tests green |
 | P5 Credit | done — immutable `CreditLedger` with hold/release, `availableCredit = limit − consumed − held`; 17 tests green |
-| P6 Payments | **partial — re-opened (A11)** — pure domain + unit tests only; no gateway, persistence or API despite the old `[x]` |
+| P6 Payments | done (2026-11-27) — gateway adapter, models + migration, repository, service, five API routes, typed client; duplicate-webhook guard + invalid-signature 400. DB-backed suite and admin screen remain out of scope here |
 | P7 Invoicing | done — domain, service, API, contract, client, PDF, plus 26 integration + 7 concurrency tests; 2 real defects found by them and fixed (concurrent double-issue, replay total scale). The `gstRate` "not set" gap was closed 2026-11-24: nullable column + fail-closed invoicing; PDF landed 2026-11-25 |
 | P8 Prescriptions | done — domain, schema + migration, service, controller, tenant scoping, order-side gate, dispensing counter; 8 unit + 3 integration tests green. File storage + reuse caps remain Phase 3 |
 | P9 Notifications | done (backend) — in-app centre, preferences, templates + admin API, push-token registry + dispatcher; provider push transport waits on FCM/APNs credentials |
@@ -764,24 +790,24 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
 
 ## Resume point
 
-A12 is closed (2026-11-27): the DTO audit found no further untyped fields, and
-two contract tests now guard the class. **Resume at A11**, the next unblocked
-Scope A item, or at the remaining B2 admin screens.
-
-P1–P11 are delivered in the plan, including the invoice PDF, but **P6 Payments
-must be re-opened** (A11): its module has only `domain/payment-ledger.ts`,
-`domain/webhook-signature.ts` and `index.ts`; `infra/payment-gateways/` is a
-`.gitkeep`, there is no `Payment` model in `schema.prisma` and no `/payments`
-route in `openapi.json`. The plan's "done" claim was false.
+A12 and A11 are closed (2026-11-27). P1–P11 are delivered in the plan,
+including the invoice PDF and the payments API. **Resume at the remaining B2
+admin screens**; the next unblocked Scope A gates (A4/A9/A10) need access or
+tooling that this environment does not have.
 
 P11's screens are `/schemes`, `/notifications/templates`, `/price-lists`,
 `/stock`, `/credit`, `/invoices` and, since 2026-11-26, `/prescriptions`.
 
+P6's backend is now real: models, migration, gateway adapter, service, five API
+routes and a typed client. Its DB-backed duplicate-webhook suite and an admin
+payment screen remain owed — the latter is B2 scope, since the read API and
+`createPaymentsApi` now exist.
+
 The next *unblocked* development work is the remaining **B2 admin modules**:
-payments, logistics, returns, reports, users/roles, audit logs, jobs, support and
-pricing simulator. Their backend modules are currently empty placeholders, so a
-screen usually needs its read API and typed client factory first — the
-prescriptions slice is the template to follow.
+payments screen, logistics, returns, reports, users/roles, audit logs, jobs,
+support and pricing simulator. Their backend modules are mostly empty
+placeholders, so a screen usually needs its read API and typed client factory
+first — the prescriptions and payments slices are the templates to follow.
 
 P12's remaining push, barcode scan and prescription upload are **blocked** on
 native modules that are not installed here. Scope A's remaining gates are also
