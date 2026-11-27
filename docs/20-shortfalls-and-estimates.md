@@ -84,7 +84,7 @@ silently folded into "finish the design".
 | Item | What remains | Estimate | Status |
 |---|---|---:|---|
 | **B1 — Mobile P12** | Remaining: push, barcode scan, prescription upload (native modules absent). Landed 2026-11-26: catalogue browse, salt search, product detail, cart quantity/remove and checkout; order history + reorder predates it. Typecheck/lint and 11 pure cart-quantity tests pass; no device render | 8–15 d (partial) | [ ] — partially closed (`0a211b3`) |
-| **B2 — Admin modules** | Remaining: payments, logistics, returns, reports, users/roles, audit logs, jobs, support, pricing simulator. Landed 2026-11-26: pharmacist prescriptions queue (filter, approve/reject with reason) via a new typed client factory; fixing its Swagger DTO types also repaired a real contract defect (`Record<string, never>` → `string | null`). 61 api-client contract tests pass; admin typecheck/lint/build (22 routes) green | 10–20 d (partial) | [ ] — partially closed (`b67f63b`) |
+| **B2 — Admin modules** | Remaining: payments, logistics, returns, reports, users/roles, audit logs, jobs, support, pricing simulator. Landed 2026-11-26: pharmacist prescriptions queue (filter, approve/reject with reason) via a new typed client factory; fixing its Swagger DTO types also repaired a real contract defect (`Record<string, never>` → `string | null`). 63 api-client contract tests pass; admin typecheck/lint/build (22 routes) green | 10–20 d (partial) | [ ] — partially closed (`b67f63b`) |
 | **B3 — Phases 3–6** | Fulfilment & Finance, Scale & Mobile GA, Intelligence, Compliance & Multi-tenant | Not estimated — whole phases, not shortfalls | [ ] |
 
 **Combined view:** Scope A ≈ 8–18 d; Scope B (B1+B2) ≈ 18–35 d; Phases 3–6
