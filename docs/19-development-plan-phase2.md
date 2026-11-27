@@ -1,10 +1,11 @@
 # 19 — Development Plan (Phase 2 — Commercial Engine)
 
-> **Last updated:** 2026-11-26 · **Branch:** `main` (pushed through `a0b40dd`) ·
+> **Last updated:** 2026-11-27 · **Branch:** `main` (local HEAD `b7aeedc`;
+> remote `ba830aa`) ·
 > **Status: P1–P11 delivered in the plan, but P6 Payments is domain-only (A11);
 > P12 Mobile has order history/reorder, catalogue, salt search, product detail,
-> cart and checkout; B2 admin has a prescriptions queue. Resume at the remaining
-> B2 screens and at A11, not at the blocked Scope A gates.**
+> cart and checkout; B2 admin has a prescriptions queue. A12 is closed. Resume
+> at A11 and the remaining B2 screens, not at the blocked Scope A gates.**
 >
 > What changed on 2026-11-26: A1 reconciled the docs with the implementation;
 > A2 added 55 contract tests to `@medichain/api-client` (61 after the
@@ -41,6 +42,22 @@
 > against, and it is pure/testable with zero infrastructure.
 
 ## Where we are (session log)
+
+- **2026-11-27 — closed A12 (Swagger DTO audit).** Code commit `b7aeedc`, docs
+  update to follow: audited all 13 backend DTO files and the whole committed OpenAPI
+  document for the prescription defect class (`type: object` with no shape →
+  `Record<string, never>` in the generated client). No further instances: every
+  union/array field already states `type`/`nullable`/`enum` explicitly or
+  reflects to a usable array type, and no object or array schema in `openapi.json`
+  lacks a shape. Added two regression tests to
+  `packages/api-client/test/contract.spec.ts`: one walks the entire OpenAPI
+  document for shape-less objects and arrays, the other rejects
+  `Record<string, never>` on a field (the two generator top-level stubs are
+  allowed). Both were verified to fail when the defect was temporarily
+  reintroduced, in `openapi.json` and in `schema.ts` respectively, and both
+  files were restored from git afterwards. Regenerating the document produced
+  no diff; api-client typecheck ✅ and **63/63** tests pass. The code change and
+  this backlog update are committed separately, as usual.
 
 - **2026-11-26 — reconciliation, client tests, a storefront slice and a
   pharmacist queue.** Four commits pairs, all pushed through `a0b40dd`:
@@ -746,6 +763,10 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
 | P12 Mobile | partial — auth, home, order history/reorder, catalogue browse, salt search, product detail, cart and checkout; typecheck/lint green, cart quantity unit tests pass. Push, barcode scan and prescription upload pending on native modules; no device render |
 
 ## Resume point
+
+A12 is closed (2026-11-27): the DTO audit found no further untyped fields, and
+two contract tests now guard the class. **Resume at A11**, the next unblocked
+Scope A item, or at the remaining B2 admin screens.
 
 P1–P11 are delivered in the plan, including the invoice PDF, but **P6 Payments
 must be re-opened** (A11): its module has only `domain/payment-ledger.ts`,

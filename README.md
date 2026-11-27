@@ -167,8 +167,8 @@ Outstanding, stated rather than buried:
   three build now, and both web images report `healthy`.
 - **P6 Payments is not end to end**, despite being marked done in the Phase 2 plan:
   the module holds only the pure domain files, with no gateway, persistence or API.
-  Tracked as [A11](docs/20-shortfalls-and-estimates.md); the related Swagger DTO
-  type gap is A12.
+  Tracked as [A11](docs/20-shortfalls-and-estimates.md). The related Swagger DTO
+  type gap (A12) was audited and closed on 2026-11-27 with two contract-test guards.
 
 What the clients implement today: the **application shell and the full auth flow** (sign
 in, register, verify a contact, reset a password, silent token refresh, RBAC-aware admin

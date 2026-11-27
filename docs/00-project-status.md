@@ -1,6 +1,6 @@
 # 00 — Project Status
 
-> **Last updated:** 2026-11-26 · **Branch:** `main` ·
+> **Last updated:** 2026-11-27 · **Branch:** `main` (`b7aeedc`) ·
 > **Phase in flight:** Phase 2 — **P1–P11 complete, including the invoice PDF;
 > P12 Mobile partial** (order history/reorder, catalogue, salt search, cart and
 > checkout; push, barcode and prescription upload remain).
@@ -9,7 +9,9 @@
 > been dropping pagination `meta` on every paged endpoint. On 2026-11-26 the
 > mobile app gained catalogue, salt-search, product-detail, cart and checkout
 > screens, and the admin portal gained a prescriptions queue with approve/reject;
-> the api-client now has 61 contract tests. None of the mobile screens has been
+> the api-client had 61 contract tests. On 2026-11-27 A12 closed: the Swagger DTO
+> audit found no further untyped fields and added two regression guards; the
+> api-client now has 63 contract tests. None of the mobile screens has been
 > rendered on a device. Backend unit tests are
 > **462/462**; `test:all` was **568/568 across 49 suites** before this pass.
 > P11 screens are verified by typecheck, lint and `next build`, not by a browser
@@ -267,7 +269,7 @@ something that matters:
 | 7 | **The remaining `test-concurrency` money-path cases** | The oversell case is covered. Credit limits, the stock-ledger invariant and duplicate-webhook credit are not | `backend/test/concurrency/` |
 | 8 | **The `contract` and `test-e2e` jobs** | The OpenAPI diff and regenerated client are enforced inside the Build job; breaking-change detection and consumer-driven tests are still owed, and `test/e2e` has no specs | parked block in `ci.yml` |
 | 9 | **P6 Payments is not end to end (A11)** | `docs/19` marks it `[x]`, but the module is domain-only: no gateway adapter (only `.gitkeep`), no `Payment` model, no `/payments` API. Found by checking code on 2026-11-26, not by reading the plan | `backend/src/modules/payments/`, `backend/openapi.json`, `docs/20` A11 |
-| 10 | **Audit Swagger DTOs for untyped optional fields (A12)** | Prescription fields emitted `type: object` and generated `Record<string, never>` clients; fixed there, not yet audited elsewhere | `docs/20` A12 |
+| 10 | ~~**Audit Swagger DTOs for untyped optional fields (A12)** — closed 2026-11-27 (`b7aeedc`)~~ | Audited all 13 backend DTO files and the whole OpenAPI document: no further untyped fields. Two regression tests in the api-client contract suite scan the document and the generated client; both verified to fail on a reintroduced defect. api-client 63/63, typecheck ✅ | `docs/20` A12 |
 
 ### How CI regressed to red — and why nobody saw it
 
