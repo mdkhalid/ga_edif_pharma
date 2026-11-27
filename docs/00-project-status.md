@@ -1,6 +1,6 @@
 # 00 — Project Status
 
-> **Last updated:** 2026-11-27 · **Branch:** `main` (local HEAD `926b287`; remote `ba830aa`) ·
+> **Last updated:** 2026-11-27 · **Branch:** `main` (pushed on 2026-11-27; check `git log -1` for the current head) ·
 > **Phase in flight:** Phase 2 — **P1–P11 complete, including the invoice PDF;
 > P12 Mobile partial** (order history/reorder, catalogue, salt search, cart and
 > checkout; push, barcode and prescription upload remain).
@@ -9,28 +9,27 @@
 > been dropping pagination `meta` on every paged endpoint. On 2026-11-26 the
 > mobile app gained catalogue, salt-search, product-detail, cart and checkout
 > screens, and the admin portal gained a prescriptions queue with approve/reject;
-> the api-client had 61 contract tests. On 2026-11-27 A12 closed: the Swagger DTO
-> audit found no further untyped fields and added two regression guards; the
-> api-client now has 63 contract tests. None of the mobile screens has been
-> rendered on a device. Backend unit tests are
-> **462/462**; `test:all` was **568/568 across 49 suites** before this pass.
+> the api-client had 61 contract tests. On 2026-11-27 A12 closed (DTO audit +
+> two regression guards) and A11 closed (P6 Payments end to end: models,
+> migration, gateway, service, five routes, typed client). The api-client now
+> has **76 contract tests** and backend unit tests **472/472**; `test:all` was
+> **568/568 across 49 suites** before this pass. None of the mobile screens has
+> been rendered on a device.
 > P11 screens are verified by typecheck, lint and `next build`, not by a browser
 > render; the PDF bytes were verified independently with `pypdf`.
 > P8 Prescriptions and P9 Notifications (in-app centre, preferences, template admin
 > API, push-token registry + dispatcher) landed on 2026-11-24, after the P10 outbox
-> relay that gives notification delivery durable retry. The database is up locally
-> and seeded; the database-backed suites run. Phase 1 stands as recorded below (§7) ·
-> **CI:** 🔴 **red on `main` at run 57** — three jobs failed: *Mobile auth (live
-> API)* at *Mobile auth flow* (the pre-existing, undiagnosed one), *Security scans*
-> at *Dependency audit*, and *Build* at *Container scan (Trivy)*. Lint/typecheck,
-> tests and OpenAPI/contract-drift steps passed. `npm run check:audit` locally
-> reports **23 blocking advisories** (Next 16, node-forge, sharp, zod, grpc-js,
-> shell-quote and others) on top of the three accepted `multer` entries. Nothing
-> in the 2026-11-25 pass changed a dependency or Dockerfile, so this is the same
-> pattern as run 45: advisories published after the last green run, not a regression
-> from this work. Trivy could not be re-run locally (binary not installed). Run 57
-> predates the docs-only commit `93fa68e`; run 58 was still in progress. Do not
-> inherit green from run 46.
+> relay that gives notification delivery durable retry. The database was up in
+> the 2026-09-30 pass; **Docker was unavailable on 2026-11-27**, so the payment
+> migration and its DB-backed suite are unverified against Postgres. Phase 1
+> stands as recorded below (§7) ·
+> **CI:** 🔴 **run 61 (head `ba830aa`) failed; run 62 (head `1265f24`) was
+> `in_progress` when observed after the 2026-11-27 push.** Do not inherit green
+> from any file — check the newest run on the public API. Historically red
+> gates: *Mobile auth (live API)* at *Mobile auth flow* (pre-existing since run
+> 36), *Security scans* at *Dependency audit* (23 blocking advisories locally,
+> beyond the three accepted `multer` entries), and *Build* at *Container scan
+> (Trivy)*. Trivy is not installed locally. Runs 57–60 were all red.
 
 **What the 2026-09-30 pass changed, in one line:** the two claims this file and
 `19-development-plan-phase2.md` had carried for three sessions — that the scheme and

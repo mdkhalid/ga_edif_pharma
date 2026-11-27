@@ -1,7 +1,6 @@
 # 19 — Development Plan (Phase 2 — Commercial Engine)
 
-> **Last updated:** 2026-11-27 · **Branch:** `main` (local HEAD `926b287`;
-> remote `ba830aa`) ·
+> **Last updated:** 2026-11-27 · **Branch:** `main` (pushed on 2026-11-27; check `git log -1` for the current head) ·
 > **Status: P1–P11 delivered in the plan, including P6 Payments end to end
 > (A11 closed 2026-11-27); P12 Mobile has order history/reorder, catalogue,
 > salt search, product detail, cart and checkout; B2 admin has a prescriptions
@@ -789,6 +788,39 @@ library Prisma wraps as `Decimal`); domain must stay pure, so it imports
 | P12 Mobile | partial — auth, home, order history/reorder, catalogue browse, salt search, product detail, cart and checkout; typecheck/lint green, cart quantity unit tests pass. Push, barcode scan and prescription upload pending on native modules; no device render |
 
 ## Resume point
+
+### Next session — start here (2026-11-27)
+
+Everything below is pushed on 2026-11-27 (the payments code commit is
+`926b287`); check `git log -1` for the current head. Pick up in this order:
+
+1. **Check CI first.** Run 62 was `in_progress` when the push was observed; the
+   previous run (61, on `ba830aa`) failed. **Never inherit green from a file.**
+   Use the public list endpoint, then read the newest run's conclusion:
+   `https://api.github.com/repos/mdkhalid/ga_edif_pharma/actions/runs?per_page=5`.
+   Per-job results need an authenticated request this environment cannot make.
+2. **First unblocked feature task: the read-only B2 admin payments screen
+   (`/payments`).** The backend read API and typed client already exist, so this
+   is a UI slice only. Follow the prescriptions queue (`admin-portal/src/app/(admin)/prescriptions/`,
+   `components/prescriptions-screen.tsx`) and the P11 viewers: a `page.tsx` plus
+   a client component using `createPaymentsApi(list/getById)` from
+   `@medichain/api-client`, `unwrapPage()`-based paging, status/order filters,
+   `PAYMENT_READ` capability gate and a nav entry in `(admin)/layout.tsx`.
+   Money columns are decimal strings (`paisa()`); show them verbatim.
+   Keep **refund out of the first screen** — it is a money-path mutation.
+   Gates for this slice: `build:shared`, admin + api-client typecheck/lint,
+   api-client tests, `next build`, `git diff --check`. There is no browser
+   render in this environment; say so rather than claiming a visual check.
+3. **Do not re-estimate blocked work as local code.** A4 needs authenticated CI
+   logs, A9 registry access for version bumps, A10 a Trivy binary/job log,
+   A3 a Playwright runner with a seeded DB and staff fixture, A5 a device, and
+   A6–A8 a concrete consumer. The DB-backed duplicate-webhook suite also needs
+   Docker, which was unavailable this session.
+4. After the screen, update `docs/19` (session log + this section), `docs/20`
+   (B2 row + header), `docs/00` (header + open items) and the root README,
+   then commit code and docs separately, push, and check the run.
+
+### Overall state
 
 A12 and A11 are closed (2026-11-27). P1–P11 are delivered in the plan,
 including the invoice PDF and the payments API. **Resume at the remaining B2

@@ -1,6 +1,6 @@
 # 20 — Shortfalls, Estimates and Future Work
 
-> **Last updated:** 2026-11-27 · **Branch:** `main` (local HEAD `926b287`; A1, A2, A11 and A12 closed) ·
+> **Last updated:** 2026-11-27 · **Branch:** `main` (pushed on 2026-11-27; A1, A2, A11 and A12 closed) ·
 > **Purpose:** the honest backlog for work that is *not done yet*. This file
 > records gaps found during the 2026-11-25 pass, rough estimates, blockers, and
 > the order I recommend taking them in.
@@ -52,6 +52,10 @@ CI gates; unblock first, since they gate every "green" claim) → A3 → A5 → 
 only when their consumers exist. Everything remaining in Scope A is blocked by
 access, tooling or a missing consumer — do not re-estimate those as local code
 work. The next unblocked *feature* work is B2's admin modules (payments first).
+
+**CI after the 2026-11-27 push:** run 62 (head `1265f24`) was `in_progress`
+when observed; run 61 (head `ba830aa`) failed, as did runs 57–60. No green claim
+is made here — check the newest run on the public API before relying on it.
 
 ### CI observation that changed this file (2026-11-25)
 
